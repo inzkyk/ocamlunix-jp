@@ -8,14 +8,14 @@
 
 open Ocamlbuild_plugin;;
 
-(* pdfLatex, Makeindex, Pgf/TikZ picture extraction to PNG, HeVeA and
+(* LuaLatex, Makeindex, Pgf/TikZ picture extraction to PNG, HeVeA and
    HaChA generic rules. [master_tex] is the pathname to the master tex file. *)
 
 let latex_rules master_tex = 
   let master_html = Pathname.update_extension "html" master_tex in
-  let pdflatex = "pdflatex" in
-  let pdflatex_cmd dir tags specs = 
-    Cmd (S ([A pdflatex; A "-file-line-error"; A "-halt-on-error"; 
+  let lualatex = "lualatex" in
+  let lualatex_cmd dir tags specs = 
+    Cmd (S ([A lualatex; A "-file-line-error"; A "-halt-on-error"; 
 	     A "-interaction=nonstopmode"; 
 	     A ("-output-directory=" ^ dir);
 	     T (tags ++ "compile" ++ "LaTeX")] @ specs))
@@ -25,12 +25,12 @@ let latex_rules master_tex =
   let hevea = "hevea" in
   let hacha = "hacha" in
 
-  rule "pdfLaTeX for %.tex to %.idx, %.code" 
+  rule "lualatex for %.tex to %.idx, %.code" 
     ~prods:["%.idx"; "%.code"] 
     ~dep:"%.tex" 
     begin fun env build -> 
       let tex = env "%.tex" in
-      pdflatex_cmd (Pathname.dirname tex) (tags_of_pathname tex) [P tex]
+      lualatex_cmd (Pathname.dirname tex) (tags_of_pathname tex) [P tex]
     end;
 
   rule "MakeIndex for %.idx to %.ind-> " 
@@ -48,7 +48,7 @@ let latex_rules master_tex =
     ~dep:"%.ind"
     begin fun env build ->
       let tex = env "%.tex" in
-      let cmd = pdflatex_cmd (Pathname.dirname tex) (tags_of_pathname tex)
+      let cmd = lualatex_cmd (Pathname.dirname tex) (tags_of_pathname tex)
 	  [P tex] 
       in 
       Seq [cmd; cmd ]
@@ -61,7 +61,7 @@ let latex_rules master_tex =
       let tex = env "%.tex" in
       let tex_tags = tags_of_pathname tex in
       let base = env "%-image" in
-      pdflatex_cmd (Pathname.dirname tex) tex_tags 
+      lualatex_cmd (Pathname.dirname tex) tex_tags 
 	[A ("-jobname=" ^ (Pathname.basename base));
 	 A ("\\PassOptionsToPackage{active}{preview}\\input{" ^ tex ^ "}")]
     end;

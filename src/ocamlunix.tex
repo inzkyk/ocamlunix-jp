@@ -7,6 +7,11 @@
 %------------------------------------------------------------------------------
 
 \documentclass[twoside,openright,a4paper,11pt]{memoir}
+
+% luatexja を読み込むと \printerglossary が衝突するので無効化する
+\let\printglossary\relax
+\usepackage{luatexja}
+
 \usepackage[utf8]{inputenc}
 \usepackage[english]{babel}
 
@@ -28,7 +33,7 @@
 \newcommand{\mykeywords}{Software,OCaml,Unix,Programming,System}
 \newcommand{\licenseURL}{http://creativecommons.org/licenses/by-nc-sa/2.0/fr/}
 
-\usepackage{hyperref}
+\usepackage[pdfencoding=unicode]{hyperref}
 \usepackage{prelude}   % Differentiation between html and pdf output
 
 
