@@ -1,5 +1,5 @@
 %------------------------------------------------------------------------------
-% Copyright (c) 1991-2014, Xavier Leroy and Didier Remy.  
+% Copyright (c) 1991-2014, Xavier Leroy and Didier Remy.
 %
 % All rights reserved. Distributed under a creative commons
 % attribution-non-commercial-share alike 2.0 France license.
@@ -28,12 +28,12 @@
 \lstdefinestyle{numbers}{numbers=left}
 \let \ml \lstinline
 
-\newcommand{\mytitle}{Unix system programming in OCaml}
+\newcommand{\mytitle}{OCaml による Unix システムプログラミング}
 \newcommand{\myauthors}{Xavier Leroy and Didier Rémy}
 \newcommand{\mykeywords}{Software,OCaml,Unix,Programming,System}
 \newcommand{\licenseURL}{http://creativecommons.org/licenses/by-nc-sa/2.0/fr/}
 
-\usepackage[pdfencoding=unicode]{hyperref}
+\usepackage{hyperref}
 \usepackage{prelude}   % Differentiation between html and pdf output
 
 
@@ -48,6 +48,9 @@
 \newcommand{\eg}{e.g.}
 \newcommand{\io}{\textsc{i/o}}
 \newcommand{\quotes}[1]{``#1''}
+
+\renewcommand{\chaptername}{章}
+\renewcommand{\bibname}{参考文献}
 
 % Indexing
 \makeindex
@@ -87,13 +90,13 @@
   \renewcommand{\tmpurl}{\posixbase/functions/#1.html}%
   \href{\tmpurl}{\texttt{#1}}\index{\texttt{#1}|hyperpagebf}}
 
-\newcommand{\pthreadcall}[2][]{% 
+\newcommand{\pthreadcall}[2][]{%
  \ifthenelse{\equal{#1}{}}%
             {\renewcommand{\tmpurl}{\posixbase/functions/pthread\_#2.html}}%
             {\renewcommand{\tmpurl}{\posixbase/functions/pthread\_#1\_#2.html}}%
  \href{\tmpurl}{\texttt{#2}}\index{\texttt{#2}|hyperpagebf}}
 
-% Reference to RFCs 
+% Reference to RFCs
 \newcommand{\rfcbase}{http://www.faqs.org/rfcs}
 \newcommand{\rfc}[1]{%
   \renewcommand{\tmpurl}{\rfcbase/rfc#1.html}%
@@ -107,21 +110,23 @@
 
 %% Title page, copyright page with abstract
 \pagestyle{empty}
+\renewcommand{\abstractname}{概要}
 \input{front.tex}
 
 \frontmatter
 \pagestyle{myheaders}
 
 %% Table of contents
+\renewcommand{\contentsname}{目次}
 \ifhtmlelse%
 {\tableofcontents\cutname{toc.html}}%
-{\tableofcontents*}
+{\tableofcontents}
 
 \mainmatter
-\ifnothtml{\counterwithout{figure}{chapter}} % have to do that here 
-\ifnothtml{\counterwithout{table}{chapter}} % have to do that here 
+\ifnothtml{\counterwithout{figure}{chapter}} % have to do that here
+\ifnothtml{\counterwithout{table}{chapter}} % have to do that here
 
-%% Chapters 
+%% Chapters
 \input{intro.tex}
 \input{general.tex}
 \input{files.tex}
@@ -135,7 +140,8 @@
 \backmatter
 
 %% Exercise answers
-\ifnothtml{\chapter{Exercise answers}\inputexerciseanswers}
+% \ifnothtml{\chapter{Exercise answers}\inputexerciseanswers}
+\ifnothtml{\chapter{練習問題の回答}\inputexerciseanswers}
 
 %% References
 \input{references.tex}
@@ -145,12 +151,12 @@
 %% Index
 \renewcommand{\preindexhook} {
   \ifhtml{\aname{htocindex}{}} %% how can I put that in the title?
-  \ifhtmlelse{Links}{Pages} in bold refer to the description of 
-  a \textsc{posix} system call.
+  ボールド体のリンクは \textsc{posix} システムコールの説明へのリンクです。
   \ifnothtml{\medskip}}
 
+\renewcommand{\indexname}{索引}
 \printindex
-\ifhtml{\addcontentsline{toc}{chapter}{\ahrefloc{htocindex}{Index}}}
+\ifhtml{\addcontentsline{toc}{chapter}{\ahrefloc{htocindex}{索引}}}
 \cutname{docindex.html}
 
 %% Add a blank page
@@ -158,7 +164,7 @@
 \newpage
 \mbox{}
 
-%% Include standard implementation in .ml to check against our signatures. 
+%% Include standard implementation in .ml to check against our signatures.
 \begin{codefile}{tmpunix.ml}include Unix;;\end{codefile}
 \begin{codefile}{tmpsys.ml}include Sys;;\end{codefile}
 \begin{codefile}{tmppervasives.ml}include Pervasives;;\end{codefile}
@@ -167,4 +173,3 @@
 \begin{codefile}{tmpthread.ml}include Thread;;\end{codefile}
 \begin{codefile}{tmpcondition.ml}include Condition;;\end{codefile}
 \end{document}
-

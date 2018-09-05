@@ -1,5 +1,5 @@
 %------------------------------------------------------------------------------
-% Copyright (c) 1991-2014, Xavier Leroy and Didier Remy.  
+% Copyright (c) 1991-2014, Xavier Leroy and Didier Remy.
 %
 % All rights reserved. Distributed under a creative commons
 % attribution-non-commercial-share alike 2.0 France license.
@@ -8,158 +8,256 @@
 % Translation by Thaddeus Meyer
 %------------------------------------------------------------------------------
 
-\chapter{\label{sec/signals}Signals}
+% \chapter{\label{sec/signals}Signals}
+\chapter{\label{sec/signals}シグナル}
 \cutname{signals.html}
 
-Signals, or software interrupts, are external, asynchronous events
-used to alter the course of a program.  These may occur at any
-time during the execution of a program.  Because of this,
-they differ from other methods of inter-process communication, where
-two processes must be explicitly directed to wait for external messages;
-for example, by calling \indexvalue{read} on a pipe (see 
-chapter~\ref{sec/pipes}).
+% Signals, or software interrupts, are external, asynchronous events
+% used to alter the course of a program.  These may occur at any
+% time during the execution of a program.  Because of this,
+% they differ from other methods of inter-process communication, where
+% two processes must be explicitly directed to wait for external messages;
+% for example, by calling \indexvalue{read} on a pipe (see
+% chapter~\ref{sec/pipes}).
+シグナル、あるいはソフトウェア割り込みは
+プログラムの処理を切り替えるためのプログラム外部からの非同期イベントです。
+シグナルはプログラムの実行中のどんなときにでも起こりえます。
+この点において、 \indexvalue{read} 関数やパイプ (\ref{sec/pipes} 章参照) のような
+外部からのメッセージを明示的に待つプロセス間通信とは異なっています。
 
-The amount of information transmitted via a signal is minimal, just
-the type of signal, and although they were not originally
-intended for communication between processes, they do make it
-possible to transmit atomic information about the state of an
-external entity (\eg{} the state of the system or another process). 
+% The amount of information transmitted via a signal is minimal, just
+% the type of signal, and although they were not originally
+% intended for communication between processes, they do make it
+% possible to transmit atomic information about the state of an
+% external entity (\eg{} the state of the system or another process).
+シグナルによって伝わるのはシグナルの種類という最小限の情報だけです。
+シグナルはもともとプロセス間通信を目的とするものではありませんでしたが、
+外部装置 (つまりシステムや他のプロセス) の状態の原始的な情報を送ることで
+プロセス間通信を可能にしています。
 
-\section{Default behavior}
+% \section{Default behavior}
+\section{デフォルトの動作}
 
-When a process receives a signal, there are four possible outcomes:
+% When a process receives a signal, there are four possible outcomes:
+プロセスがシグナルを受け取ったときの動作としてありえるのは次の四つです:
 %
 \begin{itemize}
-\item 
-The signal terminates the process.  Additionally, the system may write
-an image of the process state in a core file (a \emph{core dump}, which
-may be later examined with a debugger).
+\item
+% The signal terminates the process.  Additionally, the system may write
+% an image of the process state in a core file (a \emph{core dump}, which
+% may be later examined with a debugger).
+  シグナルがプロセスを終了させる。
+  加えてシステムはプロセスの状態のイメージをコアファイルに書き込むことができる
+  (コアダンプと呼ばれ、デバッガによって調べられる)。
 %
-\item 
-The signal suspends process execution, but retains it in memory.  The
-parent process (usually the shell) is not terminated, and so may
-choose to continue the process or restart it in the background by
-sending the process additional signals.
+\item
+% The signal suspends process execution, but retains it in memory.  The
+% parent process (usually the shell) is not terminated, and so may
+% choose to continue the process or restart it in the background by
+% sending the process additional signals.
+  シグナルはプロセスの実行を停止させるが、メモリー上に保持する。
+  親プロセス (たいていはシェル) は終了しないので、
+  あとで追加のシグナルを送ることでプロセスの実行をフォアグラウンドまたはバックグラウンドで再開させることができる。
 %
-\item Nothing occurs: the signal is completely ignored.
+\item % Nothing occurs: the signal is completely ignored.
+  シグナルは完全に無視され、何も起きない。
 %
-\item The signal triggers the execution of an associated function in the
-receiving process.  Normal execution of the process resumes after the
-function returns.
+\item
+% The signal triggers the execution of an associated function in the
+% receiving process.  Normal execution of the process resumes after the
+% function returns.
+シグナルを受け取ったプロセスで関連づいた関数が実行される。
+それまでのプロセスの実行は関数が返ってから再開される。
 \end{itemize}
 %
 
-There are several types of signals, each associated with a particular event.  
-Table~\ref{tab/signals} lists some of them with their default behaviors.
+% There are several types of signals, each associated with a particular event.
+シグナルにはいくつか種類があり、それぞれ特定のイベントと結びついています。
+% Table~\ref{tab/signals} lists some of them with their default behaviors.
+表~\ref{tab/signals} にシグナル (の一部) とそのデフォルトの動作を示します。
+% \begin{mytable}
+% \begin{tabular}{lll}
+% Name & Event & Default Behavior \\
+% \hline
+% \ml+sighup+ &
+% Hang-up (end of connection) &
+% Termination \\
+% \ml+sigint+ &
+% Interruption (\ml+ctrl-C+) &
+% Termination \\
+% \ml+sigquit+ &
+% Strong interruption (\ml+ctrl-\+) &
+% Term.\ \& core dump \\
+% \ml+sigfpe+ &
+% Arithmetic error (division by zero) &
+% Term.\ \& core dump \\
+% \ml+sigkill+ &
+% Very strong interruption (cannot be ignored) &
+% Termination \\
+% \ml+sigsegv+ &
+% Memory protection violation &
+% Term.\ \& core dump \\
+% \ml+sigpipe+ &
+% Writing to a pipe without readers &
+% Termination \\
+% \ml+sigalrm+ &
+% Timer interrupt &
+% Ignored \\
+% \ml+sigtstp+ &
+% Temporary halt (\ml+ctrl-Z+) &
+% Suspension \\
+% \ml+sigcont+ &
+% Resuming a stopped process &
+% Ignored \\
+% \ml+sigchld+ &
+% A child process died or was stopped &
+% Ignored \smallskip\\
+% \hline
+% \end{tabular}
+% \caption{Some signals and their default behaviors}
+% \label{tab/signals}
+% \end{mytable}
 \begin{mytable}
 \begin{tabular}{lll}
-Name & Event & Default Behavior \\
+名前 & イベント & デフォルトの動作 \\
 \hline
 \ml+sighup+ &
-Hang-up (end of connection) &
-Termination \\
+ハングアップ (接続の終了) &
+終了 \\
 \ml+sigint+ &
-Interruption (\ml+ctrl-C+) &
-Termination \\
+割り込み (\ml+ctrl-C+) &
+終了 \\
 \ml+sigquit+ &
-Strong interruption (\ml+ctrl-\+) &
-Term.\ \& core dump \\
+終了 (\ml+ctrl-\+) &
+終了\ \& コアダンプ \\
 \ml+sigfpe+ &
-Arithmetic error (division by zero) &
-Term.\ \& core dump \\
+算術エラー (0 による除算) &
+終了\ \& コアダンプ \\
 \ml+sigkill+ &
-Very strong interruption (cannot be ignored) &
-Termination \\
+中止 (無視できない) &
+終了 \\
 \ml+sigsegv+ &
-Memory protection violation &
-Term.\ \& core dump \\
+不正なメモリ参照 &
+終了\ \& コアダンプ \\
 \ml+sigpipe+ &
-Writing to a pipe without readers &
-Termination \\
+読み込み先のいないパイプへの書き出し &
+終了 \\
 \ml+sigalrm+ &
-Timer interrupt &
-Ignored \\
+タイマー割り込み &
+無視 \\
 \ml+sigtstp+ &
-Temporary halt (\ml+ctrl-Z+) &
-Suspension \\
+一時中断 (\ml+ctrl-Z+) &
+中断 \\
 \ml+sigcont+ &
-Resuming a stopped process &
-Ignored \\
+中断したプロセスの再開 &
+無視 \\
 \ml+sigchld+ &
-A child process died or was stopped &
-Ignored \smallskip\\
+子プロセスが終了あるいは停止した &
+無視 \smallskip\\
 \hline
 \end{tabular}
-\caption{Some signals and their default behaviors}
+\caption{シグナル (一部) とそのデフォルトの動作}
 \label{tab/signals}
 \end{mytable}
 
-The signals received by a process come from several possible sources:
+
+% The signals received by a process come from several possible sources:
+プロセスが受け取るシグナルはいくつかの方法で送られます:
 %
 \begin{itemize}
 
-\item The user may send signals via the keyboard.  By typing \verb'ctrl-C',
-  the console operator sends the \ml+sigint+ signal to the processes
-  controlled by her terminal (that were not already put in the background).
-  In the same way, the \ml+sigquit+ signal is sent by typing \verb'ctrl-\'\footnote{These 
-    are the default keystrokes, but it is possible to change them by 
-    modifying the properties of the terminal, see section~\ref {sec/termio}.}.  
-  When the terminal is closed (either through voluntary disconnection or owing to a disconnected network link), the \ml+sighup+ signal is sent.
+% \item The user may send signals via the keyboard.  By typing \verb'ctrl-C',
+%   the console operator sends the \ml+sigint+ signal to the processes
+%   controlled by her terminal (that were not already put in the background).
+%   In the same way, the \ml+sigquit+ signal is sent by typing \verb'ctrl-\'\footnote{These
+%     are the default keystrokes, but it is possible to change them by
+%     modifying the properties of the terminal, see section~\ref {sec/termio}.}.
+%     When the terminal is closed (either through voluntary disconnection or owing to a disconnected network link), the \ml+sighup+ signal is sent.
+\item ユーザーがキーボードで送る。
+  コンソールで \verb'ctrl-C' と打つことで \ml+sigint+ シグナルを
+  ターミナルがフォアグラウンドで実行しているプロセスに送ることができる。
+  同様に \verb'ctrl-\' は \ml+sigquit+ シグナルを送る\footnote{これらは端末のデフォルトのキーであり、
+    端末の設定を返ることで変更できます。~\ref {sec/termio} 節参照。}。
+  端末が自分自身を終了するか、ネットワークのリンクが切れることで端末が終了したとき、 \ml+sighup+ シグナル送られる。
 
-\item The user may issue the shell command \ml+kill+.  This makes it possible 
-  to send a specific signal to a specific process.  For example, 
-  \ml+kill -KILL 194+ sends the \ml+sigkill+ signal to the process with id 194, which 
-  causes the process to be killed.
+% \item The user may issue the shell command \ml+kill+.  This makes it possible
+%   to send a specific signal to a specific process.  For example,
+%   \ml+kill -KILL 194+ sends the \ml+sigkill+ signal to the process with id 194, which
+%   causes the process to be killed.
+\item ユーザーがシェルコマンド \ml+kill+ で送る。
+  \ml+kill+ を使うと特定のプロセスに特定のシグナルを送ることができる。
+  例えば \ml+kill -KILL 194+ は \ml+sigkill+ シグナルを ID が 194 のプロセスに送り、プロセスを停止させる
 
-\item Another program may invoke the system call 
-  \ml+kill+ (the preceding example being a specific case).
+% \item Another program may invoke the system call
+%   \ml+kill+ (the preceding example being a specific case).
+\item 他のプログラムがシステムコール \ml+kill+ で送る (一つ前のケースと同じ)。
 
-\item The system, for misbehaving processes.  For example, a process 
-  attempting to divide by zero will receive a \ml+sigfpe+ signal.
+% \item The system, for misbehaving processes.  For example, a process
+%   attempting to divide by zero will receive a \ml+sigfpe+ signal.
+  \item プロセスの誤った動作を受けてシステムが送る。例えばゼロによる除算を行おうとしたプロセスには
+  \ml+sigfpe+ が送られる。
 
-\item The system, to notify a process that its execution environment has 
-  been changed.  For example, when a child process terminates, its parent 
-  will receive a \ml+sigchld+ signal.
+% \item The system, to notify a process that its execution environment has
+%   been changed.  For example, when a child process terminates, its parent
+%   will receive a \ml+sigchld+ signal.
+  \item システムが実行環境が変化したことを通知するために送る。
+  例えば子プロセスが終了すると、親には \ml+sigchld+ シグナルが送られる。
 
 \end{itemize}
 
 
-\section{\label{sec/usingsignals}Using signals}
+% \section{\label{sec/usingsignals}Using signals}
+\section{\label{sec/usingsignals}シグナルの利用}
 
-The system call \syscall{kill} makes it possible to send a
-signal to a process.
+% The system call \syscall{kill} makes it possible to send a
+% signal to a process.
+システムコール \syscall{kill} を使うとプロセスにシグナルを送ることができます。
 %
 \begin{listingcodefile}{tmpunix.mli}
 val $\libvalue{Unix}{kill}$ : int -> int -> unit
 \end{listingcodefile}
-% 
-The first parameter is the process id of the destination process and
-the second the signal number to send. An error occurs if we attempt to
-send a signal to a process not owned by the user.  A process may send
-signals to itself.  When the \ml+kill+ system call returns, it is
-guaranteed that the signal was delivered to the destination
-process. If a process receives the same signal in rapid succession it
-will execute the code associated with the signal only once.  Therefore
-a program cannot count the number of times it receives a signal,
-rather only the number of times it responds to it.
+%
+% The first parameter is the process id of the destination process and
+% the second the signal number to send. An error occurs if we attempt to
+% send a signal to a process not owned by the user.  A process may send
+% signals to itself.  When the \ml+kill+ system call returns, it is
+% guaranteed that the signal was delivered to the destination
+% process. If a process receives the same signal in rapid succession it
+% will execute the code associated with the signal only once.  Therefore
+% a program cannot count the number of times it receives a signal,
+% rather only the number of times it responds to it.
+第一引数はシグナルを送るプロセスの ID で、第二引数は送るシグナルの番号です。
+\ml+kill+ を呼んだユーザーによって所有されていないプロセスにシグナルを送ろうとするとエラーとなります。
+プロセスは自分自身にシグナルを送ることができます。
+システムコール \ml+kill+ が値を返した場合、シグナルが目的のプロセスに届いたことが保証されます。
+プロセスが同じシグナルを短い間に何度も受け取った場合、そのシグナルに対応するコードは一度しか実行されません。
+そのためプロセスは受け取ったシグナルの数を数えることはできず、数えられるのはシグナルに反応した回数となります。
 
-The system call \syscall{alarm} makes it possible to schedule
-interruptions based on the system clock.
+% The system call \syscall{alarm} makes it possible to schedule
+% interruptions based on the system clock.
+システムコール \syscall{alarm} を使うとシステムクロックを使って割り込みを予約することができます。
 %
 \begin{listingcodefile}{tmpunix.mli}
 val $\libvalue{Unix}{alarm}$ : int -> int
 \end{listingcodefile}
 %
-The call \ml+alarm s+ returns immediately but causes the \ml+sigalrm+ 
-signal to be sent to the calling process at least \ml+s+ seconds later 
-(note that there is no guarantee on the maximum wait time).  The call returns 
-the number of seconds remaining to an alarm scheduled by a previous call.
-If \ml+s+ is \ml+0+, the effect is simply to cancel an earlier alarm.
+% The call \ml+alarm s+ returns immediately but causes the \ml+sigalrm+
+% signal to be sent to the calling process at least \ml+s+ seconds later
+% (note that there is no guarantee on the maximum wait time).  The call returns
+% the number of seconds remaining to an alarm scheduled by a previous call.
+% If \ml+s+ is \ml+0+, the effect is simply to cancel an earlier alarm.
+\ml+alarm s+ という呼び出しはすぐに返りますが、その後少なくとも \ml+s+ 秒後
+(最大で何秒後かについての保証はありません) に \ml+sigalrm+ シグナルが送られます。
+この呼び出しが返すのはこれまでの \ml+alarm+ によって設定されたアラームまでの残り秒数です。
+\ml+s+ が \ml+0+ の場合、これまでのアラームをキャンセルします。
 
-\section{Changing the effect of a signal}
+% \section{Changing the effect of a signal}
+\section{シグナルに対する動作の変更}
 
-The system call \syscall{signal} makes it possible to modify the behavior
-of a process when it receives a signal of a certain type.
+% The system call \syscall{signal} makes it possible to modify the behavior
+% of a process when it receives a signal of a certain type.
+システムコール \syscall{signal} を使うとプロセスが指定した種類のシグナル
+を受け取ったときの動作を変更できます。
 %
 \begin{codefile}{tmpsys.mli}
 type signal_behavior = Sys.signal_behavior
@@ -168,42 +266,60 @@ type signal_behavior = Sys.signal_behavior
 \begin{listingcodefile}{tmpsys.mli}
 val $\libvalue{Sys}{signal}$ : int -> signal_behavior -> signal_behavior
 \end{listingcodefile}
-% 
-The first argument is the signal number and the second argument, a
-value of type \libtype{Sys}{signal\_behavior}, indicates the desired
-behavior for the signal. With:
+%
+% The first argument is the signal number and the second argument, a
+% value of type \libtype{Sys}{signal\_behavior}, indicates the desired
+% behavior for the signal. With:
+第一引数は動作を変更するシグナルの番号で、 \libtype{Sys}{signal\_behavior} 型の第二引数は
+そのシグナルに対応する動作を指定します。 \ml+signal_behavior+ には以下の値があります:
 \begin{mltypecases}
 \begin{tabular}{@{}ll}
-\ml+Signal_ignore+ & The signal is ignored. \\
+  % \ml+Signal_ignore+ & The signal is ignored. \\
+\ml+Signal_ignore+ & シグナルを無視する。 \\
 %
-\ml+Signal_default+ & The default behavior occurs.\\
+% \ml+Signal_default+ & The default behavior occurs.\\
+\ml+Signal_default+ & デフォルトの動作を行う。 \\
 %
-\ml+Signal_handle f+ & The function \ml+f+ is
-invoked each time the signal is received.  
+% \ml+Signal_handle f+ & The function \ml+f+ is
+% invoked each time the signal is received.
+\ml+Signal_handle f+ & シグナルを受け取ると \ml+f+ を実行する。
 \end{tabular}
 \end{mltypecases}
 
-Forking a process with the system call \indexlibvalue{Unix}{fork}
-preserves signal behavior: the initial definitions for the child are
-those of the parent at the time when \ml+fork+ was executed.  The
-\indexlibvalue{Unix}{execve} system call sets all the behaviors to
-\ml+Signal_default+ except that signals ignored before are still
-ignored afterward.
+% Forking a process with the system call \indexlibvalue{Unix}{fork}
+% preserves signal behavior: the initial definitions for the child are
+% those of the parent at the time when \ml+fork+ was executed.  The
+% \indexlibvalue{Unix}{execve} system call sets all the behaviors to
+% \ml+Signal_default+ except that signals ignored before are still
+% ignored afterward.
+システムコール \indexlibvalue{Unix}{fork} によってプロセスをフォークしてもシグナルに関する動作は
+引き継がれます。フォーク直後の子プロセスのシグナルへの動作は \ml+fork+ が実行された時点での親プロセスのものと同じです。
+システムコール \indexlibvalue{Unix}{execve} は無視されているシグナルは無視されたままにし、
+それ以外のシグナルについては \ml+Signal_default+ に動作を変更します。
 
 \begin{example}
-Occasionally we want to log-off or end a session while allowing 
-background tasks (large calculations, \quotes{spyware} programs, \etc) 
-to continue to run.  If this is desired, processes which normally
-exit on receiving \ml+sighup+ (sent at the time the user disconnects)
-should be prevented from doing so. The Unix command \ml+nohup+ does
-exactly this:
+% Occasionally we want to log-off or end a session while allowing
+% background tasks (large calculations, \quotes{spyware} programs, \etc)
+% to continue to run.  If this is desired, processes which normally
+% exit on receiving \ml+sighup+ (sent at the time the user disconnects)
+% should be prevented from doing so. The Unix command \ml+nohup+ does
+% exactly this:
+ログオフしたりセッションを終了した後でもバックグラウンドでタスク (大規模な計算、 \quotes{スパイウェア} など)
+を実行したままにしておきたいことがあります。
+プロセスの \ml+sighup+ シグナル (ユーザーが接続を終了すると送られます) に対する
+デフォルトの動作はプロセスの終了なので、このシグナルを無視するように変更すれば
+プロセスを実行されたままにすることができます。
+Unix コマンド \ml+nohup+ はまさにこのことを行います:
 \begin{lstlisting}
 nohup cmd arg1 ... argn
 \end{lstlisting}
-executes the command \ml+cmd arg1 ... argn+ in a way unaffected by
-the signal \ml+sighup+ (certain shells execute \ml+nohup+
-automatically for all processes launched as background tasks).  Here's how
-to implement this in three lines:
+% executes the command \ml+cmd arg1 ... argn+ in a way unaffected by
+% the signal \ml+sighup+ (certain shells execute \ml+nohup+
+% automatically for all processes launched as background tasks).  Here's how
+% to implement this in three lines:
+\ml+nohup+ はコマンド \ml+cmd arg1 ... argn+ を \ml+fighup+ に影響されない状態で実行します
+(バックグラウンドで起動された全てのプロセスに対して自動的に \ml+nohup+ を実行するシェルもあります)。
+\ml+nohup+ は 3 行で実装できます:
 %
 \begin{listingcodefile}{nohup.ml}
 open Sys;;
@@ -211,15 +327,21 @@ signal sighup Signal_ignore;;
 Unix.execvp argv.(1) (Array.sub argv 1 (Array.length argv - 1));;
 \end{listingcodefile}
 %
-The system call \indexlibvalue{Unix}{execvp} preserves the fact that
-\ml+sighup+ is ignored.
+% The system call \indexlibvalue{Unix}{execvp} preserves the fact that
+% \ml+sighup+ is ignored.
+システムコール \indexlibvalue{Unix}{execvp} は \ml+sighup+ が無視される状態を引き継ぎます。
 \end{example}
 
-\begin{example} 
-Carefully exiting when a program is misbehaving. For example,
-a program like \ml+tar+ can try to save important information
-in a file or destroy the corrupted file before terminating.  For this 
-it is possible to include the following lines at the beginning of the program:
+\begin{example}
+% Carefully exiting when a program is misbehaving. For example,
+% a program like \ml+tar+ can try to save important information
+% in a file or destroy the corrupted file before terminating.  For this
+% it is possible to include the following lines at the beginning of the program:
+異常動作をしたプログラムの注意深い終了処理。
+例えば \ml+tar+ のようなプログラムは、
+異常動作によって終了することになっても終了する前にファイルの重要な情報を書き込んだり
+壊れたファイルを削除することが望ましいです。
+以下のコードをプログラムの最初に書けばプログラムが終了するときの動作を設定することができます。
 %
 \begin{lstlisting}
 signal sigquit (Signal_handle quit);
@@ -227,20 +349,26 @@ signal sigsegv (Signal_handle quit);
 signal sigfpe  (Signal_handle quit);
 \end{lstlisting}
 %
-where the function \ml+quit+ is of the form:
+% where the function \ml+quit+ is of the form:
+ここで \ml+quit+ は以下のような形をしています:
 %
+% (* Try to save important information in a file *);
 \begin{lstlisting}
 let quit _ =
-  (* Try to save important information in a file *);
+  (* ファイルの重要な情報の書き込みを試みる *)
   exit 100;;
 \end{lstlisting}
 \end{example}
 
-\begin{example} 
-Capturing user-initiated interruptions. Some interactive programs
-need to return to a main control loop when a user
-presses \ml+ctrl-C+.  For this we just need to raise an exception when the
-\ml+sigint+ signal is received.
+\begin{example}
+% Capturing user-initiated interruptions. Some interactive programs
+% need to return to a main control loop when a user
+% presses \ml+ctrl-C+.  For this we just need to raise an exception when the
+% \ml+sigint+ signal is received.
+ユーザーが発した割り込みのキャプチャ。
+インタラクティブなプログラムではユーザーが \ml+ctrl-C+ を押したときにメインループを
+抜けるようになっていることがあります。
+\ml+sigint+ シグナルを受け取ったときに例外を送出するようにすれば実装できます。
 %
 \begin{lstlisting}
 exception Break;;
@@ -255,55 +383,80 @@ let main_loop () =
 \end{lstlisting}
 \end{example}
 
-\begin{example} 
+\begin{example}
 \label{ex/beep}
-To carry out periodic tasks (animations, \etc) interleaved with
-the execution of the main program.  For example, here is how
-to create \quotes{beep} sounds every 30 seconds, regardless of
-the activity of the main program (calculations or input/output).
+% To carry out periodic tasks (animations, \etc) interleaved with
+% the execution of the main program.  For example, here is how
+% to create \quotes{beep} sounds every 30 seconds, regardless of
+% the activity of the main program (calculations or input/output).
+アニメーションなどのメインプログラムと切り離された周期的なタスクの実行。
+例えば次のプログラムメインプログラムの動作 (計算、入出力) に関係なく 30 秒ごとに \quotes{ビープ} 音を鳴らします。
 
 \begin{lstlisting}
-let beep _ = 
-  output_char stdout '\007'; flush stdout; 
+let beep _ =
+  output_char stdout '\007'; flush stdout;
   ignore (alarm 30);;
 ...
 signal sigalrm (Signal_handle beep); ignore (alarm 30);;
 \end{lstlisting}
 \end{example}
 
-\subsection*{Checkpoints}
+% \subsection*{Checkpoints}
+\subsection*{チェックポイント}
 
-Signals are useful for asynchronous communication~---~indeed, it is
-their raison d'\^etre~---~but this asynchronous nature also makes them
-one of the major difficulties of system programming.
+% Signals are useful for asynchronous communication~---~indeed, it is
+% their raison d'\^etre~---~but this asynchronous nature also makes them
+% one of the major difficulties of system programming.
+シグナルは非同期コミュニケーションに便利です~---~実際それが存在理由です~---~
+が、この非同期であるという特徴のせいでシグナルはシステムプログラミングにおける
+難しい部分になっています。
 
-The signal handling function is executed asynchronously and thus
-pseudo-concurrently with the main program of the process.  As signal
-handling functions cannot return a value, they usually modify global
-variables. This can result in race conditions between the signal
-handler and the main program if they try to modify the same variable.
-As explained in the next section one solution is to temporarily block
-signals when this variable is accessed by the main program.
+% The signal handling function is executed asynchronously and thus
+% pseudo-concurrently with the main program of the process.  As signal
+% handling functions cannot return a value, they usually modify global
+% variables. This can result in race conditions between the signal
+% handler and the main program if they try to modify the same variable.
+% As explained in the next section one solution is to temporarily block
+% signals when this variable is accessed by the main program.
+シグナルハンドラは非同期に実行されるので、この関数とプロセスのメインプログラムとは
+擬似的に並列な状態で実行されます。
+シグナルハンドラが値を返せないことから、通常この関数は通常グローバル変数を変更します。
+したがってメインプログラムも同時にその変数を変更しようとした場合、競合状態に陥ること可能性があります。
+これに対する一つの解決法は次の節で説明するようにシグナルハンドラが
+変更する変数をメインプログラムが変更するときにはシグナルを一時的にブロックすることです。
 
-In fact, {\ocaml} does not treat signals in a strictly asynchronous
-fashion.  On receiving a signal, {\ocaml} records the receipt of the
-signal but the signal handling function will only be executed at
-certain \emph{checkpoints}.  These are frequent enough to provide the
-illusion of asynchronous execution.  The checkpoints typically occur
-during allocations, loop controls, or interactions with the system
-(particularly system calls). {\ocaml} guarantees that a program that
-does not loop, does not allocate, and does not interact with the
-system will not have its execution interleaved with that of a
-signal handler. In particular, storing an unallocated value (integer,
-boolean, \etc{}~---~but not a float!) in a reference cell cannot
-result in the race condition described above.
+% In fact, {\ocaml} does not treat signals in a strictly asynchronous
+% fashion.  On receiving a signal, {\ocaml} records the receipt of the
+% signal but the signal handling function will only be executed at
+% certain \emph{checkpoints}.  These are frequent enough to provide the
+% illusion of asynchronous execution.  The checkpoints typically occur
+% during allocations, loop controls, or interactions with the system
+% (particularly system calls). {\ocaml} guarantees that a program that
+% does not loop, does not allocate, and does not interact with the
+% system will not have its execution interleaved with that of a
+% signal handler. In particular, storing an unallocated value (integer,
+% boolean, \etc{}~---~but not a float!) in a reference cell cannot
+% result in the race condition described above.
+厳密にいうと、 \ocaml はシグナルを非同期に扱いません。
+\ocaml は受け取ったシグナルを記録しますが、シグナルハンドラが実行されるのは特定の \emph{チェックポイント} においてだけです。
+チェックポイントはハンドラが非同期に実行されると考えても良い程度に頻繁に設けられています。
+通常アロケーションやループ制御、システムとのやり取り (システムコールを含む) のときに \emph{チェックポイント}
+が設けられます。
+ループが含まれず、アロケーションをせず、システムとのやり取りをしないプログラムについて、
+\ocaml はメインプログラムとシグナルハンドラの実行が互い違いにならないことを保証しています。
+そのため例えばアロケートされない値 (整数および真偽値など。小数値は含まれません!) の参照セルは
+上記の状況でも競合状態に陥りません。
 
-\section{How to mask signals}
+% \section{How to mask signals}
+\section{シグナルのマスク}
 
-Signals may be blocked.  Blocked signals are not ignored, but put on 
-standby, generally to be delivered later.  The 
-\syscall{sigprocmask} system call makes it possible to change the mask
-for incoming signals:
+% Signals may be blocked.  Blocked signals are not ignored, but put on
+% standby, generally to be delivered later.  The
+% \syscall{sigprocmask} system call makes it possible to change the mask
+% for incoming signals:
+シグナルはブロックできます。
+ブロックされたシグナルは無視されるわけではなく、後で届けられるよう待機状態になります。
+システムコール \syscall{sigprocmask} を使うとシグナルのマスクすることができます。
 %
 \begin{codefile}{tmpunix.mli}
 type sigprocmask_command = Unix.sigprocmask_command
@@ -312,77 +465,103 @@ type sigprocmask_command = Unix.sigprocmask_command
 \begin{listingcodefile}{tmpunix.mli}
 val $\libvalue{Unix}{sigprocmask}$ : sigprocmask_command -> int list -> int list
 \end{listingcodefile}
-% 
-\ml+sigprocmask cmd sigs+ changes the list of blocked signals and
-returns the list of signals that were blocked before the execution of
-the function. This makes it possible to later reset the mask to its
-previous state. The argument \ml+sigs+ is a list of signals and \ml+cmd+
-a value of type \libtype{Unix}{sigprocmask\_command} which determines the
-effect of the call:
+%
+% \ml+sigprocmask cmd sigs+ changes the list of blocked signals and
+% returns the list of signals that were blocked before the execution of
+% the function. This makes it possible to later reset the mask to its
+% previous state. The argument \ml+sigs+ is a list of signals and \ml+cmd+
+% a value of type \libtype{Unix}{sigprocmask\_command} which determines the
+% effect of the call:
+\ml+sigprocmask cmd sigs+ はブロックするシグナルを変更し、
+この呼び出しの前にブロックされていたシグナルのリストを返します。
+返り値によってマスクを元の状態に戻すことが可能になります。
+引数 \ml+sigs+ はシグナルのリストであり、 \libtype{Unix}{sigprocmask\_command} 型の値 \ml+cmd+ によって
+呼び出しの効果が異なります:
 \begin{mltypecases}
 \begin{tabular}{@{}ll}
-\ml+SIG_BLOCK+ & The signals \ml+sigs+ are added
-to the list of blocked signals. \\
+% \ml+SIG_BLOCK+ & The signals \ml+sigs+ are added to the list of blocked signals. \\
+\ml+SIG_BLOCK+ & \ml+sigs+ 内のシグナルがブロックするシグナルのリストに追加される。 \\
 %
-\ml+SIG_UNBLOCK+ & The signals \ml+sigs+ are removed
-from the set of blocked signals. \\
+% \ml+SIG_UNBLOCK+ & The signals \ml+sigs+ are removed from the set of blocked signals. \\
+\ml+SIG_UNBLOCK+ & \ml+sigs+ 内のシグナルがブロックするシグナルのリストから削除される。 \\
 %
-\ml+SIG_SETMASK+ & The signals \ml+sigs+ are exactly the 
-signals to be blocked.
+% \ml+SIG_SETMASK+ & The signals \ml+sigs+ are exactly the signals to be blocked.
+\ml+SIG_SETMASK+ & \ml+sigs+ 内のシグナルがブロックするシグナルとなる。
 \end{tabular}
 \end{mltypecases}
 %
-A typical usage of \ml+sigprocmask+ is to mask certain
-signals temporarily.
+% A typical usage of \ml+sigprocmask+ is to mask certain
+% signals temporarily.
+典型的な \ml+sigprocmask+ の利用法はあるシグナルをマスクすることです。
 %
 \begin{lstlisting}
-let old_mask = sigprocmask cmd sigs in 
+let old_mask = sigprocmask cmd sigs in
 (* do something *)
 let _ = sigprocmask SIG_SETMASK old_mask
 \end{lstlisting}
 %
-Often, one has to guard against possible errors by using
-the following pattern:
+% Often, one has to guard against possible errors by using
+% the following pattern:
+次のパターンを使うと起こりがちなエラーを防ぐことができます。
 %
 \begin{codefile}{sign.ml}
 open Unix;;
-let tmp cmd sigs = 
+let tmp cmd sigs =
 \end{codefile}
 %
 \begin{listingcodefile}{sign.ml}
-let old_mask = sigprocmask cmd sigs in 
+let old_mask = sigprocmask cmd sigs in
 let treat () = ((* do something *)) in
 let reset () = ignore (sigprocmask SIG_SETMASK old_mask) in
 Misc.try_finalize treat () reset ()
 \end{listingcodefile}
 
-\section{\label{sec/sigsyscalls}Signals and system calls} 
+% \section{\label{sec/sigsyscalls}Signals and system calls}
+\section{\label{sec/sigsyscalls}シグナルとシステムコール}
 
-Certain system calls can be interrupted by unignored signals. These
-system calls are known as \emph{slow} calls, which can take an
-arbitrary amount of time (for example terminal \io,
-\indexlibvalue{Unix}{select}, \indexlibvalue{Unix}{system}, \etc).  If
-an interruption occurs, the system call is not completed and raises
-the exception \ml+EINTR+.  However file \io{} is not interruptible:
-although these operations can suspend the running process to execute
-another process for disk \io{}, when this occurs the interruption will
-always be brief if the disk functions correctly.  In particular, the
-throughput of data depends only on the system, and not another user's
-process.
+% Certain system calls can be interrupted by unignored signals. These
+% system calls are known as \emph{slow} calls, which can take an
+% arbitrary amount of time (for example terminal \io,
+% \indexlibvalue{Unix}{select}, \indexlibvalue{Unix}{system}, \etc).  If
+% an interruption occurs, the system call is not completed and raises
+% the exception \ml+EINTR+.  However file \io{} is not interruptible:
+% although these operations can suspend the running process to execute
+% another process for disk \io{}, when this occurs the interruption will
+% always be brief if the disk functions correctly.  In particular, the
+% throughput of data depends only on the system, and not another user's
+% process.
+いくつかのシステムコールは無視されていないシグナルによって中断されます。
+このようなシステムコールは \emph{遅い} システムコールと呼ばれる、
+実行にいくらでも長い時間がかかりうるもの (例えば端末との \io や \indexlibvalue{Unix}{select}、 \indexlibvalue{Unix}{system} など) です。
+割り込みが起こった場合、これらのシステムコールは実行を完了しないまま \ml+EINTR+ 例外を送出します。
+一方ファイル \io は割り込みできません。
+ファイル \io 中に実行中のプロセスを中断して他のプロセスを実行することはありますが、
+ディスクが正常に機能しているならばこの中断は常に短時間になります。
+ゆえにデータのスループットはシステムのみに依存し、他のユーザーのプロセスから影響を受けることはありません。
 
-Ignored signals are never delivered and a masked signal is not
-delivered until unmasked. But in all other cases we must protect our
-system calls against unwanted interruptions. A typical example is a
-parent waiting for the termination of a child.  In this case, the
-parent executes \indexvalue{waitpid} \ml+[] pid+ where \ml+pid+ is the
-process id of the child.  This is a blocking system call, it is thus
-\emph{slow} and could be interrupted by the arrival of a signal,
-especially since the \ml+sigchld+ signal is sent to the parent when a
-child process dies.
 
-The module \ml+Misc+ define the function \ml+restart_on_EINTR+ which
-makes it possible to repeat a system call when it is interrupted by a
-signal, \ie{} when the \ml+EINTR+ exception is raised.
+% Ignored signals are never delivered and a masked signal is not
+% delivered until unmasked. But in all other cases we must protect our
+% system calls against unwanted interruptions. A typical example is a
+% parent waiting for the termination of a child.  In this case, the
+% parent executes \indexvalue{waitpid} \ml+[] pid+ where \ml+pid+ is the
+% process id of the child.  This is a blocking system call, it is thus
+% \emph{slow} and could be interrupted by the arrival of a signal,
+% especially since the \ml+sigchld+ signal is sent to the parent when a
+% child process dies.
+無視されたシグナルは届かず、マスクされたシグナルはマスクを解くまで届きません。
+しかしそれ以外の場合はシステムコールをマスクしていないシステムコールから守る必要があります。
+典型的な例は子プロセスの終了を待っている親プロセスです。
+子のプロセス ID を \ml+wait+ とすると親は \indexvalue{waitpid} \ml+[] pid+ を実行しますが、
+\ml+waitpid+ はブロックするシステムコールなので \emph{遅い} システムコールであり、シグナルによって中断される可能性があります。
+特に子プロセスが終了したときには \ml+sigchld+ シグナルが親に送られます。
+
+% The module \ml+Misc+ define the function \ml+restart_on_EINTR+ which
+% makes it possible to repeat a system call when it is interrupted by a
+% signal, \ie{} when the \ml+EINTR+ exception is raised.
+\ml+Misc+ モジュールの \ml+restart_on_EINTR+ 関数はシステムコールが中断されたとき、
+すなわち \ml+EINTR+ 例外が送出されたときにシステムコールをやり直します。
+
 %
 \begin{codefile}{misc.mli}
 val restart_on_EINTR : ('a -> 'b) -> 'a -> 'b
@@ -391,76 +570,95 @@ with [EINTR] *)
 \end{codefile}
 %
 \begin{listingcodefile}{misc.ml}
-let rec restart_on_EINTR f x = 
+let rec restart_on_EINTR f x =
   try f x with Unix_error (EINTR, _, _) -> restart_on_EINTR f x
 \end{listingcodefile}
-To wait on a child correctly, call
-\ml+restart_on_EINTR (waitpid flags) pid+.
+% To wait on a child correctly, call
+% \ml+restart_on_EINTR (waitpid flags) pid+.
+子プロセスの終了をシグナルで中断されないように待つには、
+\ml+restart_on_EINTR (waitpid flags) pid+ を呼びます。
 
 \begin{example}\label{ex/childs}
-Children can also be recovered asynchronously in the signal handler of
-\ml+sigchld+, especially when their return value does not matter to
-the parent. But when the process receives the \ml+sigchld+ signal, it
-is not possible to know the exact number of terminated processes, since if
-the signal is received several times within a short period of time the
-handler is invoked only once. This leads to the library function
-\ml+Misc.free_children+ function to handle the \ml+sigchld+ signal.
+% Children can also be recovered asynchronously in the signal handler of
+% \ml+sigchld+, especially when their return value does not matter to
+% the parent. But when the process receives the \ml+sigchld+ signal, it
+% is not possible to know the exact number of terminated processes, since if
+% the signal is received several times within a short period of time the
+% handler is invoked only once. This leads to the library function
+% \ml+Misc.free_children+ function to handle the \ml+sigchld+ signal.
+子プロセスの返り値が親プロセスにとって重要でない場合、 \ml+sigchld+ の
+シグナルハンドラによって子プロセスを非同期に回収することも可能です。
+ただし短い時間に何度も同じシグナルを受け取った場合シグナルハンドラが一度しか起動しないことがあるので、
+\ml+sigchld+ を受け取ったときに子プロセスがいくつ終了したかを知ることはできません。
+このことから、\ml+sigchld+ シグナルを処理するためには以下のライブラリ関数 \ml+Misc.free_chidlren+ が必要になります。
 %
 \begin{codefile}{misc.mli}
 val free_children : int -> unit
-(** [free_children signal] free all zombie children of the current process, 
+(** [free_children signal] free all zombie children of the current process,
     discarding their exit status. *)
 \end{codefile}
 %
 \begin{listingcodefile}{misc.ml}
-let free_children _ = 
-  try while fst (waitpid [ WNOHANG ] (-1)) > 0 do () done 
+let free_children _ =
+  try while fst (waitpid [ WNOHANG ] (-1)) > 0 do () done
   with Unix_error (ECHILD, _, _) -> ()
 \end{listingcodefile}
-% 
-\ml+free_children+ executes \ml+waitpid+ in
-non-blocking mode (option \ml+WNOHANG+) to recover any dead children
-and repeats until either there are only live children (zero is
-returned instead of a child id) or there are no children (\ml+ECHILD+
-exception).
+%
+% \ml+free_children+ executes \ml+waitpid+ in
+% non-blocking mode (option \ml+WNOHANG+) to recover any dead children
+% and repeats until either there are only live children (zero is
+% returned instead of a child id) or there are no children (\ml+ECHILD+
+% exception).
+\ml+free_children+ は \ml+waitpid+ をノンブロッキングモード (\ml+WNOHANG+ オプション) で実行して
+実行を終了した子プロセスを回収するということを
+子プロセスが全て実行中となる (\ml+waitpid+ が子のプロセス ID ではなく 0 を返す) か
+子プロセスがなくなる (\ml+ECHILD+ 例外が送出される) まで繰り返します。
 
-Note that it is not important to guard against the \ml+EINTR+
-exception because \ml+waitpid+ is non-blocking when called with the
-\ml+WNOHANG+ option.
+% Note that it is not important to guard against the \ml+EINTR+
+% exception because \ml+waitpid+ is non-blocking when called with the
+% \ml+WNOHANG+ option.
+\ml+waitpid+ が \ml+WNOHANG+ オプションでノンブロッキングとなっているので \ml+EINTR+ に対する
+処理は必要ありません。
 \end{example}
 
 \begin{example}
-The function \ml+system+ in the \ml+Unix+ module is simply defined as: 
+% The function \ml+system+ in the \ml+Unix+ module is simply defined as:
+\ml+Unix+ モジュールの \ml+system+ 関数は次のように単純に定義されています:
 %
 \begin{lstlisting}
 let system cmd = match fork () with
   | 0 -> begin try
           execv "/bin/sh" [| "/bin/sh"; "-c"; cmd |]
-         with _ -> exit 127 
+         with _ -> exit 127
          end
   | id -> snd (waitpid [] id);;
 \end{lstlisting}
-% 
-The specification of the \ml+system+ function in the C standard
-library states that the parent ignores \ml+sigint+ and
-\ml+sigquit+ signals and masks the \ml+sigchld+ signal during the
-command's execution.  This makes it possible to stop or kill the child
-process without affecting the main program's execution.
+%
+% The specification of the \ml+system+ function in the C standard
+% library states that the parent ignores \ml+sigint+ and
+% \ml+sigquit+ signals and masks the \ml+sigchld+ signal during the
+% command's execution.  This makes it possible to stop or kill the child
+% process without affecting the main program's execution.
+C 標準ライブラリの \ml+system+ 関数の規格では、親プロセスは \ml+sigint+ と \ml+sigquit+を無視し
+コマンドの実行中は \ml+sigchld+ をマスクするようになっています。
+これによって親プロセスに影響を与えること無く子プロセスを中断したり終了させることが可能になります。
 
-We prefer to define the function \ml+system+ as a specialization of the
-more general function \ml+exec_as_system+ which does not necessarily 
-go through the shell.
+% We prefer to define the function \ml+system+ as a specialization of the
+% more general function \ml+exec_as_system+ which does not necessarily
+% go through the shell.
+ここでは \ml+system+ 関数をより一般的な \ml+exec_as_system+ 関数の特殊化として定義します。
+この関数ではシェルを必ずしも起動されません。
 %
 \begin{codefile}{misc.mli}
 val system : string -> process_status
 (** [system cmd] behaves as [Unix.system cmd] except that [sigchld] is
-blocked and [sigint] and [sigquit] are ignored during the execution 
+blocked and [sigint] and [sigquit] are ignored during the execution
 of the command [cmd] *)
 
 val exec_as_system : ('a -> process_status) -> 'a -> process_status
 (** [system exec args] behaves as [system cmd] except that it takes as
 arguments a function [exec] and arguments [args] to be passed to [exec]
-to start in the new process. In particular, [system] is an abbreviation for 
+to start in the new process. In particular, [system] is an abbreviation for
 [exec_as_system (execv "/bin/sh") \[|"-c"; cmd; |\] v]. *)
 \end{codefile}
 %
@@ -470,50 +668,64 @@ open Unix;;
 \end{codefile}
 %
 \begin{listingcodefile}[style=numbers]{misc.ml}
-let exec_as_system exec args = 
-  let old_mask = sigprocmask SIG_BLOCK [ sigchld ] in 
-  let old_int = signal sigint Signal_ignore in 
-  let old_quit = signal sigquit Signal_ignore in 
+let exec_as_system exec args =
+  let old_mask = sigprocmask SIG_BLOCK [ sigchld ] in
+  let old_int = signal sigint Signal_ignore in
+  let old_quit = signal sigquit Signal_ignore in
   let reset () =
-    ignore (signal sigint old_int); 
+    ignore (signal sigint old_int);
     ignore (signal sigquit old_quit);
     ignore (sigprocmask SIG_SETMASK old_mask) in
   let system_call () = match fork () with
-    | 0 -> 
+    | 0 ->
         reset (); $\label{prog:sreset}$
         (try exec args with _ -> exit 127)
-    | k -> 
+    | k ->
         snd (restart_on_EINTR (waitpid []) k) in
   try_finalize system_call () reset ();; $\label{prog:stry}$
 
-let system cmd = 
+let system cmd =
   exec_as_system (execv "/bin/sh") [| "/bin/sh"; "-c"; cmd |];;
 \end{listingcodefile}
 %
-Note that the signal changes must be made before the call
-to \ml+fork+ is executed because the parent could receive signals
-(\eg{} \ml+sigchld+ if the child were to finish immediately) before it
-proceeds. These changes are reset for the child on line~\ref{prog:sreset}
-before executing the command. Indeed, all ignored signals
-are preserved by \ml+fork+ and \ml+exec+ and their behavior is
-preserved by \ml+fork+.  The \ml+exec+ system call uses the
-default behavior of signals except if the calling process ignores a
-signal in which case it also does. 
+% Note that the signal changes must be made before the call
+% to \ml+fork+ is executed because the parent could receive signals
+% (\eg{} \ml+sigchld+ if the child were to finish immediately) before it
+% proceeds. These changes are reset for the child on line~\ref{prog:sreset}
+% before executing the command. Indeed, all ignored signals
+% are preserved by \ml+fork+ and \ml+exec+ and their behavior is
+% preserved by \ml+fork+.  The \ml+exec+ system call uses the
+% default behavior of signals except if the calling process ignores a
+% signal in which case it also does.
+シグナルの変更は \ml+fork+ の実行の前に行う必要があることに注意してください。
+フォークを実行した後にシグナルを変更するようにすると、
+シグナルが変更しきる前にシグナル (例えばすぐに終了した子プロセスからの \ml+sigchld+) を受け取ってしまう可能性があるためです。
+シグナルの変更は子プロセスではコマンドの実行の前に \ref{prog:sreset} 行目でリセットされます。
+\ml+fork+ と \ml+exec+ は無視するシグナルを保存し、 \ml+fork+ はシグナルに対する動作を保存します。
+\ml+exec+ は無視していないシグナルの動作をデフォルトに戻します。
 
-Finally, the parent must also reset the changes immediately after the
-call, even if an error occurs. This is why
-\ml+try_finalize+ is used on line~\ref{prog:stry}.
+% Finally, the parent must also reset the changes immediately after the
+% call, even if an error occurs. This is why
+% \ml+try_finalize+ is used on line~\ref{prog:stry}.
+最後に親プロセスはエラーが起きた場合でもシグナルの変更をリセットする必要があります。
+このために \ref{prog:stry} 行目では \ml+try_finalize+ が使われます。
 \end{example}
 
 
-\section{The passage of time}
+% \section{The passage of time}
+\section{時間の経過}
 
-\subsection*{Legacy approach to time}
+% \subsection*{Legacy approach to time}
+\subsection*{時刻に対するレガシーなアプローチ}
 
-Since the earliest versions of Unix, time has been counted in seconds.
-For compatibility reasons, therefore, one can always measure time in seconds.
-The current time is defined as the number of seconds since January 1st, 1970
-at \ml+00:00:00+ \textsc{gmt}.  It is returned by the function:
+% Since the earliest versions of Unix, time has been counted in seconds.
+% For compatibility reasons, therefore, one can always measure time in seconds.
+% The current time is defined as the number of seconds since January 1st, 1970
+% at \ml+00:00:00+ \textsc{gmt}.  It is returned by the function:
+Unix の初期のバージョンから、時間は秒で測られてきました。
+そのため互換性が重要となるならば、常に秒単位で時間を計測するべきです。
+現在時刻は 1970 年 1 月 1 日 \ml+00:00:00+ \textsc{gmt} からの経過秒数と定義されます。
+次の関数で取得できます:
 
 %
 \begin{listingcodefile}{tmpunix.mli}
@@ -521,17 +733,22 @@ val $\indexlibvalue{Unix}{time}$ : unit -> float
 \end{listingcodefile}
 %
 
-The \syscall{sleep} system call can pause the execution of a program
-for the number of seconds specified in its argument:
+% The \syscall{sleep} system call can pause the execution of a program
+% for the number of seconds specified in its argument:
+システムコール \syscall{sleep} は引数で指定した秒数だけプログラムの実行を止めます:
+
 %
 \begin{listingcodefile}{tmpunix.mli}
-val $\libvalue{Unix}{sleep}$ : int -> unit
+val $\indexlibvalue{Unix}{time}$ : unit -> float
 \end{listingcodefile}
 %
 
-However, this function is not primitive. It is programmable with 
-more elementary system calls using the function \ml+alarm+ (see 
-above) and \ml+sigsuspend+: 
+% However, this function is not primitive. It is programmable with
+% more elementary system calls using the function \ml+alarm+ (see
+% above) and \ml+sigsuspend+:
+しかしこの関数は原始的ではありません。
+さらに基本的なシステムコール \ml+alarm+ (前の節を参照) と \ml+sigsuspend+ を使うことで
+\ml+sleep+ を実装することができます。
 
 %
 \begin{listingcodefile}{tmpunix.mli}
@@ -539,12 +756,16 @@ val $\libvalue{Unix}{sigsuspend}$ : int list -> unit
 \end{listingcodefile}
 %
 
-The \ml+sigsuspend l+ system call temporarily suspends the signals in the 
-list \ml+l+ and then halts the execution of the program until the reception 
-of a signal which is not ignored or suspended (on return, the 
-signal mask is reset to its old value).
+% The \ml+sigsuspend l+ system call temporarily suspends the signals in the
+% list \ml+l+ and then halts the execution of the program until the reception
+% of a signal which is not ignored or suspended (on return, the
+% signal mask is reset to its old value).
+\ml+sigsuspend l+ はリスト \ml+l+ 内のシグナルを一時的に差し止め、
+無視も差し止めもされていないシグナルを受け取るまでプログラムの実行を停止します。
+値が返るときにシグナルマスクは元の値に戻ります。
 
-\begin{example} Now we may program the \ml+sleep+ function:
+\begin{example} % Now we may program the \ml+sleep+ function:
+\ml+sleep+ は以下のように実装できます:
 %
 \begin{codefile}{sleep.ml}
 open Sys;;
@@ -552,68 +773,94 @@ open Unix;;
 \end{codefile}
 %
 \begin{listingcodefile}[style=numbers]{sleep.ml}
-let sleep s = 
+let sleep s =
   let old_alarm = signal sigalrm (Signal_handle (fun s -> ())) in $\label{prog:sold}$
   let old_mask = sigprocmask SIG_UNBLOCK [ sigalrm ] in
   let _ = alarm s in
   let new_mask = List.filter (fun x -> x <> sigalrm) old_mask in
-  sigsuspend new_mask; 
+  sigsuspend new_mask;
   let _ = alarm 0 in
-  ignore (signal sigalrm old_alarm); 
+  ignore (signal sigalrm old_alarm);
   ignore (sigprocmask SIG_SETMASK old_mask)$\label{prog:ssigproc}$;;
 \end{listingcodefile}
 %
-Initially, the behavior of the \ml+sigalrm+ signal does nothing.  Note
-that \quotes{doing nothing} is the same as ignoring the signal.  To
-ensure that the process will be awakened by the reception
-of the signal, the \ml+sigalrm+ signal is put in an unblocked
-state.  Then the process is put on standby by suspending all other
-signals which were not already suspended (\ml+old_mask+). After the alarm
-is signaled, the preceding modifications are erased. (Note that
-line~\ref{prog:ssigproc} could be placed immediately after
-line~\ref{prog:sold} because the call to \ml+sigsuspend+ preserves
-the signal mask.)
-
+% Initially, the behavior of the \ml+sigalrm+ signal does nothing.  Note
+% that \quotes{doing nothing} is the same as ignoring the signal.  To
+% ensure that the process will be awakened by the reception
+% of the signal, the \ml+sigalrm+ signal is put in an unblocked
+% state.  Then the process is put on standby by suspending all other
+% signals which were not already suspended (\ml+old_mask+). After the alarm
+% is signaled, the preceding modifications are erased. (Note that
+% line~\ref{prog:ssigproc} could be placed immediately after
+% line~\ref{prog:sold} because the call to \ml+sigsuspend+ preserves
+% the signal mask.)
+初期状態では何もしないことが \ml+sigalrm+ シグナルに対する動作です。
+\quotes{何もしない} とはシグナルを無視することとは異なることに注意してください。
+\ml+sigalrm+ シグナルを受け取ったときにプロセスが起動することを保証するために、
+このシグナルは無視されないようにします。
+そのあと \ml+sigalrm+ 以外のマスクされているシグナルを全て差し止めてから
+スタンバイ状態に移行します。
+この変更はアラームのシグナルの後で取り消されます。
+\ml+sigsuspend+ がシグナルマスクを変更しないことから、\ref{prog:ssigproc} 行目は
+\ref{prog:sold} 行目の直後に置くこともできます。
 \end{example}
 
-\subsection*{Modern times}
+% \subsection*{Modern times}
+\subsection*{現代的な時刻の取り扱い}
 
-In more modern versions of Unix, time can also be measured in microseconds.
-In {\ocaml}, time measured in microseconds is represented by a float.  
-The \syscall{gettimeofday} function is the equivalent of the \ml+time+ 
-function for modern systems.
+% In more modern versions of Unix, time can also be measured in microseconds.
+% In {\ocaml}, time measured in microseconds is represented by a float.
+% The \syscall{gettimeofday} function is the equivalent of the \ml+time+
+% function for modern systems.
+現代的なバージョンの Unix では時刻をマイクロ秒単位で測定することができます。
+\ocaml ではマイクロ秒単位で測定した時刻は浮動小数点型で表されます。
+システムコール \syscall{gettimeofday} は現代的なシステムにおいて \ml+time+ の代わりとなるものです。
 
 %
 \begin{listingcodefile}{tmpunix.mli}
 val $\libvalue{Unix}{gettimeofday}$ : unit -> float
 \end{listingcodefile}
 
-\subsection*{Timers}
-In present-day Unix each process is equipped with three timers, each
-measuring time from a different perspective. The timers are
-identified by a value of type \libtype{Unix}{interval\_timer} :
+% \subsection*{Timers}
+\subsection*{タイマー}
+% In present-day Unix each process is equipped with three timers, each
+% measuring time from a different perspective. The timers are
+% identified by a value of type \libtype{Unix}{interval\_timer} :
+現在出回っている Unix では各プロセスはそれぞれ違う時間を測定する 3 つのタイマーを持ちます。
+タイマーは \libtype{Unix}{interval\_timer} 型の値として確認できます:
 %
 \begin{mltypecases}
 \begin{tabular}{@{}ll}
-\ml+ITIMER_REAL+ & Real time (\ml+sigalrm+). \\
-\ml+ITIMER_VIRTUAL+ & User time (\ml+sigvtalrm+). \\
-\ml+ITIMER_PROF+ & User time and system time (\ml+sigprof+).
+% \ml+ITIMER_REAL+ & Real time (\ml+sigalrm+). \\
+\ml+ITIMER_REAL+ & 実時間 (\ml+sigalrm+). \\
+% \ml+ITIMER_VIRTUAL+ & User time (\ml+sigvtalrm+). \\
+\ml+ITIMER_VIRTUAL+ & ユーザー時間 (\ml+sigvtalrm+). \\
+% \ml+ITIMER_PROF+ & User time and system time (\ml+sigprof+).
+\ml+ITIMER_PROF+ & ユーザー時間とシステム時間 (\ml+sigprof+).
 \end{tabular}
 \end{mltypecases}
-% 
-The state of a timer is described by the \libtype{Unix}{interval\_timer\_status}
-type which is a record with two fields (each a \ml+float+)
-representing time:
+%
+% The state of a timer is described by the \libtype{Unix}{interval\_timer\_status}
+% type which is a record with two fields (each a \ml+float+)
+% representing time:
+タイマーの状態は \libtype{Unix}{interval\_timer\_status} 型のレコードによって表され、
+各フィールドは以下の時間を表します (どちらも \ml+float+ です):
 %
 \begin{itemize}
-\item The field \ml+it_interval+ is the period of the timer.
-\item The field \ml+it_value+ is the current value of the timer; 
-when it turns \ml+0+ the signal \ml+sigvtalrm+ is sent and 
-the timer is reset to the value in \ml+it_interval+.
+% \item The field \ml+it_interval+ is the period of the timer.
+\item \ml+it_interval+ フィールドはタイマーの周期を表す。
+% \item The field \ml+it_value+ is the current value of the timer;
+% when it turns \ml+0+ the signal \ml+sigvtalrm+ is sent and
+% the timer is reset to the value in \ml+it_interval+.
+\item \ml+it_value+ フィールドはタイマーの現在の値を表す。
+  この値が \ml+0+ になった場合 \ml+sigvtalrm+ シグナルが送られ、
+  タイマーの値は \ml+it_interval+ にリセットされる。
 \end{itemize}
 %
-A timer is therefore inactive when its two fields are \ml+0+.  
-The timers can be queried or modified with the following functions:
+% A timer is therefore inactive when its two fields are \ml+0+.
+% The timers can be queried or modified with the following functions:
+二つのフィールドが \ml+0+ の場合タイマーはアクティブではありません。
+タイマーは次の関数で取得および変更できます:
 %
 \begin{codefile}{tmpunix.mli}
 type interval_timer = Unix.interval_timer
@@ -622,15 +869,17 @@ type interval_timer_status = Unix.interval_timer_status
 %
 \begin{listingcodefile}{tmpunix.mli}
 val $\indexlibvalue{Unix}{getitimer}$ : interval_timer -> interval_timer_status
-val $\indexlibvalue{Unix}{setitimer}$ : 
+val $\indexlibvalue{Unix}{setitimer}$ :
     interval_timer -> interval_timer_status -> interval_timer_status
 \end{listingcodefile}
 %
-The value returned by \ml+setitimer+ is the old value of 
-the timer at the time of the modification.
+% The value returned by \ml+setitimer+ is the old value of
+% the timer at the time of the modification.
+\ml+settimer+ の返り値は変更前の値です。
 
 \begin{exercise}[noanswer]
-To manage several timers, write a module with the following interface:
+% To manage several timers, write a module with the following interface:
+複数のタイマーを管理するために、以下のインターフェースを持つモジュールを書いてください:
 %
 \begin{listingcodefile}{timers.mli}
 module type Timer = sig
@@ -642,59 +891,85 @@ module type Timer = sig
 end
 \end{listingcodefile}
 %
-The function \ml+new_timer k f+ should create a new timer of the 
-timer-type \ml+k+ starting the action \ml+f+, and inactive on creation; 
-the function \ml+set_timer t+ should set the value of the timer \ml+t+ 
-(and return the old value). 
+% The function \ml+new_timer k f+ should create a new timer of the
+% timer-type \ml+k+ starting the action \ml+f+, and inactive on creation;
+% the function \ml+set_timer t+ should set the value of the timer \ml+t+
+% (and return the old value).
+\ml+new_timer k f+ はタイプ \ml+k+ の新しいタイマーを作り \ml+f+ の実行を始めます。
+タイマー作成時にはアクティブではありません。
+\ml+set_timer t+ はタイマーの値を \ml+t+ に設定し古い値を返します。
 
 \end{exercise}
 
-\subsection*{Date calculations}
+% \subsection*{Date calculations}
+\subsection*{日付の計算}
 
-Modern versions of Unix also provide functions to handle dates, see
-the structure \libtype{Unix}{tm} which allows dates and times to be
-expressed according to a calendar (year, month, \etc) and the
-conversion functions: \indexlibvalue{Unix}{gmtime},
+% Modern versions of Unix also provide functions to handle dates, see
+% the structure \libtype{Unix}{tm} which allows dates and times to be
+% expressed according to a calendar (year, month, \etc) and the
+% conversion functions: \indexlibvalue{Unix}{gmtime},
 \indexlibvalue{Unix}{localtime}, \indexlibvalue{Unix}{mktime}, \etc
+Unix の現代的なバージョンには日付を処理するための関数も含まれています。
+\libtype{Unix}{tm} 構造体はカレンダー (年、月など) によって表現でき、
+\indexlibvalue{Unix}{gmtime} や
+\indexlibvalue{Unix}{localtime}、 \indexlibvalue{Unix}{mktime} などによって他の単位と変換できます。
 
-\section{Problems with signals}
+% \section{Problems with signals}
+\section{シグナルの問題点}
 
-Owing to their asynchronous nature, the use of signals for inter-process communication 
-presents some limitations and difficulties:
+% Owing to their asynchronous nature, the use of signals for inter-process communication
+% presents some limitations and difficulties:
+シグナルは非同期なので、シグナルをプロセス間通信に使うと制限と困難がいくつかあります:
 %
 \begin{itemize}
 
-\item Very little information is transmitted~---~the signal's
-type and nothing else.
+% \item Very little information is transmitted~---~the signal's
+% type and nothing else.
+\item 送られる情報が少なすぎる~---~シグナルの種類のみ。
 
-\item A signal may occur at any point during the execution of the
-  program. Therefore, a signal handling function that accesses global
-  variables must cooperate with the main program to avoid race
-  conditions. 
+% \item A signal may occur at any point during the execution of the
+%   program. Therefore, a signal handling function that accesses global
+%   variables must cooperate with the main program to avoid race
+%   conditions.
+\item シグナルプログラムの実行中いつでも起きるので、グローバル変数にアクセスするシグナルハンドラは
+  競合状態を避けるためにメインプログラムと協調しなければならない。
 
-\item The use of signals by the main program entails that long system
-  calls made by the program may be interrupted, even if the signals
-  keep their default behavior.
+% \item The use of signals by the main program entails that long system
+%   calls made by the program may be interrupted, even if the signals
+%   keep their default behavior.
+\item シグナルをメインプログラムから使うと、
+  シグナルに対する動作がデフォルトの動作であったとしても、
+  実行に時間のかかるシステムコールが中断される可能性が生まれることになる。
 
-\item Library functions must always consider the possibility of
-  signal use and guard against system call interruption.
+% \item Library functions must always consider the possibility of
+%   signal use and guard against system call interruption.
+\item ライブラリ関数はシグナルの可能性を常に考慮しシステムコールの割り込みに対する対処をしなければならない。
 
 \end{itemize}
 %
 
-Signals offer only a limited form of asynchronous communication but
-carry all the difficulties and problems associated with it. If possible,
-it is therefore better not to use them. For example, to wait for a small
-amount of time, \indexvalue{select} can be used instead of alarms. But
-in certain situations signals must be taken into account (for example in
-command line interpreters).
+% Signals offer only a limited form of asynchronous communication but
+% carry all the difficulties and problems associated with it. If possible,
+% it is therefore better not to use them. For example, to wait for a small
+% amount of time, \indexvalue{select} can be used instead of alarms. But
+% in certain situations signals must be taken into account (for example in
+% command line interpreters).
+シグナルは制限された非同期通信であるにもかからわず、
+非同期通信にまつわる困難や問題は全て含みます。
+そのため可能であれば利用を避けるべきです。
+たとえば短い時間だけ待つためには \indexvalue{select} がアラームの代わりに使えます。
+ただしコマンドラインのインタープリターなどのシグナルを考えなければいけない状況もあります。
 
-Signals are possibly the least useful concept in the Unix system.  On
-certain older versions of Unix (System V, in particular) the behavior
-of a signal is automatically reset to \ml+Signal_default+ when it is
-received. The signal handling function can of course register itself
-again. For example in the \quotes{beep} example on
-page~\pageref{ex/beep}, it would be necessary to write:
+% Signals are possibly the least useful concept in the Unix system.  On
+% certain older versions of Unix (System V, in particular) the behavior
+% of a signal is automatically reset to \ml+Signal_default+ when it is
+% received. The signal handling function can of course register itself
+% again. For example in the \quotes{beep} example on
+% page~\pageref{ex/beep}, it would be necessary to write:
+シグナルはおそらく Unix システムの中で最も有用でない概念です。
+古いバージョンの Unix (System V など) ではシグナルの動作は受け取った後に自動的に
+\ml+Signal_default+ にリセットされます。そのためシグナルハンドラは
+自分自身をもう一度設定し直す必要があり、以下のように書く必要がありました:
 %
 \begin{lstlisting}
 let rec beep _ =
@@ -703,16 +978,20 @@ let rec beep _ =
   ignore (alarm 30);;
 \end{lstlisting}
 %
-However the problem is that the signals that are received between the
-instant were the behavior is automatically reset to
-\ml+Signal_default+ and the moment were \ml+set_signal+ is invoked are
-not treated correctly and depending on the type of the signal they may
-be ignored or cause the process to die instead of invoking the signal
-handling function. 
+% However the problem is that the signals that are received between the
+% instant were the behavior is automatically reset to
+% \ml+Signal_default+ and the moment were \ml+set_signal+ is invoked are
+% not treated correctly and depending on the type of the signal they may
+% be ignored or cause the process to die instead of invoking the signal
+% handling function.
+しかし問題はシグナルを受け取ってシグナルの動作が自動的に \ml+Signal_default+ に戻ってから
+\ml+set_signal+ が実行されるまでの短い間にシグナルを受け取った場合です。
+この場合シグナルはハンドラを呼びだすことなく、種類に応じて無視されるかプロセスを終了させます。
 
-Other flavors of Unix (\textsc{bsd} or Linux) provide better support:
-the behavior associated with a signal is not altered when it is
-received, and during the handling of a signal other signals of the
-same type are put on hold.
-
-
+% Other flavors of Unix (\textsc{bsd} or Linux) provide better support:
+% the behavior associated with a signal is not altered when it is
+% received, and during the handling of a signal other signals of the
+% same type are put on hold.
+その他の Unix (\textsc{bsd} と Linux) はより良い動作をします。
+シグナルを受け取ってもその動作を置き換えず、
+シグナルを処理している間は他のシグナルは保留されます。

@@ -8,75 +8,105 @@
 % Translation by Mark Wong-VanHaren
 %------------------------------------------------------------------------------
 
-\chapter{\label{sec/processes}Processes}
+% \chapter{\label{sec/processes}Processes}
+\chapter{\label{sec/processes}プロセス}
 \cutname{processes.html}
 
-A process is a program executing on the operating system.  It
-consists of a program (machine code) and a state of the program
-(current control point, variable values, call stack, open file
-descriptors, \etc).
+% A process is a program executing on the operating system.  It
+% consists of a program (machine code) and a state of the program
+% (current control point, variable values, call stack, open file
+% descriptors, \etc).
+プロセスはオペレーティングシステム上で実行されるプログラムのことです。
+プロセスはプログラム (機械語) とその状態 (現在の実行位置、変数の値、関数呼び出しスタック、開いているファイルディスクリプタなど)
+からなります。
 
-This section presents the Unix system calls to create new processes
-and make them run other programs.
+% This section presents the Unix system calls to create new processes
+% and make them run other programs.
+この章では新しいプロセスを作ったり新しいプログラムを実行したりするための Unix のシステムコールを紹介します。
 
-\section{Creation of processes}
+% \section{Creation of processes}
+\section{プロセスの作成}
 
-The system call \syscall{fork} creates a process.
+% The system call \syscall{fork} creates a process.
+システムコール \syscall{fork} はプロセスを作成します。
 %
 \begin{listingcodefile}{tmpunix.mli}
 val $\libvalue{Unix}{fork}$ : unit -> int
 \end{listingcodefile}
 %
-The new \emph{child process} is a nearly perfect clone of the
-\emph{parent process} which called \ml+fork+.  Both processes execute
-the same code, are initially at the same control point (the return
-from \ml+fork+), attribute the same values to all variables, have
-identical call stacks, and hold open the same file descriptors to
-the same files.  The only thing which distinguishes the two processes
-is the return value from \ml+fork+: zero in the child process,
-and a non-zero integer in the parent.  By checking the return value
-from \ml+fork+, a program can thus determine if it is in the parent
-process or the child and behave accordingly: 
+% The new \emph{child process} is a nearly perfect clone of the
+% \emph{parent process} which called \ml+fork+.  Both processes execute
+% the same code, are initially at the same control point (the return
+% from \ml+fork+), attribute the same values to all variables, have
+% identical call stacks, and hold open the same file descriptors to
+% the same files.  The only thing which distinguishes the two processes
+% is the return value from \ml+fork+: zero in the child process,
+% and a non-zero integer in the parent.  By checking the return value
+% from \ml+fork+, a program can thus determine if it is in the parent
+% process or the child and behave accordingly:
+\ml+fork+ を呼び出した \emph{親プロセス} のほぼ完璧な複製である \emph{子プロセス}
+が新しく作られます。
+二つのプログラムは同じプログラムを同じ実行位置 (\ml+fork+ から返った位置) から実行します。
+このとき全ての変数は同じ値を持ち、スタックは同一で、開かれているファイルディスクリプタも同じです。
+二つのプロセスを区別する唯一のものは \ml+fork+ の返り値です。
+子プロセスでは \ml+fork+ は 0 を返し、 親プロセスでは 0 でない整数を返します。
+\ml+fork+ の返り値を確認することで、プログラムは自分が親なのか子なのかを確認してそれによって動作を変えることができます。
 %
 \begin{lstlisting}
 match fork () with
-| 0 ->   (* code run only in the child  *)
-| pid -> (* code run only in the parent *)
+| 0 ->   (* 子プロセスだけが実行するコード *)
+| pid -> (* 親プロセスだけが実行するコード *)
 \end{lstlisting}
 %
-The non-zero integer returned by \ml+fork+ in the parent process
-is the \emph{process id} of the child.  The process id is used by
-the kernel to uniquely identify each process.  A process can obtain
-its process id by calling \indexlibvalue{Unix}{getpid}.
+% The non-zero integer returned by \ml+fork+ in the parent process
+% is the \emph{process id} of the child.  The process id is used by
+% the kernel to uniquely identify each process.  A process can obtain
+% its process id by calling \indexlibvalue{Unix}{getpid}.
+\ml+fork+ によって親プロセスに返される 0 でない整数は子プロセスの \emph{プロセス ID} です。
+カーネルはプロセス IDを使ってプロセスを一意に識別します。
+プロセスは \indexlibvalue{Unix}{getpid} 関数を呼ぶことでプロセス ID を取得できます。
 
-The child process is initially in the same state as the parent process
-(same variable values, same open file descriptors).  This state is not
-shared between the parent and the child, but merely duplicated at the
-moment of the \ml+fork+.  For example, if one variable is bound to a
-reference before the \ml+fork+, a copy of that reference and its
-current contents is made at the moment of the \ml+fork+; after the
-\ml+fork+, each process independently modifies its \quotes{own}
-reference without affecting the other process.
+% The child process is initially in the same state as the parent process
+% (same variable values, same open file descriptors).  This state is not
+% shared between the parent and the child, but merely duplicated at the
+% moment of the \ml+fork+.  For example, if one variable is bound to a
+% reference before the \ml+fork+, a copy of that reference and its
+% current contents is made at the moment of the \ml+fork+; after the
+% \ml+fork+, each process independently modifies its \quotes{own}
+% reference without affecting the other process.
+子プロセスは親プロセスと同じ状態 (同じ変数の値、同じファイルディスクリプタ) に初期化されます。
+この状態は親と子で共有されるのではなく、 \ml+fork+ が呼ばれたときにコピーされます。
+例えば \ml+fork+ の前に定義した参照変数があった場合、 \ml+fork+ の後には
+親と子プロセスはこの参照を互いに影響を及ぼすこと無く独立に変更できます。
 
-Similarly, the open file descriptors are copied at the moment of the
-\ml+fork+: one may be closed and the other kept open.  On the other
-hand, the two descriptors designate the same entry in the file table
-(residing in system memory) and share their current position: if one
-reads and then the other, each will read a different part of the file;
-likewise, changes in the read/write position by one process with \ml+lseek+ are
-immediately visible to the other. 
+% Similarly, the open file descriptors are copied at the moment of the
+% \ml+fork+: one may be closed and the other kept open.  On the other
+% hand, the two descriptors designate the same entry in the file table
+% (residing in system memory) and share their current position: if one
+% reads and then the other, each will read a different part of the file;
+% likewise, changes in the read/write position by one process with \ml+lseek+ are
+% immediately visible to the other.
+同様にファイルディスクリプタも \ml+fork+ が呼ばれたときにコピーされます。
+そのため一方を閉じたとしてももう一方は開いたままです。
+ただし二つのディスクリプタは (システムメモリにある) ファイルテーブル内の同じエントリを指すので、
+入出力の現在位置を共有します。
+親と子のどちらかが読み込みを行った場合、その次に読み込むのがどちらであっても
+読み込み位置は変化します。また \ml+lseek+ による入出力位置の変更はもう一方のプロセスにすぐに伝わります。
 
-%% I don't think that's very enlighting at this point. 
+%% I don't think that's very enlighting at this point.
 % The descriptors in the child and
 % parent thus act like the argument and result descriptors after a
 % \ml+dup+, but they are in different processes as opposed to the same
 % one.
 
-\section{Complete Example: the command {\normalfont\texttt{leave}}}
+% \section{Complete Example: the command {\normalfont\texttt{leave}}}
+\section{完全な例: {\normalfont\texttt{leave}} コマンド}
 
-The command \ml+leave hhmm+ exits immediately, but
-forks a background process which, at the time \ml+hhmm+, reports that
-it is time to leave.
+% The command \ml+leave hhmm+ exits immediately, but
+% forks a background process which, at the time \ml+hhmm+, reports that
+% it is time to leave.
+\ml+leave hhmm+ コマンドは時刻 \ml+hhmm+ に利用を終える時間だと報告するバックグラウンドプロセスを
+フォークしてすぐに終了します。このコマンドを作成します。
 %
 \begin{listingcodefile}[style=numbers]{leave.ml}open Sys;;
 open Unix;;
@@ -98,27 +128,40 @@ $\label{prog:delay}$
 
 handle_unix_error leave ();;
 \end{listingcodefile}
-% 
-The program begins with a rudimentary parsing of the command line,
-in order to extract the time provided.  It then calculates the delay
-in seconds (line~\ref{prog:delay}). The \indexlibvalue{Unix}{time}
-call returns the current date, in seconds from the epoch (January 1st
-1970, midnight).  The function \indexlibvalue{Unix}{localtime} splits
-this duration into years, months, days, hours, minutes and seconds.
-It then creates a new process using \ml+fork+.  The parent process
-(whose return value from \ml+fork+ is a non-zero integer) terminates
-immediately.  The shell which launched \ml+leave+ thereby returns
-control to the user.  The child process (whose return value from
-\ml+fork+ is zero) continues executing.  It does nothing during the
-indicated time (the call to \ml+sleep+), then displays its message and
-terminates.
+%
+% The program begins with a rudimentary parsing of the command line,
+% in order to extract the time provided.  It then calculates the delay
+% in seconds (line~\ref{prog:delay}). The \indexlibvalue{Unix}{time}
+% call returns the current date, in seconds from the epoch (January 1st
+% 1970, midnight).  The function \indexlibvalue{Unix}{localtime} splits
+% this duration into years, months, days, hours, minutes and seconds.
+% It then creates a new process using \ml+fork+.  The parent process
+% (whose return value from \ml+fork+ is a non-zero integer) terminates
+% immediately.  The shell which launched \ml+leave+ thereby returns
+% control to the user.  The child process (whose return value from
+% \ml+fork+ is zero) continues executing.  It does nothing during the
+% indicated time (the call to \ml+sleep+), then displays its message and
+% terminates.
+プログラムは最初にコマンドラインをパースして時刻を取得し、
+報告するまでの秒数を計算します (\ref{prog:delay} 行目) 。
+\indexlibvalue{Unix}{time} 関数はエポック (1970 年 1 月 1 日 午前 0 時 0 分 0 秒) から現在時刻までの
+経過秒数を返します。 \indexlibvalue{Unix}{localtime} を使うとこの値から年、月、日、時、分、秒を計算することができます。
+プログラムはその後 \ml+fork+ で新しいプロセスを作ります。
+親プロセス (\ml+fork+ の返り値が 0 でないプロセス) はすぐに終了するため、
+\ml+leave+ を起動したシェルの制御はすぐにユーザーに戻ります。
+子プロセス (\ml+fork+ の返り値が 0 のプロセス) の実行は続き、
+\ml+sleep+ を呼んで指定された時間まで待ってからメッセージを表示して終了します。
 
-\section{Awaiting the termination of a process}
+% \section{Awaiting the termination of a process}
+\section{プロセスの終了を待つ}
 
-The system call \ml+wait+ waits for one of the child processes created
-by \ml+fork+ to terminate and returns information about how it did.
-It provides a parent-child synchronization mechanism and a very
-rudimentary form of communication from the child to the parent.
+% The system call \ml+wait+ waits for one of the child processes created
+% by \ml+fork+ to terminate and returns information about how it did.
+% It provides a parent-child synchronization mechanism and a very
+% rudimentary form of communication from the child to the parent.
+システムコール \ml+wait+ は \ml+fork+ によって作られた子プロセスの一つが終了するまで待ち、
+そのプロセスがどのように終了したかについての情報を返します。
+これは親子間の同期メカニズムであり、子から親へのとても原始的な形のコミュニケーションです。
 \label{wait}
 %
 \begin{codefile}{tmpunix.mli}
@@ -131,60 +174,86 @@ val $\indexlibvalue{Unix}{wait}$ : unit -> int * process_status
 val $\libvalue{Unix}{waitpid}$ : wait_flag list -> int -> int * process_status
 \end{listingcodefile}
 %
-The primitive system call is \syscall{waitpid} and the function
-\ml+wait ()+ is merely a shortcut for the expression \ml+waitpid [] (-1)+.
-% 
-The behavior of \ml+waitpid [] p+ depends on the value of \ml+p+:
+% The primitive system call is \syscall{waitpid} and the function
+% \ml+wait ()+ is merely a shortcut for the expression \ml+waitpid [] (-1)+.
+基礎となるシステムコールは \syscall{waitpid} であり、 \ml+wait ()+ という呼び出しは
+\ml+waitpid [] (-1)+ の短縮形に過ぎません。
+%
+% The behavior of \ml+waitpid [] p+ depends on the value of \ml+p+:
+\ml+waitpid [] p+ の動作は \ml+p+ の値によって異なります。
 \begin{itemize}
-\item If \ml+p+ $> 0$, it awaits the termination of the child with id
-  equal to \ml+p+.
-\item If \ml+p+ $= 0$, it awaits any child with the same group id as the
-calling process. 
-\item If \ml+p+ $= -1$, it awaits any process.
-\item If \ml+p+ $<-1$, it awaits a child process with group id equal
-  to \ml+-p+.
+% \item If \ml+p+ $> 0$, it awaits the termination of the child with id
+%   equal to \ml+p+.
+  \item \ml+p+ $> 0$ ならば、プロセス ID が \ml+p+ である子プロセスの終了を待つ。
+% \item If \ml+p+ $= 0$, it awaits any child with the same group id as the
+%   calling process.
+  \item \ml+p+ $= 0$ ならば、同じグループ ID を持つ任意の子プロセスの終了を待つ。
+% \item If \ml+p+ $= -1$, it awaits any process.
+  \item \ml+p+ $= -1$ ならば、任意の子プロセスの終了を待つ。
+% \item If \ml+p+ $<-1$, it awaits a child process with group id equal
+%   to \ml+-p+.
+  \item \ml+p+ $<-1$ ならば、グループ ID が \ml+-p+ である子プロセスの終了を待つ。
 \end{itemize}
-The first component of the result is the process id of the child
-caught by \ml+wait+. The second component of the result is a value of type 
-\libtype{Unix}{process\_status}:
+% The first component of the result is the process id of the child
+% caught by \ml+wait+. The second component of the result is a value of type
+% \libtype{Unix}{process\_status}:
+返り値の最初の要素は \ml+wait+ によって終了を捕捉された子プロセスのプロセス ID です。
+2番目の要素は以下に示す \libtype{Unix}{process\_status} 型の値です:
 %
 \begin{mltypecases}
 \begin{tabular}{@{}lp{0.8\textwidth}}
-\ml+WEXITED r+ & The child process terminated normally via
-\ml+exit+ or by reaching the end of the program; \ml+r+ is the return
-code (the argument passed to \ml+exit+).\\
+% \ml+WEXITED r+ & The child process terminated normally via
+% \ml+exit+ or by reaching the end of the program; \ml+r+ is the return
+% code (the argument passed to \ml+exit+).\\
+  \ml+WEXITED r+ & 子プロセスは \ml+exit+ が呼ばれるかプログラムの終端に達することによって通常の方法で終了した。
+                   \ml+r+ はリターンコード (\ml+exit+ の引数) を表す。  \\
 %
-\ml+WSIGNALED s+ & The child process was killed by a signal
-(ctrl-C, \ml+kill+, \etc, see chapter~\ref{sec/signals}
-for more information about signals); \ml+s+ identifies the signal.\\
+% \ml+WSIGNALED s+ & The child process was killed by a signal
+% (ctrl-C, \ml+kill+, \etc, see chapter~\ref{sec/signals}
+% for more information about signals); \ml+s+ identifies the signal.\\
+  \ml+WSIGNALED s+ & 子プロセスはシグナル (ctrl+C, \ml+kill+ など。 \ref{sec/signals} 章参照) によって終了した。
+                     \ml+s+ がシグナルの種類を表す。 \\
 %
-\ml+WSTOPPED s+ & The child process was halted by the signal
-\ml+s+; this occurs only in very special cases where a process
-(typically a debugger) is currently monitoring the execution of
-another (by calling \ml+ptrace+).
+% \ml+WSTOPPED s+ & The child process was halted by the signal
+% \ml+s+; this occurs only in very special cases where a process
+% (typically a debugger) is currently monitoring the execution of
+% another (by calling \ml+ptrace+).
+  \ml+WSTOPPED s+ & 子プロセスはシグナル \ml+s+ によって停止された。
+                    これが起こるのはあるプロセス (典型的にはデバッガ) が他のプロセスの実行を (\ml+ptrace+ を使って)
+                    モニターしているという特殊なケースに限られる。
 \end{tabular}
 \end{mltypecases}
 %
-If one of the child processes has already terminated by the time the
-parent calls \ml+wait+, the call returns immediately.  Otherwise, the
-parent process blocks until some child process terminates (a behavior
-called \quotes{rendezvous}). To wait for $n$ child processes, one must
-call \ml+wait+ $n$ times.
+% If one of the child processes has already terminated by the time the
+% parent calls \ml+wait+, the call returns immediately.  Otherwise, the
+% parent process blocks until some child process terminates (a behavior
+% called \quotes{rendezvous}). To wait for $n$ child processes, one must
+% call \ml+wait+ $n$ times.
+子プロセスの一つが \ml+wait+ を呼んだ時点ですでに終了していた場合は呼び出しはすぐに返ります。
+そうでなければ親プロセスは子プロセスのどれかが終了するまでブロックします (\quotes{ランデブー} と呼ばれる動作です)。
+$n$ この子プロセスの終了を待つには \ml+wait+ を $n$ 回呼ぶ必要があります。
 
-The command \ml+waitpid+ accepts two optional flags for its first
-argument: the flag \ml+WNOHANG+ indicates not to wait if there is
-a child that responds to the request but has not yet terminated.
-In that case, the first result is \ml+0+ and the second undefined.
-The flag \ml+WUNTRACED+ returns the child processes that have been
-halted by the signal \ml+sigstop+.  The command raises the exception
-\ml+ECHILD+ if no child processes match \ml+p+ (in particular, if
-\ml+p+ is \ml+-1+ and the current process has no more children).
-
+% The command \ml+waitpid+ accepts two optional flags for its first
+% argument: the flag \ml+WNOHANG+ indicates not to wait if there is
+% a child that responds to the request but has not yet terminated.
+% In that case, the first result is \ml+0+ and the second undefined.
+% The flag \ml+WUNTRACED+ returns the child processes that have been
+% halted by the signal \ml+sigstop+.  The command raises the exception
+% \ml+ECHILD+ if no child processes match \ml+p+ (in particular, if
+% \ml+p+ is \ml+-1+ and the current process has no more children).
+\ml+waitpid+ 関数は二つのオプショナルなフラグを第一引数に受け取ります。
+\ml+WNOHANG+ フラグは終了していない子プロセスが無い場合に待たないことを指示します。
+子プロセスが無かった場合の返り値は第一要素が 0 で第二要素は未定義です。
+\ml+WUNTRACED+ フラグは \ml+sigstop+ シグナルによって停止させられた子プロセスを返すことを指示します。
+\ml+waitpid+ は \ml+p+ に該当する子プロセスがない場合 (あるいは \ml+p+ が \ml+-1+ で現在のプロセスが子プロセスを持たないとき)
+には例外を送出します。
 \begin{example}
 \label{ex/forksearch}
-The function \ml+fork_search+ below performs a linear search in an 
-array with two processes. It relies on the function \ml+simple_search+
-to perform the linear search.
+% The function \ml+fork_search+ below performs a linear search in an
+% array with two processes. It relies on the function \ml+simple_search+
+% to perform the linear search.
+以下の \ml+fork_search+ 関数は二つのプロセスを使って線形探索を行います。
+線形探索には \ml+simple_search+ 関数を使っています。
 %
 \begin{listingcodefile}[style=numbers]{forksearch.ml}
 open Unix;;
@@ -211,60 +280,89 @@ let fork_search cond v =
      | (pid, _)               -> failwith "fork_search";;$\label{prog:wwexit}$
 \end{listingcodefile}
 %
-After the \ml+fork+, the child process traverses the upper half of
-the table, and exits with the return code $1$ if it found an element
-satisfying the predicate \ml+cond+, or $0$ otherwise
-(lines~\ref{prog:found} and~\ref{prog:searchexit}). The parent process
-traverses the lower half of the table, then calls \ml+wait+ to
-sync with the child process (lines~\ref{prog:wexit}
-and~\ref{prog:wwexit}). If the child terminated normally, it combines
-its return code with the boolean result of the search in the lower
-half of the table. Otherwise, something horrible happened, and the
-function \ml+fork_search+ fails.
+% After the \ml+fork+, the child process traverses the upper half of
+% the table, and exits with the return code $1$ if it found an element
+% satisfying the predicate \ml+cond+, or $0$ otherwise
+% (lines~\ref{prog:found} and~\ref{prog:searchexit}). The parent process
+% traverses the lower half of the table, then calls \ml+wait+ to
+% sync with the child process (lines~\ref{prog:wexit}
+% and~\ref{prog:wwexit}). If the child terminated normally, it combines
+% its return code with the boolean result of the search in the lower
+% half of the table. Otherwise, something horrible happened, and the
+% function \ml+fork_search+ fails.
+\ml+fork+ された子プロセスはテーブルの上半分を探索し、 \ml+cond+ を満たす要素を見つけた場合は $1$ を、
+それ以外の場合は $0$ をリターンコードとして終了します (~\ref{prog:found} 行目と~\ref{prog:searchexit} 行目)。
+親プロセスはテーブルの下半分を探索し、 \ml+wait+ を呼んで子プロセスと同期します (~\ref{prog:wexit} 行目
+と~\ref{prog:wwexit}行目)。 子プロセスが通常の方法で終了した場合、そのリターンコードと
+テーブルの下半分の探索結果を組み合わせます。
+そうでなければエラーが起こっているので、 \ml+fork_search+ 関数は失敗します。
 \end{example}
 
-In addition to the synchronization between processes, the \ml+wait+
-call also ensures recovery of all resources used by the child
-processes.  When a process terminates, it moves into a \quotes{zombie}
-state, where most, but not all, of its resources (memory, \etc) have
-been freed. It continues to occupy a slot in the process table to
-transmit its return value to the parent via the \ml+wait+ call.
-Once the parent calls \ml+wait+, the zombie process is removed from
-the process table. Since this table is of fixed size, it is important
-to call \ml+wait+ on each forked process to avoid leaks.
+% In addition to the synchronization between processes, the \ml+wait+
+% call also ensures recovery of all resources used by the child
+% processes.  When a process terminates, it moves into a \quotes{zombie}
+% state, where most, but not all, of its resources (memory, \etc) have
+% been freed. It continues to occupy a slot in the process table to
+% transmit its return value to the parent via the \ml+wait+ call.
+% Once the parent calls \ml+wait+, the zombie process is removed from
+% the process table. Since this table is of fixed size, it is important
+% to call \ml+wait+ on each forked process to avoid leaks.
+\ml+wait+ はプロセス間の同期を行いますが、それ以外に子プロセスが持つリソースの完全な開放も行います。
+終了した子プロセスは \quotes{ゾンビ} 状態となり大部分のリソース (メモリなど) が開放されますが、
+子プロセスは \ml+wait+ を呼んだ親プロセスに返り値を伝える必要があるので、
+プロセステーブルのスロットには乗ったままです。
+親プロセスが \ml+wait+ を呼べば、子プロセスはプロセステーブルからも削除されます。
+このテーブルの大きさは固定なので、リークを防ぐためにもフォークした全てのプロセスを \ml+wait+ することが
+重要です。
 
 \label{double-fork}
-If the parent process terminates before the child, the child is
-given the process number~$1$ (usually \ml+init+) as parent. This
-process contains an infinite loop of \ml+wait+ calls, and will
-therefore make the child process disappear once it finishes. This
-leads to the useful \quotes{double fork} technique if you cannot
-easily call \ml+wait+ on each process you create (because you cannot
-afford to block on termination of the child process,
-for example).
+% If the parent process terminates before the child, the child is
+% given the process number~$1$ (usually \ml+init+) as parent. This
+% process contains an infinite loop of \ml+wait+ calls, and will
+% therefore make the child process disappear once it finishes. This
+% leads to the useful \quotes{double fork} technique if you cannot
+% easily call \ml+wait+ on each process you create (because you cannot
+% afford to block on termination of the child process,
+% for example).
+親プロセスが子プロセスよりも先に終了した場合、子の親はプロセス ID が 1 のプロセス
+(普通は \ml+init+) に移ります。
+このプロセスは \ml+wait+ の無限ループを含むので、
+子プロセスは終了するとすぐに回収されます。
+この仕組みによって便利な \quotes{ダブルフォーク} テクニックが使えるようになります。
+このテクニックは子プロセスの終了をブロックして待つことができないときなどに使われます。
 %
 \begin{lstlisting}
 match fork () with
-| 0 -> if fork () <> 0 then exit 0; 
-      (* do whatever the child should do *)
+| 0 -> if fork () <> 0 then exit 0;
+      (* 子プロセスの処理を行う *)
 | _ -> wait ();
-      (* do whatever the parent should do *)
+      (* 親プロセスの処理を行う *)
 \end{lstlisting}
 %
-The child terminates via \ml+exit+ just after the second \ml+fork+.
-The grandson becomes an orphan, and is adopted by \ml+init+.  In this
-way, it leaves no zombie processes. The parent immediately calls
-\ml+wait+ to reap the child. This \ml+wait+ will not block for long
-since the child terminates very quickly.
+% The child terminates via \ml+exit+ just after the second \ml+fork+.
+% The grandson becomes an orphan, and is adopted by \ml+init+.  In this
+% way, it leaves no zombie processes. The parent immediately calls
+% \ml+wait+ to reap the child. This \ml+wait+ will not block for long
+% since the child terminates very quickly.
+子プロセスは二回目のフォークの後すぐに終了します。
+これによって孫プロセスは親を失うので、\ml+init+ の養子となります。
+この方法ではゾンビプロセスが生まれることはありません。
+親はフォーク後すぐに \ml+wait+ を呼んで子を回収します。
+子はすぐに終了するので、この \ml+wait+ が長い間ブロックすることはありません。
+
 
 \medskip
 
-\section{Launching a program}
+% \section{Launching a program}
+\section{プログラムの起動}
 
-The system calls \syscall{execve}, \syscall{execv}, and
-\syscall{execvp} launch a program within the current process.
-Except in case of error, these calls never return: they halt the progress
-of the current program and switch to the new program.
+% The system calls \syscall{execve}, \syscall{execv}, and
+% \syscall{execvp} launch a program within the current process.
+% Except in case of error, these calls never return: they halt the progress
+% of the current program and switch to the new program.
+% システムコール \syscall{execve}、 \syscall{execv}、 そして \syscall{execvp} は
+現在のプロセスでプログラムを起動します。
+現在のプログラムの実行を止めて新しいプログラムに移るので、エラーの場合を除いてこの呼び出しが返ることはありません。
 %
 \begin{listingcodefile}{tmpunix.mli}
 val $\libvalue{Unix}{execve}$ : string -> string array -> string array -> unit
@@ -272,28 +370,37 @@ val $\libvalue{Unix}{execv}$  : string -> string array -> unit
 val $\libvalue{Unix}{execvp}$ : string -> string array -> unit
 \end{listingcodefile}
 %
-The first argument is the name of the file containing the program to
-execute. In the case of \ml+execvp+, this name is looked for in the
-directories of the search path (specified in the environment variable
-\ml+PATH+).
+% The first argument is the name of the file containing the program to
+% execute. In the case of \ml+execvp+, this name is looked for in the
+% directories of the search path (specified in the environment variable
+% \ml+PATH+).
+第一引数は実行するプログラムを含むファイルの名前です。
+\ml+execvp+ を使うとファイルの名前は (環境変数 \ml+PATH+ で指定される) 探索パスのディレクトリから探索されます。
 
-\pagebreak
+% The second argument is the array of command line arguments with which
+% to execute the program; this array will be the \ml+Sys.argv+ array
+% of the executed program.
+第二引数はプログラムを実行するときに渡されるコマンドライン引数の配列です。
+実行するプログラムの中ではこの配列が \ml+Sys.argv+ となります。
 
-The second argument is the array of command line arguments with which
-to execute the program; this array will be the \ml+Sys.argv+ array 
-of the executed program.
+% In the case of \ml+execve+, the third argument is the environment
+% given to the executed program; \ml+execv+ and \ml+execvp+
+% give the current environment unchanged.
+\ml+execve+ を使うと第三引数にプログラムが実行される環境を渡すことができます。
+\ml+execv+ と \ml+execvp+ では現在の環境がそのまま使われます。
 
-In the case of \ml+execve+, the third argument is the environment
-given to the executed program; \ml+execv+ and \ml+execvp+
-give the current environment unchanged.
-
-The calls \ml+execve+, \ml+execv+, and \ml+execvp+ never return a
-result: either everything works without errors and the process starts
-the requested program or an error occurs (file not found, \etc), and
-the call raises the exception \ml+Unix_error+ in the calling program.
+% The calls \ml+execve+, \ml+execv+, and \ml+execvp+ never return a
+% result: either everything works without errors and the process starts
+% the requested program or an error occurs (file not found, \etc), and
+% the call raises the exception \ml+Unix_error+ in the calling program.
+\ml+execve+ と \ml+execv+、そして \ml+execvp+ が結果を返すことはありません。
+エラーが起こること無くプロセスが指定されたプログラムを実行するか、
+実行ファイルが見つからないなどのエラーが起きて呼び出し元のプログラムに \ml+Unix_error+ を
+送出するかのどちらかです。
 
 \begin{example}
-The following three forms are equivalent:
+% The following three forms are equivalent:
+次の三つは同じ動作をします:
 \begin{lstlisting}
 execve "/bin/ls" [|"ls"; "-l"; "/tmp"|] (environment ())
 execv  "/bin/ls" [|"ls"; "-l"; "/tmp"|]
@@ -302,8 +409,10 @@ execvp "ls"      [|"ls"; "-l"; "/tmp"|]
 \end{example}
 
 \begin{example}
-Here is a \quotes{wrapper} around the command \ml+grep+ which
-adds the option \ml+-i+ (to ignore case) to the list of arguments:
+% Here is a \quotes{wrapper} around the command \ml+grep+ which
+% adds the option \ml+-i+ (to ignore case) to the list of arguments:
+受け取った \ml+grep+ コマンドへの引数に \ml+-i+ オプション (大文字と小文字を区別しない) を追加して起動するための
+\quotes{ラッパー} コマンドは以下のように書けます:
 %
 \begin{listingcodefile}{grep.ml}
 open Sys;;
@@ -319,8 +428,9 @@ handle_unix_error grep ();;
 \end{example}
 
 \begin{example}
-Here's a \quotes{wrapper} around the command \ml+emacs+ which
-changes the terminal type:
+% Here's a \quotes{wrapper} around the command \ml+emacs+ which
+% changes the terminal type:
+\ml+emacs+ コマンドをターミナルのタイプを変えて起動するための \quotes{ラッパー} コマンドは以下のように書けます:
 %
 \begin{listingcodefile}{emacs.ml}
 open Sys;;
@@ -332,25 +442,37 @@ handle_unix_error emacs ();;
 \end{listingcodefile}
 \end{example}
 
-The process which calls \ml+exec+ is the same one that executes the
-new program.  As a result, the new program inherits some features of
-the execution environment of the program which called \ml+exec+:
+% The process which calls \ml+exec+ is the same one that executes the
+% new program.  As a result, the new program inherits some features of
+% the execution environment of the program which called \ml+exec+:
+\ml+exec+ を呼んだプロセスは新しいプログラムを実行するプロセスと同じです。
+そのため新しいプログラムは \ml+exec+ を呼んだプログラムの実行環境の一部を引き継ぎ、
+以下に上げるものは同じになります:
 \begin{itemize}
-\item the same process id and parent process
+% \item the same process id and parent process
+  \item プロセス ID と親プロセス
 %% It's strange to say the following since the behavior is defined by
-%% the parent, commented out.  
+%% the parent, commented out.
 %, same behavior in relation to the parent process which called \ml+wait+
-\item same standard input, standard output and standard error
-\item same ignored signals (see chapter~\ref{sec/signals})
+% \item same standard input, standard output and standard error
+  \item 標準出力、標準入力、標準エラー出力
+% \item same ignored signals (see chapter~\ref{sec/signals})
+  \item 無視されるシグナル (\ref{sec/signals} 章を参照)
 \end{itemize}
 
-\section{Complete example: a mini-shell}
+% \section{Complete example: a mini-shell}
+\section{完全な例: ミニシェル}
 
-The following program is a simplified command interpreter: it reads
-lines from standard input, breaks them into words, launches the
-corresponding command, and repeats until the end of file on the
-standard input.  We begin with the function which splits a string into
-a list of words.  Please, no comments on this horror.
+% The following program is a simplified command interpreter: it reads
+% lines from standard input, breaks them into words, launches the
+% corresponding command, and repeats until the end of file on the
+% standard input.  We begin with the function which splits a string into
+% a list of words.  Please, no comments on this horror.
+次のプログラムは単純なコマンドインタープリターです。
+標準入力から行入力を読み、単語ごとに区切り、コマンドを起動し、
+標準入力から EOF を受け取るまでこれを繰り返します。
+文字列を単語のリストに分割する関数から始めます。
+このひどい処理についてはどうかノーコメントとさせてください。
 
 \begin{listingcodefile}{minishell.ml}
 open Unix;;
@@ -372,7 +494,8 @@ let split_words s =
  Array.of_list (split 0 0);;
 \end{listingcodefile}
 %
-We now move on to the main loop of the interpreter.
+% We now move on to the main loop of the interpreter.
+次はインタープリターのメイン処理です:
 %
 \begin{listingcodefile}{minishell.ml}
 let exec_command cmd =
@@ -393,12 +516,16 @@ let print_status program status =
      printf "%s stopped (???)\n%!" program;;
 \end{listingcodefile}
 %
-The function \ml+exec_command+ executes a command and handles errors.
-The return code 255 indicates that the command could not be executed.
-(This is not a standard convention; we just hope that few commands
-terminate with a return code of 255.)  The function
-\ml+print_status+ decodes and prints the status information returned
-by a process, ignoring the return code of 255.
+% The function \ml+exec_command+ executes a command and handles errors.
+% The return code 255 indicates that the command could not be executed.
+% (This is not a standard convention; we just hope that few commands
+% terminate with a return code of 255.)  The function
+% \ml+print_status+ decodes and prints the status information returned
+% by a process, ignoring the return code of 255.
+\ml+exec_command+ 関数がコマンドを実行とエラーの対処を行います。
+リターンコード 255 はコマンドが実行されなかったことを意味します (これは通常の慣習ではありません。
+リターンコード 255 で終了するプログラムはほとんど無いはずだという想定からこのようにしています)。
+\ml+print_status+ は終了プロセスが返した状態をデコードして出力します。
 %
 \begin{listingcodefile}{minishell.ml}
 let minishell () =
@@ -417,29 +544,44 @@ let minishell () =
 
 handle_unix_error minishell ();;
 \end{listingcodefile}
-% 
-Each time through the loop, we read a line from \ml+stdin+ with the
-function \ml+input_line+.  This function raises the \ml+End_of_file+
-exception when the end of file is reached, causing the loop to
-exit. We split the line into words, and then call \ml+fork+.  The
-child process uses \ml+exec_command+ to execute the command.  The
-parent process calls \ml+wait+ to wait for the command to finish and
-prints the status information returned by \ml+wait+.
+%
+% Each time through the loop, we read a line from \ml+stdin+ with the
+% function \ml+input_line+.  This function raises the \ml+End_of_file+
+% exception when the end of file is reached, causing the loop to
+% exit. We split the line into words, and then call \ml+fork+.  The
+% child process uses \ml+exec_command+ to execute the command.  The
+% parent process calls \ml+wait+ to wait for the command to finish and
+% prints the status information returned by \ml+wait+.
+% ループでは毎回 \ml+input_line+ 関数を使って \ml+stdin+ から行入力を読み込みます。
+\ml+input_line+ 関数は EOF に達すると \ml+End_of_file+ を送出するので、これをもってループの終了とします。
+その後は行入力を単語に区切ってから \ml+fork+ を呼び出します。
+子プロセスは \ml+exec_command+ を呼んでコマンドを実行します。
+親プロセスは \ml+wait+ を使ってコマンドの終了を待った後、
+\ml+wait+ の返す子プロセスの状態を出力します。
 
 \begin{exercise}
 \label{shell}
-Add the ability to execute commands in the background if they are
-followed by \ml+&+.
+% Add the ability to execute commands in the background if they are
+% followed by \ml+&+.
+コマンドの最後に \ml+&+ が付いている場合にコマンドをバックグラウンドで実行する機能を追加してください。
 \end{exercise}
 \begin{answer}
-If the command line ends with \ml+&+, we do not call \ml+wait+ in
-the parent process and immediately continue with the next iteration
-of the loop. But there is one difficulty: the parent may now have
-multiple children executing at the same time (the commands in the
-background which haven't terminated yet, plus the last synchronous
-command), and \ml+wait+ could synchronize with any of these children.
-Thus, for synchronous command, \ml+wait+ must be repeated until the
-recovered child is the one actually executing that command.
+% If the command line ends with \ml+&+, we do not call \ml+wait+ in
+% the parent process and immediately continue with the next iteration
+% of the loop. But there is one difficulty: the parent may now have
+% multiple children executing at the same time (the commands in the
+% background which haven't terminated yet, plus the last synchronous
+% command), and \ml+wait+ could synchronize with any of these children.
+% Thus, for synchronous command, \ml+wait+ must be repeated until the
+% recovered child is the one actually executing that command.
+コマンドが \ml+&+ で終わっていた場合には親プロセスが \ml+wait+
+を呼ばずに次のループにすぐに移るようにすればよいです。
+しかし一つ難しいところがあります:
+親プロセスは同時に実行される複数の子プロセスを持つことになるので、
+\ml+wait+ がそのうちのどれとも同期するようになってしまうことです。
+そのため同期的に実行されるコマンドの終了を待っているときには
+回収した子が終了を待っている子であると確認するまで \ml+wait+ を何度も
+呼ぶ必要があります。
 %
 \begin{codefile}{shell.ml}
 open Minishell

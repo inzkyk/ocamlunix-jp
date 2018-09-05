@@ -11,7 +11,7 @@
 \NeedsTeXFormat{LaTeX2e}
 \ProvidesPackage{prelude}
 
-%% Encoding & Fonts 
+%% Encoding & Fonts
 \RequirePackage[T1]{fontenc}
 \RequirePackage{textcomp}
 \RequirePackage{lmodern}
@@ -27,12 +27,13 @@
 
 % PDF meta data & hyperlinks
 \hypersetup{%
+  pdfencoding=unicode,
   pdftitle={\mytitle},
   pdfauthor={\myauthors},
-  pdfsubject={Course on Unix system programming in OCaml},
+  pdfsubject={OCaml による Unix システムプログラミング},
   pdfkeywords={\mykeywords},
   pdfborder={0 0 0.5},
-  pdflang={en-US},
+  pdflang={ja},
   urlbordercolor={0 0 1},
   citebordercolor={1 0 0},
   linkbordercolor={1 0 0}}
@@ -76,7 +77,7 @@
 
 %% Sections & paragraphs
 \setsecnumdepth{section}
-\openright 
+\openright
 \makechapterstyle{mychap}{%
   \renewcommand{\chapterheadstart}{\clearforchapter}
   \renewcommand{\printchaptername}{}
@@ -134,7 +135,7 @@
 \newcommand{\myfancybreak}{\medskip\fancybreak{*\ *\ *}\medskip}
 
 \newenvironment{example}
-{\begingroup\paragraph{Example}}
+{\begingroup\paragraph{例}}
 {\myfancybreak\endgroup}
 
 %% Code listings
@@ -152,8 +153,8 @@
 \addtostream{code}{\the\inputlineno}}
 
 \newenvironment{listingcodefile}[2][]%
-{\setlength{\topsep}{\z@}% 
- \setlength{\partopsep}{\z@}% 
+{\setlength{\topsep}{\z@}%
+ \setlength{\partopsep}{\z@}%
  \setlength{\parskip}{\z@}%
  \renewcommand{\verbatim@processline}%
                {\addtostream{code}{\the\verbatim@line}%
@@ -244,7 +245,7 @@
 {\table\centering\vspace{\onelineskip}}%
 {\endtable}
 \renewcommand{\tablename}{Table}
-\renewcommand{\arraystretch}{1.4} 
+\renewcommand{\arraystretch}{1.4}
 
 \captiondelim{~---~}
 \captionnamefont{\normalfont\normalsize}
