@@ -27,7 +27,7 @@
 
 %% Page geometry
 \newstyle{*}{ padding: 0em; border: 0em; margin: 0em;
-              font-family: georgia, serif; font-weight: normal;
+              font-family: font-family: 'ヒラギノ角ゴシック','Hiragino Sans',sans-serif; font-weight: normal;
               font-size: 100\%;}
 
 \newstyle{BODY} { margin: 2em 10\% 2em 10\%;
@@ -35,7 +35,7 @@
                   background: white; color: black;
                   max-width: 75ex; min-width: 40ex;}
 
-%% Typewriter 
+%% Typewriter
 \newstyle{TT}{font-family:monospace;}
 \newstyle{TT A}{font-family:monospace;}
 \newstyle{B} {font-weight: bold }
@@ -44,7 +44,7 @@
 \newstyle{A}{color: blue; text-decoration : none }
 \newstyle{.titlerest SUP}{ font-size: 70\%; padding-right:0.5ex }
 
-%% Title 
+%% Title
 \newstyle{.title}{ margin:0em; border: 0em; padding: 0em; border-spacing:0px;}
 \newstyle{.title *}{ margin-left:0em; padding-left: 0em; border-style:none}
 \newstyle{.titlemain}{font-size: 180\%;}
@@ -53,7 +53,7 @@
 %% Copyright notice
 \newenvironment{copyrightnotice}
    {\@open{DIV}{class="copyrightnotice"}}{\@close{DIV}}
-\newstyle{.copyrightnotice}{ margin-top: 2em; 
+\newstyle{.copyrightnotice}{ margin-top: 2em;
 			     margin-bottom: 1em;
                              font-size: 80\%;
                              text-align: left}
@@ -64,19 +64,19 @@
    {\@open{DIV}{class="abstract"}}{\@close{DIV}}
 \newstyle{.abstract}{ margin-top: 1em }
 
-%% Lists 
+%% Lists
 \newstyle{UL} { padding-top: 1ex; }
 \newstyle{LI} { padding-top: 1ex; }
 
 %% Sections & paragraphs
 \renewcommand{\chaptername}{} % No chapter name.
-\newstyle{.chapter} { margin-top:2ex; font-size: 180\%; 
+\newstyle{.chapter} { margin-top:2ex; font-size: 180\%;
 		      text-align:left; line-height:130\%; }
 \newstyle{.chapter A} { color: black  } % number
 \newstyle{.section} { font-size: 140\%; margin-top: 1.5em; text-align:left}
 \newstyle{.section A} { color: black } % number
 \newstyle{.subsection} { font-weight: bold; margin-top: 1em; text-align:left}
-\newstyle{.paragraph} { font-weight: bold; display:inline-block; 
+\newstyle{.paragraph} { font-weight: bold; display:inline-block;
 		        padding-top: 1em; padding-right: 1em}
 \newstyle{P}{ padding-top : 1em }
 \newstyle{.paragraph + P}{ padding-top : 0em; display: inline; }
@@ -88,11 +88,11 @@
 
 % Chapter
 \newstyle{.toc .li-toc} { padding-top: 1.5em}
-\newstyle{.toc .li-toc A}{ font-weight: bold } 
+\newstyle{.toc .li-toc A}{ font-weight: bold }
 
 % Section
 \newstyle{.toc .li-toc .toc .li-toc} { padding-top: 0.5ex }
-\newstyle{.toc .li-toc .toc .li-toc A }{ margin-left:1.5em; 
+\newstyle{.toc .li-toc .toc .li-toc A }{ margin-left:1.5em;
 	                                 font-weight: normal }
 
 \setcounter{cuttingdepth}{0}
@@ -103,9 +103,9 @@
 %% Suppress HeVeA footer
 \setboolean{footer}{false}
 
-%% Rules 
-\newstyle{HR} { margin: 1em 0em 1em 0em;  
-	        border-width: thin; 
+%% Rules
+\newstyle{HR} { margin: 1em 0em 1em 0em;
+	        border-width: thin;
 		border-bottom-style: solid;}
 
 %% Index
@@ -113,7 +113,7 @@
 \newstyle{.li-indexenv}{list-style-type : none}
 \newstyle{.li-indexenv B A}{font-weight : bold}
 \let \oldindexenv\indexenv
-\def \indexenv {\preindexhook \oldindexenv} 
+\def \indexenv {\preindexhook \oldindexenv}
 
 %% Fancy breaks
 \newcommand{\myfancybreak}{\@open{DIV}{class="fancybreak"}*\ *\ *\@close{DIV}}
@@ -122,7 +122,7 @@
 %% Examples
 \setenvclass{example}{example}
 \newenvironment{example}%
-{\@open{DIV}{class="example"}\paragraph{Example}}
+{\@open{DIV}{class="example"}\paragraph{例}}
 {\myfancybreak\@close{DIV}}
 %\newstyle{DIV.example}{ }
 
@@ -131,9 +131,9 @@
 \newstyle{CODE}{font-family:monospace; white-space:pre;}
 \newstyle{DIV.mylisting}{ padding-top : 1em; font-family:monospace;
 		       white-space:pre; margin-right:auto;
-		       margin-left:0ex; text-align:left;} 
+		       margin-left:0ex; text-align:left;}
 \newstyle{.mylisting b}{ font-family:monospace; font-weight : bold }
-\newstyle{.mylisting FONT} { font-family:monospace; 
+\newstyle{.mylisting FONT} { font-family:monospace;
 		             font-size: 70\% !important;
 		             margin-left: -3.1em }
 \newstyle{.mylisting A} { font-family:monospace; color : \#0000A0 }
@@ -143,11 +143,11 @@
 \newenvironment{codefile}[1]{\begin{latexonly}}{\end{latexonly}}
 
 \newenvironment{mltypecases}%
-{\@open{DIV}{class="mltypecases"}} 
+{\@open{DIV}{class="mltypecases"}}
 {\@close{DIV}}
 
 \newstyle{.mltypecases TD:first-child}{ padding-left:0em }
-\newstyle{.mltypecases TABLE}{ border-spacing:0px 6px !important; 
+\newstyle{.mltypecases TABLE}{ border-spacing:0px 6px !important;
 		               margin-top: 0em; }
 
 %% Exercises
@@ -157,9 +157,9 @@
 {\stepcounter{exercise}%
  \renewcommand{\exerciseanswer}{#1}%
  \@open{DIV}{class="exercise"}%
- \paragraph{Exercise~\theexercise}\label{ex\theexercise}}
+ \paragraph{練習問題~\theexercise}\label{ex\theexercise}}
 {\ifthenelse{\equal{\exerciseanswer}{noanswer}}{}%
- {\ahrefloc{exans\theexercise}{Answer}.}%
+ {\ahrefloc{exans\theexercise}{解答}}%
  \myfancybreak\@close{DIV}}
 
 \setenvclass{exercise}{exercise}
@@ -168,7 +168,7 @@
  \begin{cutflow}{Answer of exercise~\theexercise}%
  \cutname{exercise\theexercise .html}%
  \@open{DIV}{class="answer"}%
- \paragraph{Answer of \ahrefloc{ex\theexercise}{exercise~\theexercise}}
+ \paragraph{練習問題~\ahrefloc{ex\theexercise}{exercise~\theexercise} の解答}
  \label{exans\theexercise}}
 {\myfancybreak\@close{DIV}\end{cutflow}}
 
@@ -190,7 +190,7 @@
 
 \newstyle{DIV.figure}{ margin-top:1em;
                        padding-bottom:1em;
-	               border-width: thin; 
+	               border-width: thin;
 		       border-bottom-style: solid;
                        border-top-style: solid;
                        text-align: center; }
@@ -207,8 +207,8 @@
 \newstyle{TR} {margin-top: 4ex }
 \newstyle{TD}{ padding-left: 2ex; padding-top:1ex }
 \newstyle{.hbar}{background-color:white;
-                 border-width:thin; 
-		 border-top-style: solid; 
+                 border-width:thin;
+		 border-top-style: solid;
 		 padding-top: 0em;
 		 height:0px;}
 
