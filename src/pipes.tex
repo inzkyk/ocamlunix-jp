@@ -34,7 +34,7 @@
 並列に実行されるプロセス同士がやり取りを行う手段として通常ファイルは十分ではありません。
 例えば一つのファイルにあるプロセスが書き込み、その内容を別のプロセスが読み込む状況を考えてみてください。
 やり取りの手段としてファイルを使った場合、読み込み側はファイルが終端に達したことを (\ml+read+ が 0 を返すことで)
-検出することができますが、その理由が書き込みが終わったためなのかそれとも計算がまだ続いているためなのかを知ることはできません。
+検出することができますが、その理由が書き込みが終わったためなのかそれとも計算に時間がかかっているためなのかを知ることはできません。
 さらにファイルはやり取りされるデータを全て保持する必要があるので、ディスクを不必要に圧迫します。
 
 % Pipes provide a mechanism suitable for this kind of communication. A
@@ -189,7 +189,7 @@ match fork () with
 パイプの入力へのディスクリプタが全てクローズされかつパイプが空のとき、
 パイプの出力への \ml+read+ は 0 (ファイルの終端) を返します。
 パイプの出力へのディスクリプタが全てクローズされているとき、
-パイプの入力への \ml+write+ は書き込みプロセスを終了せます。
+パイプの入力への \ml+write+ は書き込みプロセスを終了させます。
 より正確に言うと、カーネルが \ml+write+ を呼んだプロセスに \ml+sigpipe+ シグナルを送り、
 このシグナルのデフォルトの動作がプロセスの終了です。
 \ml+sigpipe+ シグナルのハンドラが変更していた場合は、 \ml+write+ は \ml+EPIPE+ エラーを出して失敗します。
@@ -326,7 +326,7 @@ val $\libvalue{Pervasives}{input\_binary\_int}$ : in_channel -> int
 まず、整数をバイト表現に変換する関数を作る必要がありません\footnote{ここで紹介したライブラリ関数
   によって使われる内部表現は規定されていませんが、言語のバージョンが同じならばプラットフォーム非依存である
   ことが保証されています。}。
-さらに、これらの関数はバッファされた \io を使うことのでシステムコールの回数が減り、パフォーマンスが上昇します。
+さらに、これらの関数はバッファされた \io を使うのでシステムコールの回数が減り、パフォーマンスが上昇します。
 次の関数は \io をバッファするための \ml+in_channel+ または \ml+out_channel+ を作成します。
 %
 \begin{listingcodefile}{tmpunix.mli}
@@ -355,9 +355,9 @@ val $\indexlibvalue{Unix}{out\_channel\_of\_descr}$ : file_descr -> out_channel
 % reads \ml+count+ prime numbers on \ml+input+ (an \ml+in_channel+) and eliminates
 % multiples of the primes already read. These \ml+count+ primes are
 % displayed as soon as they are read and we return them in a list.
-フィルタープロセスの話を勧めます。
+フィルタープロセスの話を進めます。
 このプロセスは補助関数 \ml+read_first_primes+ を使用します。
-\ml+read_first_primes input count+ は \ml+count+ 個の素数を \ml+input+ (\ml+in_channel+) から
+\ml+read_first_primes input count+ は \ml+count+ 個の素数を \ml+input+ (\ml+in_channel+ 型の値) から
 読み、すでに計算された素数は読み飛ばします。
 \ml+count+ 個の素数は読み込まれた時点で出力され、計算された素数を保存するリストに入ります。
 %
@@ -454,7 +454,7 @@ handle_unix_error sieve ();;
 入力へのディスクリプタをクローズします。
 \ocaml はプロセスが終了するときに書き込みモードで開かれたディスクリプタのバッファを空にすることから、
 子プロセスは親プロセスが書き込んだ最後の整数まで読みきることができます。
-その子プロセスが終了するときに継いても同様です。
+その子プロセスが終了するときについても同様です。
 そのためこのプログラムでは子プロセスは一時的に親を失って \ml+init+ の子となります
 
 % If \ml+k+ is not given, all processes continue indefinitely until one or
@@ -484,7 +484,7 @@ handle_unix_error sieve ();;
 % is lost).  Concretely, the line~\ref{prog:gen} of the \ml+sieve+
 % function needs to be replaced by:
 親プロセスは子プロセスを待たなくてはいけませんが、そのまえに
-出力を子プロセスが読み込むパイプの入力を親が閉じる必要ががあります。
+子プロセスが読み込むパイプへの入力を親が閉じる必要があります。
 これを閉じなかった場合子プロセスは次の整数が来るのを永遠に待つことになり、
 デッドロックを引き起こします (チャンネルを閉じると対応するディスクリプタのバッファが空になるので、
 データが失われることはありません)。具体的には \ml+sieve+ 関数の~\ref{prog:gen} 行目を以下のようにします:
@@ -494,10 +494,11 @@ generate len output;
 close_out output;
 ignore(waitpid [] p);;
 \end{lstlisting}
-Accordingly, we enclose the
-lines~\ref{prog:sievefilterwhile}--\ref{prog:sievefilterdone} of the
-\ml+filter+ function (represented by \ml+...+ below) with the
-following lines:
+% Accordingly, we enclose the
+% lines~\ref{prog:sievefilterwhile}--\ref{prog:sievefilterdone} of the
+% \ml+filter+ function (represented by \ml+...+below) with the
+% following lines:
+そして \ml+filter+ 関数の \ref{prog:sievefilterwhile}--\ref{prog:sievefilterdone} 行目 (\ml+...+ で表されている部分) を次のコードで覆います。
 \begin{lstlisting}
 try
   ...
@@ -519,8 +520,8 @@ with End_of_file ->
 この実行によって出力のバッファを空にするシステムコールが呼ばれるので、
 プログラムの実行速度が制限されます。
 \ml+print_newline ()+ は \ml+print_char '\n'+ と \ml+flush Pervasives.stdout+ を実行しますが、
-\ml+print_newline ()+ を \ml+print_char '\n'+ とした場合何が起こるでしょうか ?
-この問題を解決するにはどうすればよいでしょうか ?
+フラッシュを省略して \ml+print_newline ()+ を \ml+print_char '\n'+ と置き換えた場合何が起こるでしょうか?
+この問題を解決するにはどうすればよいでしょうか?
 \end{exercise}
 \begin{answer}
 % Since the child process is an exact copy of the parent, \io{}
@@ -629,7 +630,7 @@ val $\indexlibvalue{Unix}{set\_nonblock}$ : file_descr -> unit
 ここまでの説明では、シェルが \ml+cmd1 | cmd2+ のようなコマンドを実行するときのように
 標準入出力をパイプに接続する方法はわかりません。
 \ml+pipe+ で作ったパイプの両端を指すのは \emph{新しい} ディスクリプタであり、
-\ml+stdin+ や \ml+stdout+、 \ml+stderr+ ではありません。
+\ml+stdin+ や \ml+stdout+、 \ml+stderr+ ではないからです。
 
 % To address this problem, Unix provides the system call \syscall{dup2}
 % (read: \quotes{\emph{dup}licate a descriptor \emph{to} another
@@ -767,8 +768,8 @@ match fork () with
 \ml+cmd1+ が \ml+cmd2+ よりも前に終了すると何が起こるでしょうか?
 \ml+cmd1+ が終了すると全ての開かれているディスクリプタが閉じられるので、
 パイプの入力を指すディスクリプタがなくなります。
-結果として \ml+cmd2+ がパイプにあるデータを全て読んだ次の読み込みは EOF を返します。
-\ml+cmd2+ は標準入力が末尾に達したときの動作を行います~---~例えば終了するなど。
+結果として \ml+cmd2+ がパイプにあるデータを全て読んだ次の読み込みで EOF を読み込みます。
+\ml+cmd2+ は標準入力が末尾に達したときの動作を行います~---~例えば終了するなどです。
 
 %% I commented out these examples, the problem is that you need
 %% more assumptions on foo bar gee files for them to be understandable.
@@ -1115,8 +1116,7 @@ Unix マシン上の異なるプロセスに接続するためにクライアン
 % messages with the following structure:
 Unix マシンとクライアントの間には物理的な接続が一つしか無いことから、
 データの送受信を分割してウィンドウとプロセスの間に仮想的な接続を多重化する必要があります。
-次のプロトコルを使用します。
-シリアルポートでは以下のようにメッセージを送ります:
+シリアルポートには次のプロトコルを使用してメッセージを送ります:
 
 %
 \begin{itemize}
@@ -1224,11 +1224,11 @@ process/.style={draw,rectangle,inner sep=1mm, rounded corners,
 \begin{myimage}[width="100\%"]
 \begin{tikzpicture}
 \node (dev) at (0,0) [fd] {\texttt{/dev/ttya}};
-\node (demux) at (3,0) [process, font=\fontsize{5pt}{5pt}\selectfont] {逆多重化};
+\node (demux) at (3,0) [process] {逆多重化};
 \node (shell) at (5.5,0.75) [process] {\texttt{shell}};
 \node (emacs) at (5.5,-0.75) [process] {\texttt{emacs}};
-\node (rep1) at (8,0.75) [process, font=\fontsize{5pt}{5pt}\selectfont] {リピータ};
-\node (rep2) at (8,-0.75) [process, font=\fontsize{5pt}{5pt}\selectfont] {リピータ};
+\node (rep1) at (8,0.75) [process] {リピータ};
+\node (rep2) at (8,-0.75) [process] {リピータ};
 \node (dev2) at (11,0) [fd] {\texttt{/dev/ttya}};
 \draw[->] (dev) to (demux);
 \draw[->] (demux) to (shell.west);
@@ -1255,10 +1255,10 @@ process/.style={draw,rectangle,inner sep=1mm, rounded corners,
 各ユーザプロセスの出力は独立して転送されることから、ブロッキングの問題は解決されます。
 しかしこの方法を使うとプロトコルが破られる場合があります。
 二つのリピータが同時にメッセージを書き込んだ場合、 Unix カーネルはそれらの書き込みの原始性、
-すなわち書き込みが割り込まれることなく行われなければいけないことに気が付きません。
-そのため書き込みはあるメッセージの一部を送り、その次に別のメッセージを送ってから、
+すなわち書き込みが割り込まれることなく行われなければいけないことを考慮することができません。
+そのため書き込みは最初にメッセージの一部を送り、その次に別のメッセージを送ってから、
 最初のメッセージの残りの部分を送るかもしれません。
-場合クライアントの多重化プロセスはこれに対処できず、
+クライアントの多重化プロセスはこれに対処できず、
 二番目のメッセージを最初のメッセージの後半部分と解釈し、
 それ以降のデータを次のデータのヘッダと解釈するでしょう。
 
@@ -1304,8 +1304,8 @@ process/.style={draw,rectangle,inner sep=1mm, rounded corners,
 \quotes{ビジーウェイト} と呼ばれることを行うためです。
 この非効率性は読み込みループに \ml+sleep+ を入れることで緩和できますが、
 残念ながら \ml+sleep+ する正しい時間を見つけるのはとても難しいです。
-\ml+sleep+ が短いとデータが少ないときにプロセッサに無駄な負荷がかかりますが、
-\ml+sleep+ が短いとデータが多いときに知覚可能なレベルの遅延を引き起こします。
+\ml+sleep+ が短いとデータが少ないときにプロセッサに無駄な負荷がかかり、
+\ml+sleep+ が短いとデータが多いときに知覚可能なレベルの遅延を引き起こすためです。
 
 % This is a serious problem. To solve it, the designers of \textsc{bsd}
 % Unix introduced a new system call, \ml+select+, which is now
@@ -1369,7 +1369,7 @@ val $\libvalue{Unix}{select}$ :
 \ml+select+ はディスクリプタのリストの三つ組を返します。
 最初の要素が読み込みの準備ができたディスクリプタを、
 二つ目の要素が書き込みの準備ができたディスクリプタを、
-三つ目の要素が例外的な条件が真となったディスクリプタを、それぞれ表します。
+三つ目の要素が例外的な条件が真となったディスクリプタをそれぞれ表します。
 イベントが起こる前にタイムアウトした場合、これら三つのリストは全て空です。
 
 \begin{example}
@@ -1505,7 +1505,7 @@ let multiplex channel inputs outputs =
 % We get out of the loop when \ml+really_read+ raises the exception
 % \ml+End_of_file+, which indicates an end of file on the
 % serial port.
-\ml+really_read+ が \ml+End_of_file+ 例外を送出したら一番外側のループを抜けます。
+\ml+really_read+ が \ml+End_of_file+ 例外を出したら一番外側のループを抜けます。
 この例外はシリアルポートが EOF に達したことを意味します。
 \end{example}
 
@@ -1517,7 +1517,7 @@ let multiplex channel inputs outputs =
 \ml+Unix+ モジュールの \ml+write+ 関数は要求されたデータがバイト数まで全て書き込まれ終わる
 までシステムコール \syscall{write} を呼び続けます。
 \begin{listingcodefile}{tmpunix.mli}
-val $\libvalue{Unix}{write}$ : file_descr -> string -> int -> int -> int
+val $\libvalue{Unix}{write}$ : file_descr -> byte -> int -> int -> int
 \end{listingcodefile}
 %
 % However, when the descriptor is a pipe (or a socket, see
@@ -1530,7 +1530,7 @@ val $\libvalue{Unix}{write}$ : file_descr -> string -> int -> int -> int
 % \ml+write+ of the \ml+Unix+ module useless in the presence of signals.
 しかしディスクリプタがパイプ (あるいはソケット、 \ref{sec/sockets} 参照) だった場合、
 書き込みはブロックしシステムコール \ml+write+ はシグナルによって中断する可能性があります。
-このような場合には \ocaml の \ml+Unix.write+ は中断され \ml+EINTR+ エラーが送出されます。
+このような場合には \ocaml の \ml+Unix.write+ は中断され \ml+EINTR+ エラーが出ます。
 ここで問題となるのはシステムコール \ml+write+ によってデータの一部が書き込まれたにも関わらず
 そのサイズがわからないまま失われてしまうということです。
 このためシグナルがある状況では \ml+Unix+ モジュールの \ml+write+ は役に立たなくなってしまいます。
@@ -1541,7 +1541,7 @@ val $\libvalue{Unix}{write}$ : file_descr -> string -> int -> int -> int
 この問題を解決するために、 \ml+Unix+ モジュールには \ml+single_write+ という名前の \quotes{生の}
 システムコールがあります。
 \begin{listingcodefile}{tmpunix.mli}
-val $\libvalue{Unix}{single\_write}$ : file_descr -> string -> int -> int -> int
+val $\libvalue{Unix}{single\_write}$ : file_descr -> byte -> int -> int -> int
 \end{listingcodefile}
 % With \ml+single_write+, if an error is raised it is guaranteed that no
 % data is written.
@@ -1553,8 +1553,8 @@ val $\libvalue{Unix}{single\_write}$ : file_descr -> string -> int -> int -> int
 % section of the {\ocaml} manual). The following code is written in the file
 % \ml+single_write.c+:
 この説の残りではこの関数をどうやって実装するかを示します。
-基本的にこれは \ocaml と C の間のインターフェースの問題です (\ocaml にはこのトピックの情報が載っています) 。
-次のコードは \ml+single_write.c+ に保存されます。
+基本的にこれは \ocaml と C の間のインターフェースの問題です (\ocaml のマニュアルにはこの話題に関する情報が載っています) 。
+次のコードは \ml+single_write.c+ に保存されます:
 %
 \begin{listingcodefile}[style=numbers]{single_write.c}
 #include <errno.h>
@@ -1591,7 +1591,7 @@ CAMLprim value caml_single_write
 % functions of the {\ocaml} Unix library.
 最初の二行は標準の C ヘッダをインクルードします。
 その次の四行はディストリビューションと共にインストールされる \ocaml 特有の C ヘッダをインクルードします。
-\ml+unixsupport.h+ ヘッダは \ocaml の Unix ライブラリの再利用可能な C の関数を定義しています。
+\ml+unixsupport.h+ ヘッダは \ocaml の Unix ライブラリが持つ再利用可能な C の関数を定義しています。
 
 % The most important line is the call to \ml+write+. Since the call may
 % block (if the descriptor is a pipe or a socket) we need to release the
@@ -1617,7 +1617,7 @@ CAMLprim value caml_single_write
 % call (indicated by a negative return value) it is propagated to
 % {\ocaml} by the function \ml+uerror+, defined in the {\ocaml} Unix library.
 システムコールの間に \ocaml はガベージコレクションが実行され、
-\ocaml の文字列 \ml+buf+ がメモリ内を移動する可能性があります
+\ocaml の文字列 \ml+buf+ がメモリ内を移動する可能性があります。
 この問題を解決するために \ml+buf+ を C の文字列 \ml+iobuf+ にコピーします。
 これには追加のコストがかかりますが、10\% 前後のオーダーです (50\% 程度と考えるかもしれませんが、そうではありません)。
 関数全体のコストはシステムコールがほとんどを占めるためです。
@@ -1691,8 +1691,8 @@ ocamlc -o main.byte unix.cma write.cma main.ml
 % atomicity of \ml+write+ (guaranteed for regular files) is thus not
 % guaranteed for long writes. This difference is generally insignificant but one should
 % be aware of it.
-\ml+single_write+ の動作はシステムコール \ml+write+ にできるだけ似せてありますが、
-書き込む文字列がとても長い場合の動作だけことなります。
+\ml+single_write+ の動作はシステムコール \ml+write+ によく似ていますが、
+書き込む文字列がとても長い場合の動作だけ異なります。
 文字列が \ml+UNIX_BUFFER_SIZE+ よりも長い場合一度のシステムコールで全てのデータを書き込む
 ことができないので、システムコールは繰り返されます。
 そのため \ml+write+ の原子性 (通常ファイルに対しては成り立ちます) は

@@ -36,9 +36,9 @@
 % only through system calls (like reading or writing a file or a pipe).
 \indexvalue{fork} は現在のプロセスのコピーを
 作成します (したがってプログラムのコピーも作成します) が、スレッドの作成はこれとは大きく異なります。
-フォークを行った場合、親プロセスと子プロセスのアドレス空間は完全に分離し、
+フォークを行った場合親プロセスと子プロセスのアドレス空間は完全に分離し、
 二つのプロセスは (ファイルやパイプに対する入出力といった) システムコールを通じてでしか
-やり取りするやり取りをすることができません。
+やり取りをすることができません。
 
 % In contrast, all the threads within a program share the same address
 % space. The only information that is not shared, and differentiates one
@@ -60,7 +60,7 @@
 プログラムが始まって最初に作られるスレッドは別です。
 このスレッドが終了すると、そのプログラムが持つ全てのスレッドが終了し
 したがってプログラム全体が終了します
-(これから複数のスレッドといった場合、考えているプログラム内の複数のスレッドを
+(これから複数のスレッドといった場合には考えているプログラム内の複数のスレッドを
 意味し、別のプログラム内で動いているスレッドのことは意味しないことにします)。
 
 % But unlike coroutines, which pass control explicitly from one to another
@@ -105,7 +105,7 @@
 一方、スレッドを使うとスレッド同士の同期を管理しなければならず、
 スレッドが致命的なエラーを出す場合にも対処する必要があります。
 例えばスレッドは停止する前にロックを開放し不変量が保存されるようにする必要があります。
-上記の利点の後者による恩恵があまりないのであればスレッドよりもプロセスのほうが望ましいでしょう。
+上記の利点による恩恵があまりないのであればスレッドよりもプロセスのほうが望ましいでしょう。
 
 % \paragraph{Implementation in {\ocaml}}
 \paragraph{{\ocaml} における実装}
@@ -235,8 +235,8 @@ let co_treatment server_sock service (client_descr, _ as client) =
 % \ml+client_descr+.  Otherwise, we close the \ml+client_descr+
 % descriptor, the client is abandoned, and we let the main program
 % handle the error.
-スレッドの作成に作成して場合、
-\ml+client_descr+ を閉じることを含んだサービスは \ml+service+ 関数によって処理されます。
+スレッドの作成に成功した場合、
+サービスと \ml+client_descr+ を閉じる処理は \ml+service+ 関数によって処理されます。
 スレッドの作成に失敗した場合、
 ディスクリプタ \ml+client_descr+ を閉じてクライアントを放棄し、
 エラーに対する処理をメインプログラムに任せます。
@@ -285,7 +285,7 @@ let co_treatment server_sock service (client_descr, _ as client) =
 
 
 % \section{Waiting}
-\section{ウェイト}
+\section{スレッドの終了待ち}
 
 % The functions described in this section are defined in the
 % \libmodule{Thread} module.\medskip
@@ -360,7 +360,6 @@ let v1 = coexec succ 4 and v2 = coexec succ 5 in v1 () + v2 ();;
 % up control explicitly, without waiting for preemption by the system.
 システムは他のスレッドに制御を移すため、あるいはスレッドが他のスレッドやプロセスが利用中のリソース
 (例えばロックや条件変数、ファイルディスクリプタ) を待つために、スレッドを停止することができます。
-スレッドは自分自身の実行を停止することができます。
 \ml+yeild+ 関数を使うとシステムによるプリエンプションを待つことなく明示的に実行を停止することができます。
 %
 \begin{listingcodefile}{tmpthread.mli}
@@ -380,8 +379,8 @@ val $\indexlibvalue{Thread}{yield}$ : unit -> unit
 % this right sufficiently often to permit other threads to execute and
 % to give the illusion that the threads are running in parallel, even on
 % a uniprocessor machine.
-逆に、他のスレッドが実行されるためには \ml+yeild+ を呼ばなくてはいけないわけではありません。
-システムは \ml+yeld+ コマンドを任意のタイミングで実行する権限を持っているからです。
+また他のスレッドが実行されるためには \ml+yeild+ を呼ばなくてはいけないわけではありません。
+システムは \ml+yield+ コマンドを任意のタイミングで実行する権限を持っているからです。
 実際にはシステムはこの権限を頻繁に使って他のスレッドを実行し、
 プロセスが一つしか無いマシンでもスレッドが並列に実行されているように見せています。
 
@@ -461,7 +460,7 @@ let search v = let r = simple_search pcond v in found := !found && r
 % this case, the difference in behavior between a sequential search and
 % a parallel search becomes obvious.
 特定の要素へのアクセスがとても大きなレイテンシを持つという場合があり、
-とくにネットワーク越しにデータを取得しなければいけない場合にはレイテンシが数百倍となります。
+とくにネットワーク越しにデータを取得しなければいけない場合にはレイテンシが他の要素に比べて数百倍となります。
 このようなケースではシーケンシャルな探索と並列な探索の差が明確になります。
 \medskip
 \begin{exercise}
@@ -474,8 +473,8 @@ let search v = let r = simple_search pcond v in found := !found && r
 % done recursively on independent sub-arrays.  This can be delegated to
 % threads whose only synchronization is to wait for all the threads to
 % finish their sorting, in order for the sub-array to be sorted.
-クイックソートは目的の配列を分割した配列を再帰的にソートしますが、
-この分割した配列に対するソートは独立に行えるので並列化はしやすいです。
+クイックソートは目的の配列を分割した配列を再帰的にソートし、
+この分割した配列に対するソートは独立に行われるので並列化はしやすいです。
 クイックソートを実行するスレッドにおける唯一の同期は
 分割した配列のソートが終わるのを待つ部分だけです。
 
@@ -576,7 +575,7 @@ val $\indexlibvalue{Thread}{delay}$ : float -> unit
 シミュレートされたスレッドが \ml+Unix+ モジュールの \ml+select+ を呼ぶとプログラム全体すなわち
 全てのスレッドをブロックしてしまうために、\ml+Thread+ モジュールはこの関数を再定義しています。
 ネイティブスレッドを利用するプログラムでは \ml+Unix.select+ と \ml+Thread.select+ の動作に違いはありませんが、
-この理由から \ml+Unix+ モジュールではなく \ml+Thread+ モジュールの \libvalue{Thread}{select} 関数を使うことが
+この理由からネイティブスレッドを利用するプログラムでも \ml+Unix+ モジュールではなく \ml+Thread+ モジュールの \libvalue{Thread}{select} 関数を使うことが
 必要になります。
 
 \begin{example}
@@ -812,7 +811,7 @@ let addtocounter c k =
 ある関数を実行する間ロックを保持するというパターンがよく必要になります。
 このパターンでは関数が成功するか失敗するかにかかわらず最後にロックを
 開放することが当然必要になります。
-この処理を次のライブラリ関数に中傷します:
+この処理を次のライブラリ関数にまとめます:
 \begin{codefile}{misc.mli}
 val run_with_lock : Mutex.t -> ('a -> 'b) -> 'a -> 'b
 \end{codefile}
@@ -1016,7 +1015,7 @@ let regexp_match r string =
 % \ml+Str.matched_group+ functions individually.
 変更は最小限だと言えるでしょう。
 \ml+regexp_match+ 関数が正規表現に対するマッチングとマッチしてグループの
-取得を両方を含むことを指摘しておくべきでしょう。
+取得を両方を含むことを指摘しておきます。
 \ml+Str.string_match+ と \ml+Str.matched_group+ を個別にロックで防御するのは
 完全な間違いです。
 
@@ -1027,8 +1026,8 @@ let regexp_match r string =
 % would be for the \ml+Str+ library to be re-entrant in the first place.
 もう一つの解法は \ml+Str+ ライブラリを使わずに解析関数を書き直すことです。
 しかしライブラリ関数を同期して実行するのは簡単であり、実行を遅くしないことが
-分かっているので、この方法を取るべき理由は何もありません。
-また \ml+Str+ が最初から再入可能であればそのほうが良かったでしょう。
+実行すれば分かるので、この方法を取るべき理由は何もありません。
+ただ \ml+Str+ が最初から再入可能であればそのほうが良かったでしょう。
 
 % The other functions that are called are already re-entrant, in particular
 % the \ml+Misc.retransmit+ function that allocates different buffers for
@@ -1065,7 +1064,7 @@ let regexp_match r string =
 プロセスの終了と違ってスレッドの終了は (共有された) ディスクリプタを閉じないからです。
 接続処理中にエラーが起きても接続は開いたままなので、 \ml+Exit+ 例外を出して最終処理を行うようにする
 必要があります。そして \ml+treat_connection+ 関数は \ml+EPIIE+ だけでなく \ml+Exit+ を含んだ全ての
-例外を補足しなければいけません。関数を例外を捕捉用に呼び出す関数を使ってこれを行います:
+例外を補足しなければいけません。例外を捕捉するように関数を呼び出す関数を使ってこれを行います:
 %
 \begin{codefile}{thurl.ed}
 .
@@ -1154,7 +1153,7 @@ wq
 キューに新しい要素が足されることはないからです。
 だとすれば、キューが空でないことをどうやって知ることができるでしょうか?
 キューの状態を定期的にチェックする方法は \quotes{ビジーウェイト} と呼ばれ、望ましい解決法ではありません。
-(周期が短ければ) 計算機のサイクルを無駄遣いし、 (周期がながければ) 反応時間が長くなるからです。
+(周期が短ければ) 計算機のサイクルを無駄遣いし、 (周期が長ければ) 反応時間が長くなるからです。
 
 % \emph{Conditions} provide a solution to this problem.  A thread that
 % holds a lock can wait for a condition object until another thread
@@ -1198,7 +1197,7 @@ val $\libvalue{Condition}{wait}$ : t -> Mutex.t -> unit
 % \ml+v+.  The behavior of \ml+wait c v+ with respect to signals is the
 % same as for \ml+Mutex.lock+.
 ロック \ml+v+ を取得していない状態で \ml+wait c v+ を呼ぶとエラーとなります。
-またシグナルに対する \ml+wait c v+ の動作は \ml+Mutex.lock+ を同じです。
+またシグナルに対する \ml+wait c v+ の動作は \ml+Mutex.lock+ と同じです。
 
 % When a thread signals a change on a condition, it can either ask for
 % all threads waiting on that condition to be woken up
@@ -1217,7 +1216,7 @@ val $\libvalue{Condition}{broadcast}$ : t -> unit
 % holding a lock (unlike waiting), in the sense that it will not trigger
 % a \quotes{system} error.
 条件変数のシグナルの送信またはブロードキャストは (\ml+wait+ と違って) ロックを必要と
-しません。これによってシステムのエラーは起きませんが、それでもプログラミング上のエラーは起きます。
+しません。そのためシステムのエラーは起きませんが、それでもプログラミング上のエラーは起きます。
 %%
 %% Est-ce vrai? c'est à celui qui se met en attente à avoir pris le verrou
 %% avant de tester, puis fait wait. Il est donc sûr que la condition n'est
@@ -1350,7 +1349,7 @@ $p$ によって実行されます。
 もしスレッド $q$ がこの状態になったとすると、$p$ によって送られるシグナルは無視され効果を持ちません。
 その後 $q$ は実行を中断しますが、 $p$ がすでにシグナルしているために $q$ が起動されることはありません。
 スレッド $p$ によるロックの取得は $q$ がすでに実行を中断したかキューの状態を調べていないかのどちらかで
-あり、この状況にならないことことを保証します。
+あり、キューの状態を調べたが実行を中断していないという状況にならないことを保証します。
 
 \begin{exercise}
 % Implement a variant in which the queue is bounded: addition to the
@@ -1443,8 +1442,8 @@ let take q =
 並行プログラミングを容易にすることを意図しています。
 \ml+Event+ モジュールのプリミティブはまず John Reppy によって \emph{Standard ML} 言語の拡張
 \emph{Concurrent ML}~\cite{CML} として開発されました。
-\ocaml ではこれらの通信プリミティブはロックと条件変数などのよりも基本的な同期の
-上に位置しています。
+\ocaml ではこれらの通信プリミティブはロックと条件変数などのより基本的な同期の
+上のレベルに位置しています。
 
 % Communication occurs by sending \emph{events} along \emph{channels}.
 % Channels are like \quotes{lightweight pipes}: they allow communication
@@ -1541,9 +1540,9 @@ val $\indexlibvalue{Event}{choose}$ : 'a event list -> 'a event
 % The \ml+wrap_abort+ primitive allows to handle an event being
 % canceled.
 この関数は引数に渡されたイベントを並列にオファーし、これらのイベントのうちちょうど一つが
-実行されます。ここではオファーと実行を区別しています。
+実行されます。ここではオファーと実行を区別していることに注意してください。
 \ml+sync (choose [e1; e2])+ は二つのイベント \ml+e1+ と \ml+e2+ の選択をオファー
-するので、同期したときには二つのうち一つのイベントしか実行されません (同時にもう一つのイベントは
+し、同期したときには二つのうち一つのイベントしか実行されません (実行と同時に同時にもう一つのイベントは
 キャンセルされます)。
 \ml+wrap_abort+ プリミティブを使うとイベントがキャンセルされたときの処理を設定できます。
 %
@@ -1579,7 +1578,7 @@ val $\indexlibvalue{Event}{poll}$ : 'a event -> 'a option
 場合にはブロックせずにオファーをキャンセルします。このとき関数呼び出しは
 なんの効果も持ちません (より正確には、\ml+poll e+ という式が \ml+None+ で
 置き換えられたかのような動作をします)。これに対して、
-もしイベントがすぐに実行できるならば \ml+sync e+ が実行されたときの動作をます。
+もしイベントがすぐに実行できるならば \ml+sync e+ が実行されたときの動作をします。
 ただしその時の返り値は \ml+v+ ではなく \ml+Some v+ となります。
 
 \begin{example}
@@ -1650,9 +1649,9 @@ wq
 % hand, communication via pipes uses buffered \io{} that allows several
 % thousand integers to be exchanged with each system call.
 しかしチャンネルを使ったバージョンの実行速度を前のバージョンと比べると、
-チャンネルを使うほうが二倍遅いことがわかります。
-整数を通信するには二つのスレッドの同期が必要となり、
-ロックの取得と開放に何回かシステムコールが必要となるためです。
+チャンネルを使うほうが二倍程度遅いことがわかります。
+整数を通信するときに毎回二つのスレッドの同期が必要となり、
+ロックの取得と開放に何回かのシステムコールが必要となるためです。
 一方で、バッファされた \io を使うパイプを用いた通信では
 一回のシステムコールで数千個の整数がまとめて送られます。
 
@@ -1672,7 +1671,7 @@ wq
 計算が進むに連れて一つづつ消費されます。
 
 % Here is a solution:
-解は以下のようになります:
+このときのコードは以下のようになります:
 %
 \begin{codefile}{thbuffercrible.ed}
 f th/buffercrible.ml
@@ -1815,7 +1814,7 @@ wq
 
 % Inversely, one can do \ml+fork+ (not followed by \ml+exec+), and then launch
 % several threads in the child and the parent, without any problem.
-逆に、(\ml+exec+ が続かない) \ml+fork+ の後に
+順番を逆にして、\ml+fork+ の後に
 親または子プロセスがスレッドを作成することは問題ありません。
 
 % \paragraph {\label{sec/thread-implementation}Native and simulated implementation in {\ocaml}}
@@ -1839,7 +1838,7 @@ wq
 することができます。
 全てのスレッドは同じ Unix プロセスで実行されそのスケジューリングを含んだ管理は
 \ocaml のランタイムシステムによって行われます。
-しかし、この実装はバイトコードにコンパイルするときにのみ利用可能です。
+ただし、この実装はバイトコードにコンパイルするときにのみ利用可能です。
 
 % The {\ocaml} system provides the same programming interface for the
 % native and simulated versions of threads. The implementation of
@@ -1965,7 +1964,7 @@ C ライブラリへの呼び出しが異なるために、プログラムの意
 \ml+Thread.join+ と \ml+Mutex.lock+ そして \ml+Condition.wait+ は
 遅いシステムコールにもかかわらずシグナルによって中断されることがありません
 (したがって \ml+EINTR+ エラーを出して失敗することもありません)。
-待っているときにシグナルが送られて場合、そのシグナルはシステムコールから返ってから
+待っているときにシグナルが送られた場合、そのシグナルはシステムコールから返ってから
 受け取られて処理されます。
 
 % The \textsc{posix} standard specifies that the signal handler is

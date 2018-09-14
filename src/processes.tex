@@ -16,7 +16,7 @@
 % consists of a program (machine code) and a state of the program
 % (current control point, variable values, call stack, open file
 % descriptors, \etc).
-プロセスはオペレーティングシステム上で実行されるプログラムのことです。
+プロセスとはオペレーティングシステム上で実行されるプログラムのことです。
 プロセスはプログラム (機械語) とその状態 (現在の実行位置、変数の値、関数呼び出しスタック、開いているファイルディスクリプタなど)
 からなります。
 
@@ -148,7 +148,7 @@ handle_unix_error leave ();;
 経過秒数を返します。 \indexlibvalue{Unix}{localtime} を使うとこの値から年、月、日、時、分、秒を計算することができます。
 プログラムはその後 \ml+fork+ で新しいプロセスを作ります。
 親プロセス (\ml+fork+ の返り値が 0 でないプロセス) はすぐに終了するため、
-\ml+leave+ を起動したシェルの制御はすぐにユーザーに戻ります。
+\ml+leave+ を起動したシェルの制御はすぐにユーザに戻ります。
 子プロセス (\ml+fork+ の返り値が 0 のプロセス) の実行は続き、
 \ml+sleep+ を呼んで指定された時間まで待ってからメッセージを表示して終了します。
 
@@ -231,7 +231,7 @@ val $\libvalue{Unix}{waitpid}$ : wait_flag list -> int -> int * process_status
 % call \ml+wait+ $n$ times.
 子プロセスの一つが \ml+wait+ を呼んだ時点ですでに終了していた場合は呼び出しはすぐに返ります。
 そうでなければ親プロセスは子プロセスのどれかが終了するまでブロックします (\quotes{ランデブー} と呼ばれる動作です)。
-$n$ この子プロセスの終了を待つには \ml+wait+ を $n$ 回呼ぶ必要があります。
+この子プロセスの終了を待つには \ml+wait+ を $n$ 回呼ぶ必要があります。
 
 % The command \ml+waitpid+ accepts two optional flags for its first
 % argument: the flag \ml+WNOHANG+ indicates not to wait if there is
@@ -245,8 +245,9 @@ $n$ この子プロセスの終了を待つには \ml+wait+ を $n$ 回呼ぶ必
 \ml+WNOHANG+ フラグは終了していない子プロセスが無い場合に待たないことを指示します。
 子プロセスが無かった場合の返り値は第一要素が 0 で第二要素は未定義です。
 \ml+WUNTRACED+ フラグは \ml+sigstop+ シグナルによって停止させられた子プロセスを返すことを指示します。
-\ml+waitpid+ は \ml+p+ に該当する子プロセスがない場合 (あるいは \ml+p+ が \ml+-1+ で現在のプロセスが子プロセスを持たないとき)
-には例外を送出します。
+\ml+waitpid+ は \ml+p+ に該当する子プロセスがないとき
+(あるいは \ml+p+ が \ml+-1+ で現在のプロセスが子プロセスを持たないとき)
+には例外を出します。
 \begin{example}
 \label{ex/forksearch}
 % The function \ml+fork_search+ below performs a linear search in an
@@ -360,7 +361,7 @@ match fork () with
 % \syscall{execvp} launch a program within the current process.
 % Except in case of error, these calls never return: they halt the progress
 % of the current program and switch to the new program.
-% システムコール \syscall{execve}、 \syscall{execv}、 そして \syscall{execvp} は
+システムコール \syscall{execve}、 \syscall{execv}、 そして \syscall{execvp} は
 現在のプロセスでプログラムを起動します。
 現在のプログラムの実行を止めて新しいプログラムに移るので、エラーの場合を除いてこの呼び出しが返ることはありません。
 %
@@ -375,7 +376,7 @@ val $\libvalue{Unix}{execvp}$ : string -> string array -> unit
 % directories of the search path (specified in the environment variable
 % \ml+PATH+).
 第一引数は実行するプログラムを含むファイルの名前です。
-\ml+execvp+ を使うとファイルの名前は (環境変数 \ml+PATH+ で指定される) 探索パスのディレクトリから探索されます。
+\ml+execvp+ を使った場合ファイルの名前は (環境変数 \ml+PATH+ で指定される) 探索パスのディレクトリから探索されます。
 
 % The second argument is the array of command line arguments with which
 % to execute the program; this array will be the \ml+Sys.argv+ array
@@ -396,7 +397,7 @@ val $\libvalue{Unix}{execvp}$ : string -> string array -> unit
 \ml+execve+ と \ml+execv+、そして \ml+execvp+ が結果を返すことはありません。
 エラーが起こること無くプロセスが指定されたプログラムを実行するか、
 実行ファイルが見つからないなどのエラーが起きて呼び出し元のプログラムに \ml+Unix_error+ を
-送出するかのどちらかです。
+出すかのどちらかです。
 
 \begin{example}
 % The following three forms are equivalent:
@@ -553,7 +554,7 @@ handle_unix_error minishell ();;
 % parent process calls \ml+wait+ to wait for the command to finish and
 % prints the status information returned by \ml+wait+.
 % ループでは毎回 \ml+input_line+ 関数を使って \ml+stdin+ から行入力を読み込みます。
-\ml+input_line+ 関数は EOF に達すると \ml+End_of_file+ を送出するので、これをもってループの終了とします。
+\ml+input_line+ 関数は EOF に達すると \ml+End_of_file+ を出すので、これをもってループの終了とします。
 その後は行入力を単語に区切ってから \ml+fork+ を呼び出します。
 子プロセスは \ml+exec_command+ を呼んでコマンドを実行します。
 親プロセスは \ml+wait+ を使ってコマンドの終了を待った後、

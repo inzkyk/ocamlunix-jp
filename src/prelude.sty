@@ -216,9 +216,9 @@
 \newenvironment{exercise}[1][]
 {\stepcounter{exercise}%
  \renewcommand{\exerciseanswer}{#1}%
- \begingroup\paragraph{Exercise~\theexercise}\label{ex\theexercise}}
+ \begingroup\paragraph{練習問題~\theexercise}\label{ex\theexercise}}
 {\ifthenelse{\equal{\exerciseanswer}{noanswer}}{}%
- {Answer page~\pageref{exans\theexercise}.}%
+ {解答は~\pageref{exans\theexercise} ページ。}%
  \myfancybreak\endgroup}
 
 \newenvironment{answer}{%
@@ -226,7 +226,7 @@
                {\addtostream{ans}{\the\verbatim@line}}
  \addtostream{ans}{%
    \protect%
-   \paragraph{Exercise~\theexercise~(page~\pageref{ex\theexercise})}%
+   \paragraph{練習問題~\theexercise~(\pageref{ex\theexercise} ページ)}%
    \protect\label{exans\theexercise}}%
  \verbatim}
 {\endverbatim}

@@ -32,7 +32,7 @@
 使うことが難しいです。
 このモデルではちょうど一つの \emph{サーバ} プログラムだけが共有リソースに
 アクセスできます。そして他の \emph{クライアント} はサーバにアクセスすることで
-共有リソースにアクセスします。サーバは共有リソースへのアクセスの
+共有リソースにアクセスします。サーバが共有リソースへのアクセスの
 制御と管理を行うということです。例えば \textsc{x}-window システムでは
 共有リソースとはスクリーンとキーボード、そしてマウスです。
 
@@ -59,7 +59,7 @@
 % Sockets are a generalization of pipes addressing these issues. The
 % client-server model is shown in figure~\ref{fig/client-server}.
 ソケットはこれらの問題を解決するために一般化されたパイプです。
-クライアント-サーバモデルは図~\ref{fig/client-server} に示します。
+クライアント-サーバモデルを図~\ref{fig/client-server} に示します。
 
 \begin{myfigure}
 \begin{myimage}[width="70\%"]
@@ -162,7 +162,7 @@
 この方式ではサーバはクライアントとプライベートな接続を確立することなく直接通信します。
 コネクション型通信と比べるとこの方式が使われることは少ないです。
 ~\ref{sec/mode-deconnecte} 節で少しコメントしますが、
-この章では主にコネクション型通信を扱うことにします。
+この章では主にコネクション型通信を扱います。
 
 % \section{Sockets}
 \section{ソケット}
@@ -206,7 +206,7 @@
   アドレスはインターネットネットワークにおけるマシンのアドレス (例えば \ml+129.199.129.1+ のような形をしたもの) と
   マシンのポート番号。通信はインターネットに接続している任意の二つのマシンで実行されるプロセス間で可能\footnote{
     インターネットは専用のリンクで接続されたローカルネットワーク (通常はイーサネットネットワーク) で構成され、
-    世界中の何百万台のマシンが接続しています。インターネットドメインにおいては同じイーサネットケーブルで接続されている
+    世界中の何百万台のマシンが接続しています。インターネットドメインにおいては、同じイーサネットケーブルで接続されている
     隣のマシンとの通信と、いくつものルータと通信衛星を使って接続された地球の反対側にあるマシンとの通信には
     なんの違いもありません。}。
 \end{itemize}
@@ -217,10 +217,10 @@
 % packets~---~small blocks of bytes). The communication type
 % constrains the protocol used to transmit data. Different communication
 % types are available, here are three of them with their propertie:
-ソケットの \emph{通信方式は} は通信が信頼できるか (データの消失や重複があるか)、
-そしてデータの送受信の方法 (バイトストリーム、パケット列~---~ バイトの小さなブロック) を示します。
+ソケットの \emph{通信方式} は通信が信頼できるか (データの消失や重複があるか)、
+そしてデータの送受信の方法 (バイトストリーム、パケット列~---~バイトの小さなブロック) を示します。
 通信方式はデータの送受信に使われるプロトコルを規定します。
-いくつかの通信方式が利用可能です。三つの通信方式ををその特徴と共に示します:
+いくつかの通信方式が利用可能です。三つの通信方式をその特徴と共に示します:
 %
 \begin{center}
 \begin{tabular}{lll}
@@ -232,7 +232,7 @@
   % Datagram & no & packets \\
   データグラム & 信頼できない & パケット \\
   % Segmented packets & yes & packets \\
-  セグメント化されたパケット & 信頼できない & パケット \\
+  セグメント化されたパケット & 信頼できる & パケット \\
 \hline
 \end{tabular}
 \end{center}
@@ -256,9 +256,9 @@
 この方式はメッセージ指向の通信に適しています。
 \quotes{データグラム} 方式はイーサネットネットワークのハードウェアの特徴に一番近いです。
 データはパケットで転送されますが、それぞれのパッケットが目的地に届く保証はありません。
-ネットワークのリソースという観点では、この方式が一番経済的です。
+ネットワークのリソースという観点では、この方式が一番無駄が少ないです。
 この方式は致命的な重要性を持たないデータの転送を行うプログラム (例えば \ml+biff+) によって使われます。
-またデータの消失を手動で管理することでネットワークのパフォーマンスを向上させる方式もあります。
+またデータの消失を手動で管理することでネットワークのパフォーマンスを向上させることもできます。
 %
 % \section{Socket creation}
 \section{ソケットの作成}
@@ -325,7 +325,7 @@ val $\libvalue{Unix}{socket}$ : socket_domain -> socket_type -> int -> file_desc
 通信ドメインに対するデフォルトのプロトコル (例えば \ml+SOCK_DGRAM+ に対しては \textsc{udp}、
 \ml+SOCK_STREAM+ に対しては \textsc{tcp} など) を選択する \ml+0+ が通常使われます。
 第三引数に他の値を設定すると特殊なプロトコルを使うことができます。
-例えば \ml+ping+ コマンドは \textsc{icmp} (\emph{Internet Control Message Protocol}) で
+例えば \ml+ping+ コマンドは \textsc{icmp} (\emph{Internet Control Message Protocol}) を使って、
 自動的に送信者に送り返すパケットを送ります。
 特殊なプロトコルに対する引数の値は \ml+/etc/protocols+ ファイルまたは
 \textsc{nis} (\emph{Network Information Service}) データベース の \ml+protocols+ テーブル
@@ -438,7 +438,7 @@ val $\libvalue{Unix}{getservbyname}$ : string -> string -> service_entry
 第一引数はサービスの名前 (\textsc{ftp} サーバには \ml+"ftp"+、E メールには \ml+"smtp"+、
 ニュースサーバには \ml+"nntp"+、\ml+talk+ と \ml+ntalk+ にはコマンドと同じ文字列、など) です。
 第二引数はプロトコルの名前です。
-サービスの通信方式がストリーム方式の場合は \ml+"tcp"+ が、データグラム方式の場合は
+プロトコルの名前にはサービスの通信方式がストリーム方式の場合は \ml+"tcp"+ が、データグラム方式の場合は
 \ml+"udp"+ が通常使われます。\ml+getservbyname+ の返り値は \libtype{Unix}{service\_entry} 型の
 値で、\ml+s_port+ フィールドがサービスが用いるポート番号を表します。
 
@@ -483,19 +483,19 @@ val $\libvalue{Unix}{connect}$ : file_descr -> sockaddr -> unit
 % closes the connection \ml+read+ returns \ml+0+ and \ml+write+ sends a
 % \ml+sigpipe+ signal to the calling process.
 接続が確立されると、ソケットのディスクリプタに対する \indexvalue{write} は
-サーバにデータを送信し、\indexvalue{read} はデータからのデータを受信します。
+サーバにデータを送信し、\indexvalue{read} はサーバからのデータを受信します。
 ソケットは入出力の操作に対してパイプのように振る舞います。
 まず、 \ml+read+ はデータが利用可能でない場合にはブロックし、
 要求よりも少ないバイト数を返すことがあります。
-次に、サーバが接続を閉じた場合 \ml+read+ は \ml+0+ を返し、 \ml+write+ は
-\ml+sigpipe+ シグナルを読んだプロセスに送ります。
+次に、サーバが接続を閉じると \ml+read+ は \ml+0+ を返し、 \ml+write+ は
+読んだプロセスに \ml+sigpipe+ シグナルを送ります。
 
 % \ml+connect+ binds the socket to a local address chosen by the
 % system. Sometimes, it is preferable to manually choose this address.
 % This can be done by calling the function \ml+bind+ (see
 % section~\ref{sec/service}) before \ml+connect+.
 \ml+connect+ 関数はソケットをシステムによって選ばれたローカルアドレスにバインドします。
-このアドレスを手動で選んだほうが良い場合もありますが、
+このアドレスを手動で選んだほうが良い場合もあります。
 そのような場合は \ml+connect+ 関数を呼ぶ前に \ml+bind+ 関数 (\ref{sec/service} 節を参照) を呼ぶことで
 アドレスを選ぶことができます。
 
@@ -567,7 +567,7 @@ val $\libvalue{Unix}{shutdown}$ : file_descr -> shutdown_command -> unit
 % \ml+host+, sends on the resulting socket the data it reads on its
 % standard input and writes the data it receives on its standard output.
 % For instance, the command
-\ml+client host port+ は \ml+host+ マシンの \ml+port+ ポートへの接続を確立するような \ml+client+
+\ml+client host port+ が \ml+host+ マシンの \ml+port+ ポートへの接続を確立するような \ml+client+
 コマンドを作成します。
 さらにこのコマンドは標準入力からのデータを作成したソケットから送信し、
 受信したデータを標準出力へ書き込みます。例えば、以下のコマンド
@@ -585,7 +585,7 @@ echo -e 'GET /~remy/ HTTP/1.0\r\n\r\n' | ./client pauillac.inria.fr 80
 % the program that calls \ml+client+.
 \ml+client+ が行うのはクライアントとの接続を確立する部分だけであり、
 特定のプロトコルの実装は \ml+client+ を呼んだプログラムに任されます。
-この意味で、 \ml+client+ コマンドは \quotes{ユニバーサル} なクライアントアプリケーションです。
+この意味で、 \ml+client+ コマンドは \quotes{ユニバーサルな} クライアントアプリケーションです。
 
 % The library function \ml+Misc.retransmit fdin fdout+ reads data on the
 % descriptor \ml+fdin+ and writes it on \ml+fdout+. It terminates,
@@ -593,7 +593,7 @@ echo -e 'GET /~remy/ HTTP/1.0\r\n\r\n' | ./client pauillac.inria.fr 80
 % the input descriptor. Note that \ml+retransmit+ may be interrupted by
 % a signal.
 ライブラリ関数 \ml+Misc.retransmit fdin fdout+ はディスクリプタ \ml+fdin+ から
-データを読んだデータを \ml+fdout+ に書き込みます。
+を読んだデータを \ml+fdout+ に書き込みます。
 入力ディスクリプタの終端に達するとディスクリプタを閉じずに関数は終了します。
 \ml+retransmit+ はシグナルで中断されることがあることに注意してください。
 \begin{codefile}{misc.mli}
@@ -776,8 +776,8 @@ val $\libvalue{Unix}{accept}$ : file_descr -> file_descr * sockaddr
 % \textsc{x} server does, \ml+xhost+ can be used to add new
 % authorizations), or to establish a second connection from the server
 % to the client (as \textsc{ftp} does for each file transfer request).
-呼び出しが返った場合、引数として与えられたソケットは影響を受けないので
-さらに接続リクエストを受け入れることができます。
+\ml+accept+ の呼び出しが返った場合、引数として与えられたソケットは影響を受けないので
+続けて接続リクエストを受け入れることができます。
 返り値の第一要素はクライアントに接続した新しいディスクリプタです。
 サーバがこのディスクリプタに書き込んだデータは、
 クライアントが \ml+connect+ に渡したディスクリプタから読み込むことができます。
@@ -786,12 +786,12 @@ val $\libvalue{Unix}{accept}$ : file_descr -> file_descr * sockaddr
 
 \ml+accept+ の返り値の第一要素はクライアントのアドレスです。
 接続したクライアントが接続する権限を持っているかを確認したり (例えば \textsc{x} サーバ
-はこの処理を行います、 \ml+xhost+ で新しい許可されたユーザーを追加できます)、
+はこの処理を行います。 \ml+xhost+ で新しい許可されたユーザを追加できます)、
 サーバーからクライアントへの二つめの接続を作成する (\textsc{ftp} はすべての
 ファイル転送リクエストに対してこの処理を行います) ことに使うことができます。
 
 % The general structure of a \textsc{tcp} server is as follows.
-\textsc{tcp} サーバの一般的な構造は以下のようにになっています:
+\textsc{tcp} サーバの一般的な構造は以下のようになっています:
 %
 \begin{codefile}{misc.mli}
 val install_tcp_server_socket : Unix.sockaddr -> Unix.file_descr
@@ -867,7 +867,7 @@ let tcp_server treat_connection addr =
 % Now suppose we have the following, application specific, \ml+service+
 % function that talks to the client end ends by closing the connection:
 以下のアプリケーション特有の \ml+service+ 関数を考えます。
-この \ml+service+ 関数はクライアントの通信を行ってから接続を閉じます。
+この \ml+service+ 関数はクライアントと通信を行ってから接続を閉じます。
 %
 \begin{lstlisting}
 let service (client_sock, client_addr) =
@@ -906,7 +906,7 @@ let sequential_treatment server service client = service client
 % % simplement interrompue.  Les autres types d'erreurs devront <EA>tre
 % % rattrap<E9>es par la fonction \ml+service+.
 \ml+sequential_treatment+ 関数を使った場合サーバがあるクライアントを処理している間は他の接続リクエストを
-処理することができないので、この関数が使えるのは \ml+service+ 関数が決まった短い時間で終わるようなサービスなとき
+処理することができないので、この関数が使えるのは \ml+service+ 関数が決まった短い時間で終わるサービスのときに
 限られます。
 
 % Most servers delegate the service to a child process: \ml+fork+ is called
@@ -958,7 +958,7 @@ let fork_treatment server service (client_sock, _ as client) =
 一つ目の理由はこのディスクリプタが必要がないことです。
 二つ目の理由は子プロセスが終了する前にサーバが新しい接続の受け付けを終了する場合があることです。
 ml+exit 0+ の呼び出しは
-子プロセスがサービスの実行を終えた後に終了することおよび
+子プロセスがサービスの実行を終えた後に終了するためおよび
 サーバループを実行し始めないことを確実にするためにあるので
 重要です。
 
@@ -970,7 +970,7 @@ ml+exit 0+ の呼び出しは
 今までのライブラリ関数では子プロセスがいずれゾンビプロセスになり回収する必要が生じるというのを無視してきました。
 この問題の解決方法は二つ考えられます。一つ目のシンプルな方法はダブルフォーク (~\pageref{double-fork} ページ参照)
 を使って孫プロセスに接続を処理させる方法です。
-この方法では \ml+Mis+ モジュールの以下のライブラリ関数を使います:
+この方法では \ml+Misc+ モジュールの以下のライブラリ関数を使います:
 %
 \begin{codefile}{misc.mli}
 val double_fork_treatment :
@@ -1013,7 +1013,7 @@ let double_fork_treatment server service (client_descr, _ as client) =
 % Sockets have numerous internal parameters that can be tuned: the size
 % of the transfer buffer, the size of the minimum transfer, the behavior
 % on closing, \etc{}
-ソケットには設定できる内部変数を大量に持ちます。
+ソケットには設定できる内部変数がたくさんあります。
 例えば転送バッファのサイズや転送の最小サイズ、接続を閉じるときの動作などです。
 
 % These parameters have different types, for this reason there are as
@@ -1033,7 +1033,7 @@ let double_fork_treatment server service (client_descr, _ as client) =
 \begin{example}
 % The following two parameters apply only to sockets of type stream in the
 % Internet domain.
-次の二つの変数はストリームタイプでインターネットドメインのソケットにしか
+この例で紹介する二つの変数はストリームタイプでインターネットドメインのソケットにしか
 適用することができません。
 
 % In the \textsc{tcp} protocol, the disconnection of a socket is
@@ -1116,7 +1116,7 @@ grep foo < /etc/passwd
 % launches.
 \ml+server+ コマンドは多くのサーバが行うコードをまとめていて、
 特定のサービスやコミニケーションプロトコルの実装は起動されるプログラム \ml+cmd+ に
-任されています。この意味で \ml+service+ コマンドは \emph{ユニバーサル} サーバです。
+任されています。この意味で \ml+service+ コマンドは \emph{ユニバーサルな} サーバです。
 
 %
 \begin{listingcodefile}[style=numbers]{server.ml}
@@ -1177,9 +1177,10 @@ handle_unix_error server ();;
 % standard output on the connection socket and executes the requested
 % command (note that the handling of the service cannot be done
 % sequentially).
-サービスは \quotes{ダブルフォーク} で処理されます (サービスの処理は順番に行うことができません)。
+サービスは \quotes{ダブルフォーク} で処理されます。
 孫プロセスによって実行される \ml+service+ は標準入力と
 標準出力、そして標準エラー出力をソケットにリダイレクトしてからコマンドを実行します。
+サービスの処理をブロックしながら順番に行うことはできないことに注意してください。
 
 % The connection is closed without any intervention of the \ml+server+
 % program. One of the following cases occurs:
@@ -1217,7 +1218,7 @@ handle_unix_error server ();;
 \end{itemize}
 
 % \subsection*{Precautions}
-\subsection*{用心}
+\subsection*{注意点}
 
 % Writing a server requires more care than writing a client. While the
 % client usually knows the server to which it connects, the server knows
@@ -1254,7 +1255,7 @@ handle_unix_error server ();;
 % tricky to implement. The solution with a parallel server is more
 % elegant, but it still needs a timeout, for example by programming an alarm
 % (see section~\ref{sec/usingsignals}).
-サーバがフォークすることなく接続を来た順番に処理する場合、
+サーバがフォークを行わず、接続を来た順番に処理する場合、
 このブロッキングの問題が生じることになります。
 処理している接続は何もしていないにもかかわらず他の接続に応答することができなくなります。
 順番に処理するサーバに対する解決法として通信の多重化がありますが、これは実装するのが難しくなります。
@@ -1294,7 +1295,7 @@ val $\libvalue{Unix}{sendto}$ :
 % return the size of the transferred data. The
 % call \ml+recvfrom+ also returns the address of the sending machine.
 転送されたデータのサイズを返すという点で、インタフェースは \ml+read+ と \ml+write+ に似ています。
-\ml+recvfrom+ はこの他にデータを送っているマシンのアドレスも返します。
+\ml+recvfrom+ は読み込んだバイト数の他にデータを送っているマシンのアドレスも返します。
 
 % We can call \indexvalue{connect} on a socket of type \ml+SOCK_DGRAM+
 % to obtain a pseudo-connection. This pseudo-connection is just an
@@ -1323,8 +1324,8 @@ val $\libvalue{Unix}{sendto}$ :
 ソケットのディスクリプタ専用です。
 %
 \begin{listingcodefile}{tmpunix.mli}
-val $\libvalue{Unix}{recv}$ : file_descr -> string -> int -> int -> msg_flag list -> int
-val $\libvalue{Unix}{send}$ : file_descr -> string -> int -> int -> msg_flag list -> int
+val $\libvalue{Unix}{recv}$ : file_descr -> bytes -> int -> int -> msg_flag list -> int
+val $\libvalue{Unix}{send}$ : file_descr -> bytes -> int -> int -> msg_flag list -> int
 \end{listingcodefile}
 %
 % Their interface is similar to \ml+read+ and \ml+write+ but they add
@@ -1336,12 +1337,12 @@ val $\libvalue{Unix}{send}$ : file_descr -> string -> int -> int -> msg_flag lis
 \begin{mltypecases}
 \begin{tabular}{@{}ll}
 % \ml+MSG_OOB+ & Process out-of-band data. \\
-\ml+MSG_OOB+ & アウトオブバウンズデータの処理する。 \\
+\ml+MSG_OOB+ & アウトオブバンドデータを処理する。 \\
 % \ml+MSG_DONTROUTE+ & Short-circuit the default routing table. \\
 \ml+MSG_DONTROUTE+ & デフォルトのルーティングテーブルを使用しない。 \\
 %
 % \ml+MSG_PEEK+ & Examines the data without reading it.
-\ml+MSG_PEEK+ & データを読むことなく確認する。
+\ml+MSG_PEEK+ & データを読むことなく確認だけ行う。
 \end{tabular}
 \end{mltypecases}
 %
@@ -1358,7 +1359,7 @@ val $\libvalue{Unix}{send}$ : file_descr -> string -> int -> int -> msg_flag lis
 % Examples like the universal client-server are so frequent that the
 % \ml+Unix+ module provides higher-level functions to establish
 % or use network services.
-ユニバーサルクライアント/サーバのような例はよく利用されるので、
+ユニバーサルクライアント/サーバの例はよく利用されるので、
 \ml+Unix+ モジュールにはネットワークサービスを確立したり利用するための高レベルな関数があります。
 %
 \begin{listingcodefile}{tmpunix.mli}
@@ -1440,8 +1441,8 @@ val $\indexlibvalue{Unix}{establish\_server}$ :
 %   \href{ftp://ftp.inria.fr}{\texttt{ftp.inria.fr}} , in the directory
 %   \href{ftp://ftp.inria.fr/pub/rfc/}{\texttt{rfc}}. The reference site
 %   is \url{http://www.faqs.org/rfcs/}. }
-単純なプロトコル (\ml+rsh+, \ml+rlogin+, \ldots) ではクライアントとサーバの間に
-転送されるデータはクライアントからサーバへ、サーバからクライアントへの
+クライアントとサーバの間でやり取りされるデータは
+単純なプロトコル (\ml+rsh+, \ml+rlogin+, \ldots) ではクライアントからサーバへ、およびサーバからクライアントへの
 二つのバイト列として自然に表現できます。
 その他のプロトコルではやり取りされるデータはもっと複雑であり、
 バイト列からデータへ、あるいはデータからバイト列へのデコード/エンコードが必要になります。
@@ -1518,7 +1519,7 @@ Unix コマンドが利用するプロトコルの多くは \quotes{\textsc{rfc}
 \end{itemize}
 \enlargethispage{1\onelineskip} %% To avoid a widow
 \end{example}
-\pagebreak
+% \pagebreak
 
 % With binary protocols we must pay attention to the computer
 % architecture of the communicating machines. In particular for
@@ -1668,7 +1669,7 @@ let get_atom_name atom =
 バイナリプロトコルのもう一つの使用例は遠隔手続き呼び出しです。
 遠隔手続き呼び出しとは、マシン A のユーザがマシン B で関数を \ml+f+ を実行するというものです。
 関数を直接呼び出すことは当然できません。
-マシン B に接続し、関数を実行して結果をマシン A に送り返すという
+ですが、マシン B に接続して関数を実行し、結果をマシン A に送り返すという
 作業を呼び出しごとにプログラムすることは可能です。
 
 \begin{myfigure}
@@ -1743,8 +1744,8 @@ let get_atom_name atom =
 % command's arguments.  Responses are also made of one or more lines of
 % text, often starting with a numerical code to identify the kind of
 % response. Here are some \quotes{text} protocols:
-プロトコルの効率が重要でないネットワークサービスは \quotes{テキスト} プロトコルを
-よく利用します。
+プロトコルの効率が重要でないネットワークサービスでは \quotes{テキスト} プロトコルが
+よく利用されます。
 \quotes{テキスト} プロトコルは実際のところ小さなコマンド言語です。
 リクエストは複数のコマンドであり、最初の語がリクエストのタイプを、
 残りの語がコマンドの引数を表します。
@@ -1864,7 +1865,7 @@ let get_atom_name atom =
 サーバからの応答は全てコメントのついた 3 桁の数字コードです。
 \ml+5xx+ の形をした応答はエラーを表し、 \ml+2xx+ は全てが上手くいっていることを表します。
 クライアントが実際のプログラムであれば応答コードだけを解釈します。
-コメントはメールシステムの開発者を助けるためにつけられます。
+コメントはメールシステムの開発者を助けるために存在します。
 \end{example}
 
 % \section{Complete example: {\normalfont \http} requests}
@@ -1895,7 +1896,7 @@ let get_atom_name atom =
 % the web. We do however leave the translation of the examples to this
 % new version as an exercise.
 \http プロトコルにはいくつかのバージョンがあります。
-本質的な部分、具体的にはクライアントとリレーのアーキテクチャ、に集中するために、
+本質的な部分、つまりクライアントとリレーのアーキテクチャ、に集中するために、
 一番最初のバージョンの \http プロトコルを改変したシンプルなプロトコルを使います。
 このプロトコルはホコリをかぶっていますが、それでもほとんどのサーバによって
 理解されます。節の最後にはウェブを探索する本物のツールを作るために必要となる、
@@ -1994,7 +1995,7 @@ let send_get url sock =
 %
 % Note that the {\URL} can be complete, with the address and port of the
 % server, or just contain the requested path on the server.
-\URL はサーバのアドレスとポート番号を含む完全なものであるか、
+\URL はサーバのアドレスとポート番号を含む完全なものであるか、そうでなければ
 アドレスとサーバ上のパスだけが含まれるものであることに注意してください。
 
 % Reading the response is even easier, since only the document is
@@ -2007,7 +2008,7 @@ let send_get url sock =
 応答はドキュメントの内容だけを含み追加の情報を含まないので、応答を読み込むのはより簡単です。
 リクエストにエラーがあった場合、サーバからはエラーメッセージが
 \textsc{html} ドキュメントとして返ります。
-以上のことから、応答がエラーかどうかを確認することなく \ml+Misc.retransmit+ を
+このことから、応答がエラーかどうかを確認することなく \ml+Misc.retransmit+ を
 使って出力すればすむことがわかります。プログラムの残りの部分ではサーバとの接続を確立します。
 %
 \begin{listingcodefile}{url.ml}
@@ -2137,8 +2138,8 @@ let parse_request line = match regexp_match get_regexp line with
 % We establish the service with the \ml+establish_server+
 % function, thus we just need to define the function to handle a
 % connection:
-\ml+establish_server+ 関数でサービスを確立するので、
-定義する必要があるのは接続を処理する関数だけです:
+サービスを確立には \ml+establish_server+ 関数を使うので、
+定義する必要があるのは接続リクエストを処理する関数だけです:
 %
 \begin{listingcodefile}{proxy.ml}
 let proxy_service (client_sock, _) =
@@ -2208,9 +2209,9 @@ handle_unix_error (handle_error proxy) ();;
 % by an end of file, since we know its size. The connection can
 % therefore stay
 % open to handle more requests. Complex requests have the following form:
-複雑なリクエストではサーバは全ての応答の先頭に
+\http/1.1 で使われる複雑なリクエストではサーバは全ての応答の先頭に
 応答のフォーマットと転送されるドキュメントのサイズを表すヘッダを付けます。
-サイズを知っているのでドキュメントの終端は EOF ではなくなり、
+これによってサイズが既知となってドキュメントの終端は EOF ではなくなり、
 更に多くのリクエストを処理できるようになります。
 複雑なリクエストは以下の形をしています:
 %
@@ -2254,7 +2255,7 @@ Host : $\textit{hostname}$ $\textit{crlf}$
 % For this type of request, we may also request, using the optional field
 % \texttt{If-Modified}, that the document be returned only if it has been
 % modified since a given date.
-この種類のリクエストでは必須ではない \texttt{If-Modified} フィールドを指定することで、
+この種類のリクエストでは必要に応じて \texttt{If-Modified} フィールドを指定することで、
 ドキュメントが指定した日時から改変されている場合に限ってドキュメントを返すようにすることができます。
 %
 \begin{lstlisting}
@@ -2265,7 +2266,7 @@ If-Modified : $\textit{date}$ $\textit{crlf}$
 % advance but indicated by the end of the header: a line
 % containing only the characters \textit{\ml+crlf+}.
 \textit{\ml+header+} 内のフィールドの数は前もって定まっていませんが、
-\textit{\ml+crlf+} だけからなる行で示されるヘッダの終わりによって指定されます。
+ヘッダの終わりは \textit{\ml+crlf+} だけからなる行で示されます。
 
 % Here is a complete request (on each line an implicit \ml+\n+ follows
 % the \ml+\r+):
@@ -2305,9 +2306,9 @@ $\textit{body}$
 % \item If the body is a single block the header
 % contains a \ml+Content-Length+ field specifying in decimal
 % \textsc{ascii} notation the number of bytes in the body.
-\item \textit{\ml{body}} が一つのブロックの場合、ヘッダには
+\item \textit{\ml{body}} が一つのブロックの場合、
   ブロックのバイト数を 10 進で表した \textsc{ascii} 文字列を指定する \ml+Content-Length+ フィールドが
-  含まれます。
+  ヘッダに含まれる。
 
 % \item If the body is transmitted in chunks,
 %   the header contains a \ml+Transfer-Encoding+
@@ -2341,7 +2342,7 @@ $\textit{header}$ $\textit{crlf}$ $\textit{crlf}$
 %   that it is not chunked, the body is empty (for instance, a
 %   response to a request of type \ml+HEAD+ contains only a header).
 \item 応答が \ml+Content-Length+ フィールドを持っておらず、チャンクされてもいない場合、
-  データ本体はからである (例えば \ml+HEAD+ リクエストに対する応答はヘッダしか持たない)。
+  データ本体は空である (例えば \ml+HEAD+ リクエストに対する応答はヘッダしか持たない)。
 \end{itemize}
 %
 % Here is an example of a single block response:

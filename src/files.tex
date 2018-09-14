@@ -57,7 +57,7 @@ Unix において \quotes{ファイル} という言葉はいくつかのもの�
 % but this is ambiguous, as we can also designate any node as a
 % \quotes{file}. To avoid all ambiguity we refer to them as
 % \emph{non-directory files}.
-大ざっぱにいって、ファイルシステムは木とみなすことができます。
+大ざっぱにいって、ファイルシステムは木と考えることができます。
 根 (ルート)は \ml+/+ で表されます。
 枝は \ml+'\000'+ と \ml+/+ を除く文字列からなるファイルの名前でラベル付けされています
 (ただし空白文字と印字できない文字は避けたほうが良いとされます) 。
@@ -98,12 +98,12 @@ Unix において \quotes{ファイル} という言葉はいくつかのもの�
 \libmodule{Filename} モジュールを使うとパスをポータブルに扱うことができます。
 例えば \libvalue{Filename}{concat} は \ml+/+ という文字を与えることなく二つのパスを結合するので、
 他のオペレーティングシステム (windows では区切り文字は \ml+\+ です) でも同じような動作をさせることができます。
-\ml+Filename+ モジュールには \libmodule{Filename}{current\_dir\_name} と
+\ml+Filename+ モジュールには \libvalue{Filename}{current\_dir\_name} と
 \libvalue{Filename}{parent\_dir\_name} があり、それぞれ \ml+.+ と \ml+..+ という枝を表します。
 \libvalue{Filename}{basename} 関数と \libvalue{Filename}{dirname} 関数はパス \ml+p+ を受け取って
 それぞれディレクトリ名 \ml+d+ と非ディレクトリファイル名 \ml+b+を返します。
 このとき \ml+p+ と \ml+d/p+ が表すファイルは同じになります。
-\ml+Filename+ モジュールの関数はパスの操作だけを行うので、実際にそのパスが存在するかどうかとは無関係です。
+\ml+Filename+ モジュールの関数はパスの操作だけを行うので、実際にそのパスが存在するかどうかは考慮しません。
 
 % In fact, strictly speaking, the file hierarchy is not a tree. First
 % the directories \ml+.+ and \ml+..+ allow a directory to refer to
@@ -119,7 +119,7 @@ Unix において \quotes{ファイル} という言葉はいくつかのもの�
 % \ml+l/q+ if \ml+l+ is an absolute path or the file \ml+p/l/q+ if
 % \ml+l+ is a relative path.
 ファイル階層は厳密には木ではありません。
-\ml+.+ と \ml+..+ というディレクトリは自分自身や上の階層のディレクトリを指しているからです。
+\ml+.+ と \ml+..+ というディレクトリが自分自身や上の階層のディレクトリを指しているからです。
 さらに、非ディレクトリファイルは複数の親を持つことができます (\emph{ハードリンク} と言います)。
 また他のファイルへのパスを保持する非ディレクトリファイルとみなすことができる \emph{シンボリックリンク} もあります。
 概念上は、シンボリックリンクの保持するパスは通常ファイルと同じようにその内容を読むことで取得できます。
@@ -196,10 +196,10 @@ Unix において \quotes{ファイル} という言葉はいくつかのもの�
   \begin{itemize}
     \item 逆向きのリンクは省略した。 \vspace{5pt}
     \item ハードリンク 7 の親は 2 と 6。 \vspace{5pt}
-    \item シンボリックリンク 10 は 5 を指す \\ 11 はどんなノードも指さない。\vspace{5pt}
+    \item シンボリックリンク 10 は 5 を指す。 \\ 11 はどんなノードも指さない。\vspace{5pt}
     \item 9 から 8 への等価なパス: \\
       \texttt{../usr/lib} \\
-      \texttt{./../usr/lib}, {\etc} \\
+      \texttt{./../usr/lib}, {など} \\
       \texttt{foo/lib}
   \end{itemize}
 };
@@ -297,8 +297,8 @@ val $\libvalue{Unix}{rename}$ : string -> string -> unit
 % append, \etc). File descriptors are values of the abstract type
 % \libtype{Unix}{file\_descr}.
 ファイルにアクセスする二つ目の方法はファイルディスクリプタを使うものです。
-ファイルディスクリプタはファイルへのポインタであり、他にも
-現在のファイル内の読み込み/書き込み位置、アクセス権限 (読み込み/書き込みは可能か?)、
+ファイルディスクリプタはファイルへのポインタであり、ファイルの名前の他にも
+現在の読み込み/書き込み位置、アクセス権限 (読み込み/書き込みは可能か?)、
 入出力を管理するためのフラグ (ブロッキング/ノンブロッキングや上書き/追記など)
 といった情報を含みます。
 ファイルディスクリプタは抽象型 \libtype{Unix}{file\_descr} の値です。
@@ -308,8 +308,9 @@ val $\libvalue{Unix}{rename}$ : string -> string -> unit
 % the file can be destroyed or renamed but the descriptor still points
 % on the original file.
 ファイルへの名前を使ったアクセスはファイルディスクリプタを使ったアクセスと独立しています。
-例えばあるファイルのファイルディスクリプタを取得したとき、そのファイルを消去したりリネームしたりすることは可能ですが、
-その場合でもファイルディスクリプタは元のファイルを指したままです。
+例えばあるファイルのファイルディスクリプタを取得したとき、
+そのファイルを消去したりリネームしたりすることは可能ですが、
+そうした場合でもファイルディスクリプタは元のファイルを指したままです。
 
 % When a program is executed, three descriptors are allocated and
 % tied to the variables \ml+stdin+, \ml+stdout+ and \ml+stderr+ of the
@@ -375,7 +376,7 @@ val $\libvalue{Unix}{fstat}$ : file_descr -> stats
 % described in table~\ref{fig/stats}.
 システムコール \ml+stat+ と \ml+lstat+ はファイル名を引数として受け取りますが、
 \ml+fstat+ はそれまでに開かれたディスクリプタを受け取りそのディスクリプタが指しているファイルの情報を返します。
-\ml+stat+ と \ml+lstat+ はシンボリックリンクに対して異なった動作をします:
+\ml+stat+ と \ml+lstat+ はシンボリックリンクに対して異なった動作をします。
 \ml+lstat+ はシンボリックリンクそのものの情報を返しますが、
 \ml+stat+ はシンボリックリンクが指すファイルに関する情報を返します。
 これら 3 つのシステムコールの返り値は \libtype{Unix}{stats} 型のレコードです。
@@ -484,7 +485,7 @@ val $\libvalue{Unix}{fstat}$ : file_descr -> stats
 %
 \ml+st_atime : int+ & ファイルが最後にアクセスされた時間を、 1970年1月1日深夜0時 \textsc{gmt} からの経過秒数で表す。\\
 %
-\ml+st_mtime : int+ & ファイルが最後に更新された日時を表します (単位は同上)。\\
+\ml+st_mtime : int+ & ファイルが最後に更新された日時を表す (単位は同上)。\\
 %
 \ml+st_ctime : int+ & ファイルの状態が最後に更新された日時を表す。ファイルへの書き込み、アクセス権限の変更、所有ユーザ/グループの変更、リンク数の変更などがファイルの状態を変化させる。
 \smallskip\\
@@ -514,7 +515,7 @@ inode 番号 \ml+st_ino+ で一意に識別できます。
 % \syscall{getgrnam} or by id with
 % \syscall{getpwuid} and \syscall{getgrgid}.
 ファイルは所有者 \ml+st_uid+ と所有グループ \ml+st_gid+ を持ちます。
-マシーン上の全てのユーザとグループは通常 \ml+/etc/passwd+ と \ml+/etc/gourps+ に保存されています。
+マシン上の全てのユーザとグループは通常 \ml+/etc/passwd+ と \ml+/etc/gourps+ に保存されています。
 ユーザとグループを文字列からポータブルに検索するには \syscall{getpwnam} 関数と \syscall{getgrnam} 関数が使えるほか、
 \syscall{getpwuid} 関数と \syscall{getgrgid} 関数を使うと id から検索できます。
 %
@@ -533,8 +534,8 @@ val $\libvalue{Unix}{getgrgid}$ : int -> group_entry
 % The name of the user of a running process and all the groups
 % to which it belongs can be retrieved with the commands
 % \syscall{getlogin} and \syscall{getgroups}.
-プロセスを実行しているユーザの名前とそのユーザが属している全てのグループの名前は
-\syscall{getlogin} と \syscall{getgroups} 関数で取得できます。
+プロセスを実行しているユーザの名前とそのユーザが属している全てのグループ番号は
+それぞれ \syscall{getlogin} と \syscall{getgroups} 関数で取得できます。
 %
 \begin{listingcodefile}{tmpunix.mli}
 val $\libvalue{Unix}{getlogin}$ : unit -> string
@@ -547,13 +548,12 @@ val $\libvalue{Unix}{getgroups}$ : unit -> int array
 % can change this information arbitrarily.
 \syscall{chown} 関数はファイル (第一引数) の所有者 (第二引数) と所有グループ (第三引数) を変えます。
 ファイルディスクリプタを持っているならば、 代わりに \syscall{fchown} 関数が使えます。
-どんなファイルの所有者も変更できるのはスーパーユーザーだけです。
+任意のファイルの所有者と所有グループを変更できる権限を持つのはスーパーユーザだけです。
 %
 \begin{listingcodefile}{tmpunix.mli}
 val $\libvalue{Unix}{chown}$ : string -> int -> int -> unit
 val $\libvalue{Unix}{fchown}$ : file_descr -> int -> int -> unit
 \end{listingcodefile}
-
 % 訳し漏れ ?
 %% Le changement de groupe peut se faire sans privilège lorsque le
 %% programme à un \ml+uid+ (effectif) égal à celui du fichier et un
@@ -655,7 +655,7 @@ val $\libvalue{Unix}{fchown}$ : file_descr -> int -> int -> unit
 \hline
 \ml+0o1000+ & \ml+--------t+ & グループに対する \ml+t+ ビット (スティッキービット) \\
 \ml+0o2000+ & \ml+-----s---+ & グループに対する \ml+s+ ビット (SGID) \\
-\ml+0o4000+ & \ml+--s------+ & ユーザーに対する \ml+s+ ビット (SUID) \\
+\ml+0o4000+ & \ml+--s------+ & ユーザに対する \ml+s+ ビット (SUID) \\
 \hline
 \end{tabular}
 \caption{権限ビット}\label{tab/permbits}
@@ -688,10 +688,21 @@ val $\libvalue{Unix}{fchown}$ : file_descr -> int -> int -> unit
 (\ml+x+ が 立っていないならば、追加の権限を与えません) 。
 スペシャルビットの場所が \ml+x+ と同じで、
 \ml+x+ が設定されていないときには \ml+s+, \ml+t+ の代わりに \ml+S+, \ml+T+ が使われるのはこのためです。
-\ml+t+ ビットはサブディレクトリに親ディレクトリと同じ権限を与えます。
-ディレクトリに \ml+s+ ビットが立っている場合、 そのディレクトリの \ml+uid+, \ml+gid+ を使ってディレクトリを作ることができます。
-実行可能ファイルに \ml+s+ ビットが立っている場合、プログラムの実行時にシステムコール \ml+setuid+ と \ml+setgid+ を呼ぶことで、
-実効ユーザ識別子とグループを実行可能ファイルのユーザ/グループに切り変えることができます。
+
+%% 訳注: 英語版の本文を訳すと以下のようになるが、この説明は (たぶん) 間違っている
+%%       そのため自分で書き直したものを付けた
+% \ml+t+ ビットはサブディレクトリに親ディレクトリと同じ権限を与えます。
+% ディレクトリに \ml+s+ ビットが立っている場合、
+% 実行しているユーザではなくそのディレクトリの \ml+uid+, \ml+gid+ を使ってディレクトリを作ることができます。
+\ml+t+ フラグはスティッキービットと呼ばれ、このフラグが付いたディレクトリでは
+全てのユーザがファイルとディレクトリの作成を行えますが、
+削除が行えるのは所有者とルートだけです。
+
+%% 訳注: この段落も少し間違っていたので直した
+\ml+s+ ビットが立っている実行可能ファイルを実行すると、ファイルの所有者または所有グループとして
+ファイルが実行されます。
+さらにプログラムの実行時にシステムコール \ml+setuid+ と \ml+setgid+ を呼ぶことで、
+実効ユーザ識別子とグループを本来のユーザ/グループに切り変えることができます。
 %
 \begin{listingcodefile}{tmpunix.mli}
 val $\libvalue{Unix}{setuid}$ : int -> unit
@@ -706,10 +717,8 @@ val $\libvalue{Unix}{setgid}$ : int -> unit
 % without needing further privileges. The system calls \syscall{getuid} and
 % \syscall{getgid} Return the original identities and
 % \syscall{geteuid} and \syscall{getegid} return the effective identities.
-\ml+setuid+ と \ml+setgid+ が呼ばれたとき、プロセスは元のユーザ/グループ識別子を保持します。
-ただしスーパーユーザが \ml+setuid+ と \ml+setgid+  を実行した場合は別で、
-この場合は実効ユーザ/グループ識別子と実ユーザ/グループ識別子の両方を変更します。
-元の識別子が保存されるのは後で実効識別子を特別な権限なしに戻すことができるようにするためです。
+\ml+setuid+ と \ml+setgid+ が呼ばれたとき、プロセスは元のユーザ/グループ識別子を保存します。
+元の識別子が保存されるのは実効識別子を特別な権限なしに後で戻すことができるようにするためです。
 システムコール \syscall{getuid} と \syscall{getgid} は元の識別子を返し、
 \syscall{geteuid} と \syscall{getegid} は実効識別子を返します。
 %
@@ -719,6 +728,8 @@ val $\libvalue{Unix}{geteuid}$ : unit -> int
 val $\libvalue{Unix}{getgid}$ : unit -> int
 val $\libvalue{Unix}{getegid}$ : unit -> int
 \end{listingcodefile}
+ただしスーパーユーザが \ml+setuid+ と \ml+setgid+  を実行した場合は別で、
+この場合は実効ユーザ/グループ識別子と実ユーザ/グループ識別子の両方を変更します。
 
 % A process also has a file creation mask encoded the same way file
 % permissions are. As its name suggests, the mask specifies prohibitions
@@ -741,7 +752,7 @@ val $\libvalue{Unix}{umask}$ : int -> int
 システム変数を変更する多くのシステムコールと同じように、
 ファイル作成マスクを変更する \syscall{umask} は古い値を返します。
 そのため、この関数を二回呼べば現在の値を確認できます。
-一回目は適当な値を入力して変数の現在の値を手に入れ、二回目でその値を入力して変数を元の値に戻せばよいのです。
+一回目は適当な値を入力して変数の現在の値を手に入れ、二回目でその値を入力して変数を元の値に戻します。
 例えば:
 %
 \begin{codefile}{tmpfich.ml}
@@ -834,9 +845,9 @@ val $\libvalue{Unix}{closedir}$  : dir_handle -> unit
 % descriptor.
 システムコール \syscall{opendir} はディレクトリのディレクトリディスクリプタを返します。
 \syscall{readdir} はディスクリプタの次のエントリを読んで同じディレクトリ内のファイルの名前を返すか、
-ディレクトリの終端に到達した場合には \ml+End_of_file+ 例外が送出されます。
+ディレクトリの終端に到達した場合には \ml+End_of_file+ 例外を出します。
 \syscall{rewinddir} はディスクリプタをディレクトリの最初に移動し、
-\syscall{closedir} はディレクトリディスクリプタをクローズします。
+\syscall{closedir} はディレクトリディスクリプタを閉じます。
 \begin{example}
 % The following library function, in \ml+Misc+, iterates a
 % function \ml+f+ over the entries of the directory \ml+dirname+.
@@ -879,7 +890,7 @@ val $\libvalue{Unix}{rmdir}$ : string -> unit
 % then remove the directory.
 \ml+mkdir+ の第二引数には新しく作られるディレクトリのアクセス権限を指定します。
 すでに空であるディレクトリしか削除することはできません。
-そのためディレクトリとその要素を削除するにはなず再帰的にディレクリの要素を削除してから
+そのためディレクトリとその要素を削除するにはまず再帰的にディレクリの要素を削除してから
 ディレクトリを削除することが必要になります。
 
 % \section{\label{ex/find}Complete example: search in a file hierarchy}
@@ -923,8 +934,9 @@ find handler action follow depth roots
 % or not (\ml+false+).
 はリスト \ml+roots+ で指定されるファイル (絶対パスまたは関数が呼ばれたときのプロセスのカレントディレクトリからの相対パス)
 をルートとするファイル階層を最大 \ml+depth+ の深さまで、 フラグ \ml+follow+ がセットされているならばシンボリックリンクをたどって
-探索します。 ルート \ml+r+ の下に見つかったパスは \ml+r+ をプリフィックスとして含みます。
-探索で見つかったパス \ml+p+ は \ml+Unix.lstat p+ (\ml+follow+ が \ml+true+ の場合は \ml+Unix.stat p+) の結果とともに
+探索します。 探索を開始したパスを \ml+r+ とすると、探索結果のパスは \ml+r+ を先頭に持ちます。
+探索で見つかったパス \ml+p+ は \ml+Unix.lstat p+
+(\ml+follow+ が \ml+true+ の場合は \ml+Unix.stat p+) の結果とともに
 \ml+action+ 関数に渡されます。
 ディレクトリに対しては、\ml+action+ 関数は探索をそのディレクトリの探索を続けるべきか
 (\ml+true+) かやめるべきか (\ml+false+) を返します。
@@ -938,11 +950,12 @@ find handler action follow depth roots
 % \ml+Unix_error+ exception without catching it like a traversal error,
 % we wrap these exceptions in the \ml+Hidden+ exception (see
 % \ml+hide_exn+ and \ml+reveal_exn+).
-\ml+handler+ 関数は探索中の \ml+Unix_error+ 型のエラーを報告します。
-エラーが起こった場合は、例外の引数がハンドラ関数に渡され探索は続行されます。
+\ml+handler+ 関数は探索中に起こった \ml+Unix_error+ 型のエラーを報告します。
+エラーが起こった場合は、例外の引数が \ml+handler+ 関数に渡され探索は続行されます。
 例外が \ml+action+ 関数または \ml+handler+ 関数の内部で起こった場合にはその時点で探索は終了し、
 例外は呼び出し側に伝わります。
-これらの関数内で送出される \ml+Unix_error+ 例外を探索エラーとして捕捉しないように、 \ml+Hidden+ 例外でラップします
+\ml+action+ と \ml+handler+ の中で出される \ml+Unix_error+ 例外を探索中に起こったエラーと区別するために、
+\ml+Hidden+ 例外でラップします
 (\ml+hide_exn+ と \ml+reveal_exn+ 参照)。
 %
 %%% commented in the french version
@@ -1174,7 +1187,7 @@ val $\libvalue{Unix}{openfile}$ :
 %
 % The first group defines the behavior to follow if
 % the file exists or not. With:
-最初のグループはファイルが存在するあるいは存在しない場合の動作を決めます:
+最初のグループはファイルが存在に関連した動作を決めます:
 \begin{itemize}
 % \item \ml+O_APPEND+, the read/write position will be set at the end of
 %   the file before each write. Consequently any written data will be
@@ -1346,8 +1359,8 @@ openfile filename [O_WRONLY; O_APPEND; O_CREAT] 0o666
 歴史的な理由から、システムコール \ml+write+ は \ocaml では \ml+single_write+ という名前です。
 %
 \begin{listingcodefile}{tmpunix.mli}
-val $\libvalue{Unix}{read}$ : file_descr -> string -> int -> int -> int
-val $\libvalue{Unix}{single\_write}$ : file_descr -> string -> int -> int -> int
+val $\libvalue{Unix}{read}$ : file_descr -> bytes -> int -> int -> int
+val $\libvalue{Unix}{single\_write}$ : file_descr -> bytes -> int -> int -> int
 \end{listingcodefile}
 %
 % The two calls \ml+read+ and \ml+single_write+ have the same
@@ -1359,14 +1372,18 @@ val $\libvalue{Unix}{single\_write}$ : file_descr -> string -> int -> int -> int
 % written. In fact the third and fourth argument define a sub-string of
 % the second argument (the sub-string should be valid, \ml+read+ and
 % \ml+single_write+ do not check this).
-二つの関数 \ml+read+ and \ml+single_write+ は同じインターフェースを持ちます。
+二つの関数 \ml+read+ と \ml+single_write+ は同じインターフェースを持ちます。
 第一引数は操作を行うファイルディスクリプタです。
-第二引数\footnote{訳注: バージョン4.02 以降の \ocaml では \ml+read+ と \ml+single\_write+ の第二引数の型は \ml+bytes+ です。 以降紹介されるシステムコールでも同様です。} は \ml+read+ の場合は読み込んだバイト列を収める文字列で、
+第二引数\footnote{
+  訳注: バージョン4.02 以降の \ocaml では、変更可能なバッファとして使われる文字列の型は \ml+string+ ではなく
+  \ml+bytes+ となります。}
+は \ml+read+ の場合は読み込んだバイト列を収める文字列で、
 \ml+single_write+ の場合は書き込むバイト列です。
 第三引数は文字列の中で入出力を行う最初のバイトの位置で、
 第四引数は入出力を行うバイト数です。
 第三、四引数は第二引数の部分文字列を定めています
-(有効な部分文字列を表している必要がありますが、 \ml+read+ と \ml+single_write+ はこのことをチェックしません) 。
+(この部分文字列はもちろん有効なものである必要がありますが、
+\ml+read+ と \ml+single_write+ はこのことをチェックしません) 。
 %
 \begin{myimage}[width="85\%"]
 \begin{tikzpicture}[font={\ttfamily}]
@@ -1388,7 +1405,7 @@ val $\libvalue{Unix}{single\_write}$ : file_descr -> string -> int -> int -> int
 %
 % \ml+read+ and \ml+single_write+ return the number of bytes actually
 % read or written.
-\ml+read+ と \ml+single_write+ が実際に読み込んだ/書き込んだバイト数を返します。
+\ml+read+ と \ml+single_write+ は実際に読み込んだ/書き込んだバイト数を返します。
 
 % Reads and write calls are performed from the file descriptor's current
 % read/write position (if the file was opened in \ml+O_APPEND+ mode,
@@ -1461,8 +1478,8 @@ write fd "Hello world!" 3 7
 % input.
 読み込みでは実際に読み込んだバイト数が読むように要求されたバイト数よりも小さいことがありえます。
 例えばファイルの終端が近いときは現在位置からファイルの終端までのバイト数が要求された
-バイト数よりも小さくなることがありえます。
-特に現在位置がファイルの終端なときは \ml+read+ は 0 を返します。
+バイト数よりも小さくなります。
+特に現在位置がファイルの終端なとき \ml+read+ は 0 を返します。
 \quotes{ゼロはファイルの終端と等しい} という慣習はスペシャルファイルやパイプ、ソケットに対しても成り立ちます。
 例えば \ml+ctrl-D+ を端末に入力すると \ml+read+ は 0 を返します。
 
@@ -1475,8 +1492,8 @@ write fd "Hello world!" 3 7
 % line-by-line, see section~\ref{sec/speciaux} and the type
 % \libtype{Unix}{terminal\_io} for more details.)
 \ml+read+ が要求した値よりも小さい値を返すもうひとつの例は端末から読み込む場合です。
-この場合 \ml+read+ は行の入力が利用可能になるまでブロックします。
-行の長さが要求されたバイト数よりも短い場合、
+この場合 \ml+read+ はまず行の入力が利用可能になるまでブロックします。
+行が入力され、その長さが要求されたバイト数よりも短い場合、
 \ml+read+ は要求されたバイト数に達しようと次のデータを待つことをせずに
 行の入力が利用可能になった時点で値を返します
 (これは端末のデフォルトの動作ですが、文字ごとに読み込むように変えることもできます。
@@ -1488,9 +1505,9 @@ write fd "Hello world!" 3 7
 次のプログラムは標準入力から最大 100 文字を読み込み、文字列として返します。
 %
 \begin{lstlisting}
-let buffer = String.create 100 in
+let buffer = Bytes.create 100 in
 let n = read stdin buffer 0 100 in
-  String.sub buffer 0 n
+  Bytes.sub buffer 0 n
 \end{lstlisting}
 \end{example}
 
@@ -1501,7 +1518,7 @@ let n = read stdin buffer 0 100 in
 % \ml+End_of_file+ if the end of file is reached while doing this.
 以下の関数 \ml+really_read+ は \ml+read+ と同じインターフェースを持ちますが、
 要求されたバイト数を取得するために追加の読み込みを行います。
-読み込み中にファイルの終端に達した場合には \ml+End_of_file+ 例外が送出されます。
+読み込み中にファイルの終端に達した場合には \ml+End_of_file+ 例外が出ます。
 %
 \begin{lstlisting}
 let rec really_read fd buffer start length =
@@ -1540,7 +1557,7 @@ val $\libvalue{Unix}{close}$ : file_descr -> unit
 \ml+Pervasives+ モジュールのチャンネルとは違って全ての書き込みが実行されたことを保証するために
 チャンネルを閉じる必要はありません。
 一方プロセスが確保できるディスクリプタの数はカーネルによって (数百から数千に) 制限されていることから、
-使わないディスクリプタを \ml+close+ することでディスクリプタを開放することで枯渇を防ぐことができます。
+使わないディスクリプタを \ml+close+ して開放することでディスクリプタの枯渇を防ぐことができます。
 
 % \section{\label{ex/filecopy}Complete example: file copy}
 \section{\label{ex/filecopy}完全な例: ファイルのコピー}
@@ -1555,7 +1572,7 @@ val $\libvalue{Unix}{close}$ : file_descr -> unit
 open Unix;;
 
 let buffer_size = 8192;;
-let buffer = String.create buffer_size;;
+let buffer = Bytes.create buffer_size;;
 
 let file_copy input_name output_name =
   let fd_in = openfile input_name [O_RDONLY] 0 in
@@ -1629,7 +1646,7 @@ handle_unix_error copy ();;
 % include inability to open the input file because it does not
 % exist, failure to read because of restricted permissions, failure to
 % write because the disk is full, \etc
-コピー中に \ml+Unix_error+ が起きて \ml+Unix_error+ が送出された場合、
+コピー中に起きた \ml+Unix_error+ は
 \ml+handle_unix_error+ によって補足され、エラーの内容が表示されます。
 ここで起こるエラーの例としては入力ファイルが存在しないために開くことができない、
 権限が足りなくてファイルを開くことができない、
@@ -1676,7 +1693,7 @@ openfile output_name [O_WRONLY; O_CREAT; O_TRUNC] 0o666
 % \ml+buffer_size+). The amount of data transferred is the same
 % regardless of the size of the blocks.
 図~\ref{fig/copy-speed} に \ml+file_copy+ の速度を示します。
-一秒間にコピーできるバイト数を横軸に、ブロックサイズ (\ml+buffer_size+ の値) を縦軸に示しています。
+一秒間にコピーできるバイト数を縦軸に、ブロックサイズ (\ml+buffer_size+ の値) を横軸に示しています。
 \begin{myfigure}
 \begin{myimage}[width="100\%"]
 \begin{tikzpicture}[font=\tiny]
@@ -1737,7 +1754,7 @@ openfile output_name [O_WRONLY; O_CREAT; O_TRUNC] 0o666
 %   section~\ref{single_write}. But this limit is bigger than the
 %   size of system caches and it is not observable.}.
 ブロックが大きくて 4KB から 1MB の場合、コピー速度は最大値で一定です。
-ここではシステムコールとループにかかる時間がデータ転送にかかる時間に比べて小さくなっています。
+ここではシステムコールとループにかかる時間がデータ転送にかかる時間に比べて小さくなっているということです。
 加えてバッファのサイズがシステムのキャッシュよりも大きくなるためにデータの転送がシステムコールの
 コストを上回るようになります\footnote{実際には \ocaml はデータ転送を (現在のバージョンでは) 16KB に制限し
   全体の転送が終わるまで \ml+write+ システムコールを繰り返します~---~セクション~\ref{single_write} 参照。
@@ -1786,7 +1803,7 @@ external speed_write :
 .
 /buffer_size/,/file_copy/c
 let file_copy buffer_size input_name output_name =
-  let buffer = String.create buffer_size in
+  let buffer = Bytes.create buffer_size in
 .
 /write/s/write/speed_write/
 $a
@@ -1896,14 +1913,14 @@ val close_out : out_channel -> unit
 %
 % We start with the \quotes{input} part. The abstract type
 % \ml+in_channel+ is defined as follows:
-\emph{読み込み} の部分から始めます。
+\quotes{読み込み} の部分から始めます。
 抽象型 \ml+in_channel+ は次のように定義します:
 %
 \begin{listingcodefile}{io.ml}
 open Unix;;
 
 type in_channel =
-  { in_buffer: string;
+  { in_buffer: bytes;
     in_fd: file_descr;
     mutable in_pos: int;
     mutable in_end: int };;
@@ -1952,7 +1969,7 @@ exception End_of_file
 \begin{listingcodefile}{io.ml}
 let buffer_size = 8192;;
 let open_in filename =
-  { in_buffer = String.create buffer_size;
+  { in_buffer = Bytes.create buffer_size;
     in_fd = openfile filename [O_RDONLY] 0;
     in_pos = 0;
     in_end = 0 };;
@@ -1999,8 +2016,8 @@ let input_char chan =
 一つ目はバッファに一つ以上まだ読んでいない文字がある、つまり \ml+in_pos+ フィールドの値が
 \ml+in_end+ フィールドの値よりも小さい場合です。
 このときはバッファの \ml+in_pos+ にある文字を返し、 \ml+in_pos+ をインクリメントします。
-もう一つはバッファが空の場合で、このときは \ml+read+ を読んでバッファにもう一度文字列を読み込みます。
-\ml+read+ が 0 を返したならファイルの終端に達したということなので \ml+End_of_file+ 例外を送出します。
+もう一つはバッファが空の場合で、このときは \ml+read+ を呼んでバッファにもう一度文字列を読み込みます。
+\ml+read+ が 0 を返したならファイルの終端に達したということなので \ml+End_of_file+ 例外を出します。
 そうでなければ \ml+in_end+ に呼んだ文字の数を代入します。
 %
 \begin{listingcodefile}{io.ml}
@@ -2047,17 +2064,17 @@ let close_in chan =
 %
 \begin{listingcodefile}{io.ml}
 type out_channel =
-  { out_buffer: string;
+  { out_buffer: bytes;
     out_fd: file_descr;
     mutable out_pos: int };;
 
 let open_out filename =
-  { out_buffer = String.create 8192;
+  { out_buffer = Bytes.create 8192;
     out_fd = openfile filename [O_WRONLY; O_TRUNC; O_CREAT] 0o666;
     out_pos = 0 };;
 
 let output_char chan c =
-  if chan.out_pos < String.length chan.out_buffer then begin
+  if chan.out_pos < Bytes.length chan.out_buffer then begin
     chan.out_buffer.[chan.out_pos] <- c;
     chan.out_pos <- chan.out_pos + 1
   end else begin
@@ -2121,21 +2138,21 @@ open Unix;;
 %
 \begin{lstlisting}
 let output_string chan s =
-  let avail = String.length chan.out_buffer - chan.out_pos in
-  if String.length s <= avail then begin
-    String.blit s 0 chan.out_buffer chan.out_pos (String.length s);
-    chan.out_pos <- chan.out_pos + String.length s
+  let avail = Bytes.length chan.out_buffer - chan.out_pos in
+  if Bytes.length s <= avail then begin
+    Bytes.blit s 0 chan.out_buffer chan.out_pos (Bytes.length s);
+    chan.out_pos <- chan.out_pos + Bytes.length s
   end
   else if chan.out_pos = 0 then begin
-    ignore (write chan.out_fd s 0 (String.length s))
+    ignore (write chan.out_fd s 0 (Bytes.length s))
   end
   else begin
-    String.blit s 0 chan.out_buffer chan.out_pos avail;
-    let out_buffer_size = String.length chan.out_buffer in
+    Bytes.blit s 0 chan.out_buffer chan.out_pos avail;
+    let out_buffer_size = Bytes.length chan.out_buffer in
     ignore (write chan.out_fd chan.out_buffer 0 out_buffer_size);
-    let remaining = String.length s - avail in
+    let remaining = Bytes.length s - avail in
     if remaining < out_buffer_size then begin
-      String.blit s avail chan.out_buffer 0 remaining;
+      Bytes.blit s avail chan.out_buffer 0 remaining;
       chan.out_pos <- remaining
     end else begin
       ignore (write chan.out_fd s avail remaining);
@@ -2199,22 +2216,20 @@ val $\libvalue{Unix}{lseek}$ : file_descr -> int -> seek_command -> int
 % \ml+SEEK_SET+ & Absolute position. The second argument specifies
 % the character number to point to. The first character of a file is at
 % position zero.\\
-\ml+SEEK_SET+ & 絶対位置。第二引数は関数を呼び出した後の入出力位置を表す。
+\ml+SEEK_SET+ & 第二引数は関数を呼び出した後の入出力位置を表す。
 ファイルの最初の文字は位置 0 である。 \\
 %
 % \ml+SEEK_CUR+ & Position relative to the current position.
 % The second argument is an offset relative to the
 % current position. A positive value moves forward and a negative value
 %                 moves backwards.\\
-\ml+SEEK_CUR+ & 現在の入出力位置からの相対位置。
-第二引数は現在の入出力位置からの相対的なオフセットを表す。
+\ml+SEEK_CUR+ & 第二引数は現在の入出力位置からの相対的なオフセットを表す。
 正の値のとき前に、負の値のとき後ろに動く。 \\
 %
 % \ml+SEEK_END+ & Position relative to the end of file. The
 % second argument is an offset relative to the end of file.
 % As for \ml+SEEK_CUR+, the offset may be positive or negative.
-\ml+SEEK_END+ & ファイルの終端からの相対位置。
-第二引数はファイルの終端からの相対的なオフセットを表す。
+\ml+SEEK_END+ & 第二引数はファイルの終端からの相対的なオフセットを表す。
 \ml+SEEK_CUR+ と同様にオフセットは正負どちらにもなれる。
 \end{tabular}
 \end{mltypecases}
@@ -2403,7 +2418,7 @@ val $\libvalue{Unix}{readlink}$ : string -> string
 % The latter, typically disks, have a permanent medium: characters can
 % be read by blocks and even seeked relative to the current position.
 スペシャルファイルは \quotes{キャラクタ} または \quotes{ブロック} に分類されます。
-前者は文字のストリームです。つまり文字の入出力は連続的にしか行うことができません。
+前者は文字のストリームです。つまり文字の入出力は逐次的にしか行うことができません。
 例として端末やサウンドデバイス、プリンターなどがあります。
 後者は永続的な媒体を持つものであり、ディスクが典型です。
 文字はブロック単位で読み込むことができ、現在位置からの相対位置にシークすることができます。
@@ -2431,7 +2446,7 @@ val $\libvalue{Unix}{readlink}$ : string -> string
 %
 % \ml+/proc+ & Under Linux, system parameters organized as a
 %  file system. They allow reads and writes.
-\ml+/proc+ & システム変数を保持する。 Linux ではシステム変数はファイルシステムで管理され、入出力が許されている。
+\ml+/proc+ & システム変数。 Linux ではシステム変数はファイルシステムで管理され、入出力が許されている。
 \end{tabular}
 \end{mltypecases}
 
@@ -2471,7 +2486,7 @@ Unix ではこれらデバイスのパラメータの設定は全てシステム
 % and returns a structure of type \libtype{Unix}{terminal\_io} which
 % describes the status of the terminal according to the \textsc{posix}
 % standard.
-端末と擬似端末はキャラクタタイプのスペシャルファイルで、 \ocaml から設定することができます。
+端末と擬似端末はキャラクタタイプのスペシャルファイルで、 \ocaml から設定を変更することができます。
 システムコール \syscall{tcgetattr} はオープンされたスペシャルファイルのファイルディスクリプタを受け取り
 \textsc{posix} 規格に基づいて端末の状態を表す \libtype{Unix}{terminal\_io} 型の構造体を返します。
 %
@@ -2521,7 +2536,9 @@ val $\libvalue{Unix}{tcsetattr}$ : file_descr -> setattr_when -> terminal_io -> 
 % When a password is read, characters entered by the user should not be
 % echoed if the standard input is connected to a terminal or a
 % pseudo-terminal.
-標準入力が端末または擬似端末の場合、パスワードを読むときにユーザーが打ち込んだ文字列は表示されるべきではありません。
+標準入力が端末または擬似端末の場合、
+パスワードを読む処理を行っている間はユーザが打ち込んだ文字列を表示するべきではありません。
+この処理は以下のように実装できます:
 %
 \begin{codefile}{passwd.ml}
 open Unix;;
@@ -2666,10 +2683,10 @@ val $\libvalue{Unix}{setsid}$ : unit -> int
 二つのプロセスは同じファイルに同時に書き込むことができますが、書き込みが衝突した場合
 データの一貫性が失われることがあります。
 \ml+O_APPEND+ を使って常にファイルの末尾に書き込むようにしてこれを回避できることがあります。
-\ml+log+ ファイルにはこの方法で良いですが、データベースのように任意の場所に書き込みが起こるときは上手く行きません。
+\ml+log+ ファイルにはこの方法で良いですが、データベースのように任意の場所に書き込みが起こるときは上手くいきません。
 そのような場合にはファイルを使うプロセスは他人のつま先を踏まないように協調する必要があります。
-ファイル全体に対するロックは補助ファイルを使うことで実装できます (\pageref{page/lock} 参照) が、
-システムコール \syscall{lockf} はファイルの一部分をロックするより良い同期パターンを利用します。
+ファイル全体に対するロックは補助ファイルを使うことで実装できます (\pageref{page/lock} ページ参照) が、
+システムコール \syscall{lockf} を使うとファイルの一部分をロックするより良い同期パターンを利用できます。
 %
 \begin{codefile}{tmpunix.mli}
 type lock_command = Unix.lock_command
@@ -2725,7 +2742,7 @@ let set_infos filename infos =
 % \quotes{permission denied} error. We catch this error and ignore it.
 システムコール \syscall{utime} は最終アクセス/更新日時を、
 \ml+chmod+ と \ml+chown+がアクセス権限と所有者を変更します。
-通常ユーザーが \ml+chown+ を実行すると \quotes{permission denied} エラーが出て失敗することがありますが、
+通常ユーザが \ml+chown+ を実行すると \quotes{permission denied} エラーが出て失敗することがありますが、
 このエラーは捕捉した上で無視します。
 
 % Here's the main recursive function.
@@ -2765,7 +2782,7 @@ let rec copy_rec source dest =
 % or its parent) and recursively call \ml+copy_rec+ for each entry. All
 % other file types are ignored, with a warning.
 \ml+source+ ファイルの情報を読むところから処理が始まります。
-ファイルが通常ファイルの場合、 \ml+file_copy+ によってデータを \ml+set_infos+ によって情報をコピーします。
+ファイルが通常ファイルの場合、 \ml+file_copy+ によってデータを、 \ml+set_infos+ によって情報をコピーします。
 ファイルがシンボリックリンクの場合、リンクがどこを指しているを読み取りそのファイルを指すリンクを作成します。
 ファイルがディレクトリの場合、目的となるディレクトリを作成しディレクトリのエントリを読み、各エントリに対して
 再帰的に \ml+copy\_rec+ を呼び出します。このときディレクトリそのものと親ディレクトリのエントリは無視します。
@@ -2799,7 +2816,8 @@ handle_unix_error copyrec ();;
 % names in the hierarchy to copy. Try to detect this situation, copy
 % the file only once and make hard links in the destination hierarchy.
 ハードリンクを賢くコピーしてください。
-同じファイルが $n$ 個の異なる場所に存在する場合、上記したように \ml+copy_rec+ は同じファイルを $n$ 個作成します。
+同じファイルが $n$ 個の異なる場所に存在する場合、上記のプログラムでは
+\ml+copy_rec+ は同じファイルを $n$ 個作成します。
 このような状況を検出し、コピーを一度だけして他の場所にはハードリンクを作るようにしてください。
 \end{exercise}
 
@@ -3010,12 +3028,12 @@ Unix のファイルの種類 \libtype{Unix}{file\_kind} に対応します。
 リンクの指す先のファイル名が保存されます。
 \ml+kind+ フィールドが \ml+CHR+ または \ml+BLK+ のとき、
 \ml+major+ と \ml+minor+ フィールドには周辺機器のメジャー番号とマイナー番号が保存されます。
-これあのフィールドはそれ以外のとき使用されません。
+これらのフィールドはそれ以外のとき使用されません。
 
 
 % The value of the \ml+kind+ field is naturally represented by a
 % variant type and the header by a record:
-\ml+kind+ フィールドの値はバリアント型によって、 ヘッダはレコードによって自然に表現されます。
+\ml+kind+ フィールドの値はヴァリアント型によって、 ヘッダはレコードによって自然に表現されます。
 %
 \begin{codefile}{tarlib.ml}
 open Unix;;
@@ -3046,11 +3064,11 @@ let handle_error f s =
       exit 2
 
 let substring s offset len =
-  let max_length = min (offset + len + 1) (String.length s) in
+  let max_length = min (offset + len + 1) (Bytes.length s) in
   let rec real_length j =
     if j < max_length && s.[j] <> '\000' then real_length (succ j)
     else j - offset in
-  String.sub s offset (real_length offset);;
+  Bytes.sub s offset (real_length offset);;
 
 let integer_of_octal nbytes s offset =
   let i = int_of_string ("0o" ^ substring s offset nbytes) in
@@ -3088,7 +3106,7 @@ let total_size size =
 % should not be reached when we try to read a block.
 アーカイブの終端は本来なら新しいレコードが始まるべき場所にあるファイルの終端か、完全で空のブロックです。
 そのためヘッダを読み込むときに読むブロックは空なものか完全なものです。
-そこで \ml+really_read+ を再利用します。
+そこで \ml+really_read+ を再利用します。アーカイブが壊れていない限り、
 1 ブロックを読み込もうとしたときにファイルの終端を読むことはありません。
 %
 \begin{codefile}{tarlib.ml}
@@ -3101,7 +3119,7 @@ let rec really_read fd buffer start length =
 %
 \begin{listingcodefile}{tarlib.ml}
 let buffer_size = block_size;;
-let buffer = String.create buffer_size;;
+let buffer = Bytes.create buffer_size;;
 
 let end_of_file_error () =
   error "Corrupted archive" "unexpected end of file"
@@ -3163,14 +3181,15 @@ let fold f initial fd  =
 % \ml+f r accu+. It stops when there's no header: the end of the archive
 % was reached.
 \ml+fold_aux+ 関数は処理を \ml+offset+ の位置から開始し、 \ml+accu+ の中に途中経過が含まれています。
-レコードのが始まる位置 \ml+offset+ まで移動し、ヘッダを読み、レコード \ml+r+ を構築し、同じ処理を
+レコードが始まる位置 \ml+offset+ まで移動し、ヘッダを読み、レコード \ml+r+ を構築し、同じ処理を
 新しい (より処理の進んだ) 途中結果 \ml+f r accu+ とともにレコードの末尾から行います。
 この処理はヘッダが無くなるまで、つまりアーカイブの終端に達するまで繰り返されます。
 
 % \paragraph{Display the record names}
 \paragraph{レコードの名前の表示}
 % We just display the name of records without keeping them:
-レコードの名前を保存すること無く表示します:
+\ml+fold+ 関数の使用例として、
+レコードの名前を保存すること無く表示する処理を示します:
 \begin{listingcodefile}{tarlib.ml}
 let list tarfile =
   let fd = openfile tarfile [ O_RDONLY ] 0o0 in
@@ -3263,11 +3282,11 @@ let find_and_copy tarfile filename =
 % well-formed. The first search may however fail if the target name is
 % not in the archive. In case of failure, the program takes care to
 % distinguish between these two cases.
-ターゲットのファイル名が見つかるまでアーカイブのレコード (内容は除く) を読みます。
+まずターゲットのファイル名が見つかるまでアーカイブのレコード (内容は除く) を読みます。
 その後 \ml+find_regular+ 関数で実際にそのファイルの内容を含んでいるレコードを探します。
 この二回目の逆順の探索はアーカイブが矛盾なく作られている限り成功します。
-しかし一回目の探索はファイルがアーカイブに存在しない場合に失敗します。
-なので処理が失敗した場合でも二つのエラーを区別するようになっています。
+しかし一回目の探索はファイルがアーカイブに存在しない場合に失敗するので、
+処理が失敗した場合でも二つのエラーを区別するようになっています。
 
 % Here is the main function which implements the command \ml+readtar+:
 \ml+readtar+ コマンドを実装したメイン関数は以下のようになります:
@@ -3299,7 +3318,7 @@ handle_unix_error (handle_error readtar) ();;
 % (which is not allowed for hard links) and they may not correspond to
 % files contained in the archive.
 問題は一見単純なように見えますが、
-シンボリックリンクはハードリンクと違ってディレクトリを含んだ任意のパスを表すことができ
+シンボリックリンクはハードリンクと違ってディレクトリを含んだ任意のパスを表すことができ、
 そのパスがアーカイブの中に存在するとは限らないことから、簡単ではありません。
 
 % A simple solution is to recreate, in memory, the file hierarchy
@@ -3325,7 +3344,7 @@ and inode = { mutable record : record option; mutable info : info;}
 % intermediate directories are not always present in the archive; it is
 % mutable because a file may appear more than once in the archive and
 % the last occurrence takes precedence over the other.
-メモリ上のファイルシステムのノードは \ml+inode+ 型で表されます。
+メモリ上に構築されるファイルシステムのノードは \ml+inode+ 型で表されます。
 \ml+info+ フィールドが通常ファイルとシンボリックリンクとディレクトリに制限されたファイルの種類を表します。
 パスは文字列のリストとして、ディレクトリは含まれるファイルの名前とノードの組のリストとして表されます。
 \ml+record+ フィールドはノードに対応する \ml+tar+ レコードを保持します。
@@ -3505,7 +3524,7 @@ Printexc.print (handle_unix_error (handle_error readtar)) ();;
 % permissions.
 ファイル階層は \ml+untar+ コマンドが実行されたディレクトリに再構築されるべきです。
 コマンドが現在のワーキングディレクトリのサブディレクトリではない場所に書き込むことは許されません。
-アーカイブにレコードが無いディレクトリはユーザーのデフォルト権限で作られるようにしてください。
+アーカイブにレコードが無いディレクトリはユーザのデフォルト権限で作られるようにしてください。
 \end{exercise}
 
 \begin{answer}
@@ -3524,7 +3543,7 @@ Printexc.print (handle_unix_error (handle_error readtar)) ();;
 % Let us first write an auxiliary function for \ml+mkpath p m+ that
 % creates the missing directories along the path \ml+p+ with permissions
 % \ml+m+ (and such that \ml+p+ may be terminated by a
-superfluous \quotes{\ml+/+}).
+% superfluous \quotes{\ml+/+}).
 最初に補助関数 \ml+mkpath p m+ を書きます。
 この関数はパス \ml+p+ に含まれるディレクトリでまだ作成されていないものを、 \ml+m+ の権限で作成します。
 \ml+p+ の最後には余分な \quotes{\ml+/+} が含まれていても構いません。
@@ -3679,7 +3698,7 @@ let warning path message =  prerr_endline (path ^ ": " ^ message)
 % to the format to handle longer path but it's not the goal of this
 % project).
 レコードのヘッダをバッファに書き込む関数から始めます。
-処理は退屈ですが、ヘッダがおかしいとアーカイブ全体が読み込めなくなるので慎重になるひつようがあります。
+処理は退屈ですが、ヘッダがおかしいとアーカイブ全体が読み込めなくなるので慎重になる必要があります。
 特にファイルのフォーマットによる制限には注意が必要です。
 例えばパスの長さは 99 バイトに制限されています
 (これより長いパスを扱えるようにするフォーマットの拡張もありますが、この練習問題では取り扱いません)。
@@ -3687,14 +3706,14 @@ let warning path message =  prerr_endline (path ^ ": " ^ message)
 \begin{listingcodefile}{tar.ml}
 let write_header_to_buffer source infos kind =
   let size = if kind = REG then infos.st_size else 0 in
-  String.fill buffer 0 block_size '\000';
+  Bytes.fill buffer 0 block_size '\000';
   let put len string offset =
-    String.blit string 0 buffer offset (min (String.length string) len) in
+    Bytes.blit string 0 buffer offset (min (Bytes.length string) len) in
   let put_int8 x = put 7 (Printf.sprintf "%07o" x) in
   let put_int12 x = put 11 (Printf.sprintf "%011o" x) in
   let put_char c offset = buffer.[offset] <- c in
   let put_path s offset =
-    if String.length s <= 99 then put 99 s offset
+    if Bytes.length s <= 99 then put 99 s offset
     else raise (Error ("path too long", s)) in
   put_path (if kind = DIR then source ^ "/" else source) 0;
   put_int8 infos.st_perm 100;
@@ -3751,7 +3770,7 @@ let header source infos kind = {
 対応していることを確認します。受け取ったバイト数だけ書き込んだ結果ファイルの末尾に到達しなかった
 場合、エラーを出します。これによってアーカイブ中にファイルが変更されるケースに対応できます。
 アーカイブの欠損を一つのファイルに抑えるために、引数で受け取ったバイト数を超えて書き込むことは
-ありません。
+しません。
 %
 \begin{listingcodefile}{tar.ml}
 let write_file len source fdout =
@@ -3768,7 +3787,7 @@ let write_file len source fdout =
   copy_loop len;;
 
 let padding fd len =
-  if len > 0 then ignore (write fd (String.make len '\000') 0 len);;
+  if len > 0 then ignore (write fd (Bytes.make len '\000') 0 len);;
 \end{listingcodefile}
 %
 % We now tackle the creation of the archive. The files already written

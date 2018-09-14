@@ -20,9 +20,10 @@
 % common to Unix and other operating systems under which {\ocaml} runs.
 % The second module, \libmodule{Unix}, contains everything specific to
 % Unix.
-\ocaml からシステムにアクセスするときに使われる関数は二つのモジュールにまとめられています。
-一つ目の \libmodule{Sys} モジュールは \ocaml が実行される Unix およびその他のオペレーティングシステムで一般的な関数を含みます。 二つ目の \libmodule{Unix} モジュールは Unix に特有なものが全て含まれています。
-
+\ocaml からシステムにアクセスするときに使われる関数は \ml+Sys+ と \ml+Unix+ の二つのモジュールにまとめられています。
+一つ目の \libmodule{Sys} モジュールは \ocaml が実行される Unix
+およびその他のオペレーティングシステムで一般的な関数を含みます。
+二つ目の \libmodule{Unix} モジュールは Unix に特有なものが全て含まれています。
 
 % In what follows, we will refer to identifiers from the \ml+Sys+ and
 % \ml+Unix+ modules without specifying which modules they come from.  That is, we
@@ -39,7 +40,8 @@
 % \ml+Unix.stdin+. The previous definitions can always be obtained
 % through a prefix.
 \ml+Sys+ および \ml+Unix+ モジュールは \ml+Pervasives+ モジュールに定義されている変数を上書きし、
-元の定義を隠してしまうことがあります。例えば、 \ml+Pervasives.stdin+ と \ml+Unix.stdin+ は別物です。
+元の定義を隠してしまうことがあるので注意してください。
+例えば、 \ml+Pervasives.stdin+ と \ml+Unix.stdin+ は別物です。
 隠された定義にはプリフィックスをつけることでアクセスできます。
 
 % To compile an {\ocaml} program that uses the
@@ -100,7 +102,7 @@ ocamlc -o prog unix.cma mod1.cmo mod2.cmo mod3.cmo
 %
 % Otherwise, you will need to create an interactive system containing
 % the pre-loaded system functions:
-対応していない場合、システム関数がプリロードされた対話環境を作る必要があります:
+動的リンクに対応していない場合、システム関数がプリロードされた対話環境を作る必要があります:
 %
 \begin{lstlisting}
 ocamlmktop -o ocamlunix unix.cma
@@ -159,7 +161,7 @@ val $\indexlibvalue{Sys}{getenv}$ : string -> string
 % the environment, raising the exception  \ml+Not_found+ if this
 % variable is not bound.
 \ml+Sys.getenv v+ は \ml+v+ という環境変数に結び付けられた値を返します。
-環境変数が見つからなかった場合は \ml+Not_found+ 例外を送出します。
+環境変数が見つからなかった場合は \ml+Not_found+ 例外を出します。
 %
 \begin{example}
 % As a first example, here is the \ml+echo+ program, which prints a
@@ -195,9 +197,10 @@ val $\indexlibvalue{Pervasives}{exit}$ : int -> 'a
 % \quotes{true}, and all non-zero codes as the boolean \quotes{false}.
 引数は呼び出し元のプログラムに送られる返り値です。
 問題のない場合には 0 を、エラーが起こった場合には0でない値を返すという慣習があります。
-プログラムの実行結果が条件として使われた場合では \ml+sh+ シェルは返り値 0 をブール値 \quotes{true} に、
+プログラムの実行結果が条件として使われた場合、
+\ml+sh+ シェルは返り値 0 をブール値 \quotes{true} に、
 0 でない全ての返り値を \quotes{false} として解釈します。
-%
+
 % When a program terminates normally after executing all of the
 % expressions of which it is composed, it makes an implicit call to
 % \ml+exit 0+. When a program terminates prematurely because an
@@ -205,7 +208,7 @@ val $\indexlibvalue{Pervasives}{exit}$ : int -> 'a
 % \ml+exit 2+.
 プログラムが全ての式を実行し終わって終了する場合、そのプログラムは暗黙的に \ml+exit 0+ を呼びます。
 プログラムが補足されない例外によって途中で実行を終了する場合、そのプログラムは暗黙的に \ml+exit 2+ を呼びます。
-%
+
 % The function \ml+exit+ always flushes the buffers of all channels open for
 % writing. The function \ml+at_exit+ lets one register other actions
 % to be carried out when the program terminates.
@@ -220,14 +223,18 @@ val $\indexlibvalue{Pervasives}{at\_exit}$ : (unit -> unit) -> unit
 % \ml+at_exit+ cannot be unregistered. However, this is not a
 % real restriction: we can easily get the same effect with a function
 % whose execution depends on a global variable.
-最後に登録された関数が最初に実行されます。 \ml+at_exit+ 関数を使って登録された関数は登録を解除することができませんが、これが本質的な制限になることはありません。グローバル変数を使って実行を変えることができるからです。
+最後に登録された関数が最初に実行されます。
+\ml+at_exit+ 関数を使って登録された関数は登録を解除することができませんが、
+これが本質的な制限になることはありません。
+グローバル変数を使って実行を変えることができるからです。
 
 % \section{Error handling}
 \section{エラー処理}
 
 % Unless otherwise indicated, all functions in the \ml+Unix+ module
 % raise the exception \ml+Unix_error+ in case of error.
-明示されていない限り、 \ml+Unix+ モジュールの全ての関数はエラーが起きたときに \ml+Unix_error+ 例外を送出します。
+他に明示されていない限り、
+\ml+Unix+ モジュールの全ての関数はエラーが起きたときに \ml+Unix_error+ 例外を出します。
 %
 \begin{codefile}{tmpunix.mli}
 type error = Unix.error
@@ -258,7 +265,7 @@ type $\libtype{Unix}{error}$ = E2BIG | EACCES | EAGAIN | ...  | EUNKNOWNERR of i
 % Constructors of this type have the same names and meanings as those
 % used in the \textsc{posix} convention and  certain errors from
 % \textsc{unix98} and \textsc{bsd}. All other errors use the constructor \ml+EUNKOWNERR+.
-この型のコンストラクタには \textsc{posix} で定義されるエラーと同じ名前と意味ですべて含まれ、
+この型のコンストラクタには \textsc{posix} で定義されるエラーが同じ名前と意味ですべて含まれ、
 加えて \textsc{unix98}, \textsc{bsd} のエラーの一部が含まれます。
 その他の全てのエラーは \ml+EUNKOWNERR+ というコンストラクタになります。
 
@@ -283,7 +290,7 @@ val $\indexlibvalue{Unix}{handle\_unix\_error}$ : ('a -> 'b) -> 'a -> 'b
 % message is displayed describing the error, and the program is
 % terminated with  \ml+exit 2+. A typical use is
 \ml+handle_unix_error f x+ はまず引数 \ml+x+ を関数 \ml+f+ に適用します。
-この適用は \ml+Unix_error+ を送出した場合、エラーを説明するメッセージが表示され、
+この適用が \ml+Unix_error+ を出した場合、エラーを説明するメッセージが表示され、
 \ml+exit 2+ によってプログラムは終了します。次のプログラムは典型的な使用例です:
 %
 \begin{lstlisting}
@@ -318,7 +325,7 @@ let handle_unix_error f arg =
 %
 % Functions of the form \ml+prerr_xxx+ are like the functions
 % \ml+print_xxx+, except that they write on the error channel
-\ml+stderr+ rather than on the standard output channel \ml+stdout+.
+% \ml+stderr+ rather than on the standard output channel \ml+stdout+.
 \ml+prerr_xxx+ の形をした関数は基本的には \ml+print_xxx+ 関数と同じ動作をしますが、
 書き込み先は \ml+stdout+ ではなく \ml+stderr+ となります。
 
@@ -340,9 +347,10 @@ let handle_unix_error f arg =
 % the level where the exception is explicitly caught and handled. This avoids
 % continuing the program in an inconsistent state.
 \ml+handle_unix_error+ 関数がプログラムの実行を終了させるような致命的なエラーを処理します。
-\ocaml を使うことの利点は、 エラーが発生したときにプログラムの実行を止めて一番上のレベルで処理することが許されている点です。
-システムコールによるどんなエラーも例外を発生させるので、
-実行はプログラムの一番上のレベルまで戻り、そこで例外は明示的に補足・処理される事になります。
+\ocaml を使うことの利点は全てのエラーを明示的に処理することが求められ、
+エラーが発生するとプログラムの実行が終了することになるトップレベルでさえこれが求められることです。
+実際システムコールによるどんなエラーも例外を発生させるので、
+プログラムの実行は中断され、例外は明示的に補足・処理されるまで上に登る事になります。
 これによってプログラムが不整合状態で実行が続くことを防ぐことができます。
 
 % Errors of type \ml+Unix_error+  can, of course, be
@@ -358,7 +366,8 @@ let rec restart_on_EINTR f x =
 %
 % which is used to execute a function and to restart it automatically
 % when it executes a system call that is interrupted (see section~\ref{sec/sigsyscalls}).
-関数を実行してもし中断された場合にはもう一度繰り返すという処理を行います (\ref{sec/sigsyscalls} 節を参照)。
+このコードは関数を実行してもし中断された場合にはもう一度繰り返すという処理を行います
+(\ref{sec/sigsyscalls} 節を参照)。
 
 % \section{Library functions}
 \section{ライブラリ関数}
@@ -384,18 +393,18 @@ let rec restart_on_EINTR f x =
 % descriptor in all cases, including those where the processing of the
 % file causes an error. This is in order to avoid a file descriptor
 % leak, leading to the exhaustion of file descriptors.
-自分で書いて自分で実行するプログラムではどんなエラーが送出され、そのうちどれが
+自分で書いて自分で実行するプログラムではどんなエラーが出て、そのうちどれが
 実行を終了させるような致命的なエラーかが分かるものですが、
 ライブラリ関数の場合には実行されるコンテキストが分からないのでどれが致命的なエラーなのかは通常分かりません。
 かといって全てのエラーが致命的であると仮定することもできません。
 そのためプログラムを止めるのか、それとも無視するのか呼び出し元に判断させるために、
 エラーを呼び出し元に伝えることが必要になります。
 
-しかし、ライブラリ関数は発生したエラーをそのまま呼び出し元に伝えることが通常できません。
+しかし、ライブラリ関数を普通に実装すると発生したエラーをそのまま呼び出し元に伝えることができません。
 システムを整合状態に置くことが求められるためです。
 例えばファイルを開いてそのファイルディスクリプタを使って操作を行うライブラリ関数は、
 ファイルへの操作でエラーが生じた場合を含めた全ての場合においてファイルディスクリプタを閉じる処理を行う必要があります。
-これはファイルディスクリプタがリークしてファイルディスクリプタを使いきってしまうことを防ぐためです。
+ファイルディスクリプタがリークしてファイルディスクリプタを使いきってしまうことを防ぐためです。
 
 % Furthermore, the operation applied to a file may be defined by a
 % function that was received as an argument, and we don't know precisely
@@ -406,13 +415,13 @@ let rec restart_on_EINTR f x =
 ファイルに対する操作を引数として受け取る場合もあります。
 この場合、いつどのように操作が失敗するかを知ることは (呼び出した側でなければ) できません。
 そのため操作の本体は \quotes{最終処理} コードで守ることが必要になります。
-このコードは関数が例外を送出したかどうかにかかわらず、関数が帰る直前に実行されるコードです。
+このコードは関数が例外を出したかどうかにかかわらず、関数が帰る直前に実行されます。
 
 % There is no built-in finalize construct \ml+try+ \ldots \ml+finalize+ in
 % the {\ocaml} language, but it can be easily defined\footnote{A
 % built-in construct would not be less useful.}:
 \ml+try+ \ldots \ml+finalize+ 構文は \ocaml にビルトインでは用意されていませんが、簡単に
-定義することができます \footnote{ビルトインで用意される構文はあまり便利なものではありません。}。
+定義することができます \footnote{構文がビルトインで用意されれば関数を定義して使うよりも便利でしょう。}。
 \begin{codefile}{misc.mli}
 (** miscellaneous functions for the Unix library *)
 
@@ -449,9 +458,9 @@ let try_finalize f x finally y =
 % function's exception raised instead).
 この関数はメインの処理 \ml+f+ と最終処理 \ml+finally+ およびそれらの引数 \ml+x+ と \ml+y+ を受け取ります。
 最初にプログラムの本体 \ml+f x+ が実行され、その結果は最終処理 \ml+finally y+ が実行されてから返されます。
-プログラムの実行で例外 \ml+exn+ が送出された場合、最終処理が実行されてからもう一度 \ml+exn+ が送出されます。
-メインの処理と最終処理の両方が失敗した場合、最終処理の例外が送出されます (メインの処理の例外が送出されるようにすることもできます)。
-
+プログラムの実行で例外 \ml+exn+ が起こった場合、最終処理が実行されてからもう一度 \ml+exn+ を出します。
+メインの処理と最終処理の両方が失敗した場合、最終処理の例外が出されます
+(メインの処理の例外が出されるようにすることもできます)。
 
 \paragraph{ノート}
 
@@ -462,14 +471,14 @@ let try_finalize f x finally y =
 % module need to be collected and compiled.
 これからこのコースでは例でよく使う \ml+try_finalize+ などの関数をまとめた補助ライブラリ \ml+Misc+ を使います。
 必要に応じてライブラリの関数を紹介するほか、インターフェースは付録にあります。
-この講座に出てくる例をコンパイルするには、 \ml+Misc+ モジュールの定義をまとめておく必要があります。
+このコースに出てくる例をコンパイルするには、 \ml+Misc+ モジュールの定義をまとめておく必要があります。
 
 % The \ml+Misc+ module also contains certain functions, added for
 % illustration purposes, that will not be used in the course. These
 % simply enrich the \ml+Unix+ library, sometimes by redefining the
 % behavior of certain functions.  The \ml+Misc+ module must thus take
 % precedence over the \ml+Unix+ module.
-\ml+Misc+ モジュールにはこの講座では直接使用しない可視化のための関数も含まれています。
+\ml+Misc+ モジュールにはこのコースでは直接使用しない可視化のための関数も含まれています。
 これらの関数は \ml+Unix+ ライブラリを強化するためのもので、いくつかの関数の振る舞いを上書きします。
 そのため \ml+Misc+ ライブラリを使う場合は \ml+Unix+ の後に読み込まれる必要があります。
 
@@ -479,7 +488,7 @@ let try_finalize f x finally y =
 % {\ocaml}, version {\ocamlversion}$\!\!\!$.  %% To get rid of that space !
 % Some programs will have to be slightly modified in order to work with
 % older versions.
-この講座にはたくさんの例が含まれています。 これらはバージョン \ocamlversion の \ocaml
+このコースにはたくさんの例が含まれています。 これらはバージョン \ocamlversion の \ocaml
 でコンパイルされることを確認しています。
 古いバージョンではプログラムを若干改変する必要があります。
 
@@ -492,7 +501,7 @@ let try_finalize f x finally y =
 % fatal and causes the program to stop executing. It is sufficient to report
 % the cause of an error, without needing to return to a consistent state, since
 % the program is stopped immediately thereafter.
-例には二つの種類があります: 再利用が可能なとても一般的な \quotes{ライブラリ関数} と小さなアプリケーションです。
+例には二つの種類があります: とても一般的で再利用が可能な \quotes{ライブラリ関数} と小さなアプリケーションです。
 これら二つを区別することは重要です。
 ライブラリ関数の場合には実行時のコンテキストをできるだけ一般的なものと仮定して、
 インターフェースを熟慮し、全ての特殊ケースを扱うようにします。

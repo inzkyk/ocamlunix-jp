@@ -173,7 +173,7 @@
 %     are the default keystrokes, but it is possible to change them by
 %     modifying the properties of the terminal, see section~\ref {sec/termio}.}.
 %     When the terminal is closed (either through voluntary disconnection or owing to a disconnected network link), the \ml+sighup+ signal is sent.
-\item ユーザーがキーボードで送る。
+\item ユーザがキーボードで送る。
   コンソールで \verb'ctrl-C' と打つことで \ml+sigint+ シグナルを
   ターミナルがフォアグラウンドで実行しているプロセスに送ることができる。
   同様に \verb'ctrl-\' は \ml+sigquit+ シグナルを送る\footnote{これらは端末のデフォルトのキーであり、
@@ -184,7 +184,7 @@
 %   to send a specific signal to a specific process.  For example,
 %   \ml+kill -KILL 194+ sends the \ml+sigkill+ signal to the process with id 194, which
 %   causes the process to be killed.
-\item ユーザーがシェルコマンド \ml+kill+ で送る。
+\item ユーザがシェルコマンド \ml+kill+ で送る。
   \ml+kill+ を使うと特定のプロセスに特定のシグナルを送ることができる。
   例えば \ml+kill -KILL 194+ は \ml+sigkill+ シグナルを ID が 194 のプロセスに送り、プロセスを停止させる
 
@@ -227,10 +227,11 @@ val $\libvalue{Unix}{kill}$ : int -> int -> unit
 % a program cannot count the number of times it receives a signal,
 % rather only the number of times it responds to it.
 第一引数はシグナルを送るプロセスの ID で、第二引数は送るシグナルの番号です。
-\ml+kill+ を呼んだユーザーによって所有されていないプロセスにシグナルを送ろうとするとエラーとなります。
+\ml+kill+ を呼んだユーザによって所有されていないプロセスにシグナルを送ろうとするとエラーとなります。
 プロセスは自分自身にシグナルを送ることができます。
 システムコール \ml+kill+ が値を返した場合、シグナルが目的のプロセスに届いたことが保証されます。
-プロセスが同じシグナルを短い間に何度も受け取った場合、そのシグナルに対応するコードは一度しか実行されません。
+
+プロセスが同じシグナルを短い間に何度も受け取った場合、そのシグナルに対応するコードは一度しか実行しないことがあります。
 そのためプロセスは受け取ったシグナルの数を数えることはできず、数えられるのはシグナルに反応した回数となります。
 
 % The system call \syscall{alarm} makes it possible to schedule
@@ -304,9 +305,9 @@ val $\libvalue{Sys}{signal}$ : int -> signal_behavior -> signal_behavior
 % exit on receiving \ml+sighup+ (sent at the time the user disconnects)
 % should be prevented from doing so. The Unix command \ml+nohup+ does
 % exactly this:
-ログオフしたりセッションを終了した後でもバックグラウンドでタスク (大規模な計算、 \quotes{スパイウェア} など)
+ログオフしたりセッションを終了した後でもバックグラウンドでタスク (大規模な計算や \quotes{スパイウェア} など)
 を実行したままにしておきたいことがあります。
-プロセスの \ml+sighup+ シグナル (ユーザーが接続を終了すると送られます) に対する
+プロセスの \ml+sighup+ シグナル (ユーザが接続を終了すると送られます) に対する
 デフォルトの動作はプロセスの終了なので、このシグナルを無視するように変更すれば
 プロセスを実行されたままにすることができます。
 Unix コマンド \ml+nohup+ はまさにこのことを行います:
@@ -365,10 +366,10 @@ let quit _ =
 % need to return to a main control loop when a user
 % presses \ml+ctrl-C+.  For this we just need to raise an exception when the
 % \ml+sigint+ signal is received.
-ユーザーが発した割り込みのキャプチャ。
-インタラクティブなプログラムではユーザーが \ml+ctrl-C+ を押したときにメインループを
+ユーザが発した割り込みのキャプチャ。
+インタラクティブなプログラムではユーザが \ml+ctrl-C+ を押したときにメインループを
 抜けるようになっていることがあります。
-\ml+sigint+ シグナルを受け取ったときに例外を送出するようにすれば実装できます。
+\ml+sigint+ シグナルを受け取ったときに例外を出すようにすれば実装できます。
 %
 \begin{lstlisting}
 exception Break;;
@@ -377,8 +378,8 @@ let break _ = raise Break;;
 let main_loop () =
   signal sigint (Signal_handle break);
   while true do
-    try (* Read and evaluate user commands  *)
-    with Break -> (* Display "stopped" *)
+    try (* ユーザのコマンドを読み込んで評価する  *)
+    with Break -> (* "stopped" と表示する *)
   done;;
 \end{lstlisting}
 \end{example}
@@ -440,7 +441,7 @@ signal sigalrm (Signal_handle beep); ignore (alarm 30);;
 厳密にいうと、 \ocaml はシグナルを非同期に扱いません。
 \ocaml は受け取ったシグナルを記録しますが、シグナルハンドラが実行されるのは特定の \emph{チェックポイント} においてだけです。
 チェックポイントはハンドラが非同期に実行されると考えても良い程度に頻繁に設けられています。
-通常アロケーションやループ制御、システムとのやり取り (システムコールを含む) のときに \emph{チェックポイント}
+通常アロケーションやループ制御、システムとのやり取り (システムコールを含む) のときにチェックポイント
 が設けられます。
 ループが含まれず、アロケーションをせず、システムとのやり取りをしないプログラムについて、
 \ocaml はメインプログラムとシグナルハンドラの実行が互い違いにならないことを保証しています。
@@ -496,7 +497,7 @@ val $\libvalue{Unix}{sigprocmask}$ : sigprocmask_command -> int list -> int list
 %
 \begin{lstlisting}
 let old_mask = sigprocmask cmd sigs in
-(* do something *)
+(* 処理を行う *)
 let _ = sigprocmask SIG_SETMASK old_mask
 \end{lstlisting}
 %
@@ -511,7 +512,7 @@ let tmp cmd sigs =
 %
 \begin{listingcodefile}{sign.ml}
 let old_mask = sigprocmask cmd sigs in
-let treat () = ((* do something *)) in
+let treat () = (* 処理を行う *) in
 let reset () = ignore (sigprocmask SIG_SETMASK old_mask) in
 Misc.try_finalize treat () reset ()
 \end{listingcodefile}
@@ -533,12 +534,12 @@ Misc.try_finalize treat () reset ()
 いくつかのシステムコールは無視されていないシグナルによって中断されます。
 このようなシステムコールは \emph{遅い} システムコールと呼ばれる、
 実行にいくらでも長い時間がかかりうるもの (例えば端末との \io や \indexlibvalue{Unix}{select}、 \indexlibvalue{Unix}{system} など) です。
-割り込みが起こった場合、これらのシステムコールは実行を完了しないまま \ml+EINTR+ 例外を送出します。
-一方ファイル \io は割り込みできません。
+割り込みが起こった場合、これらのシステムコールは実行を完了しないまま \ml+EINTR+ 例外を出します。
+
+一方ファイル \io は割り込みされません。
 ファイル \io 中に実行中のプロセスを中断して他のプロセスを実行することはありますが、
 ディスクが正常に機能しているならばこの中断は常に短時間になります。
-ゆえにデータのスループットはシステムのみに依存し、他のユーザーのプロセスから影響を受けることはありません。
-
+ゆえにデータのスループットはシステムのみに依存し、他のユーザのプロセスから影響を受けることはありません。
 
 % Ignored signals are never delivered and a masked signal is not
 % delivered until unmasked. But in all other cases we must protect our
@@ -560,7 +561,7 @@ Misc.try_finalize treat () reset ()
 % makes it possible to repeat a system call when it is interrupted by a
 % signal, \ie{} when the \ml+EINTR+ exception is raised.
 \ml+Misc+ モジュールの \ml+restart_on_EINTR+ 関数はシステムコールが中断されたとき、
-すなわち \ml+EINTR+ 例外が送出されたときにシステムコールをやり直します。
+すなわち \ml+EINTR+ 例外が出たときにシステムコールをやり直します。
 
 %
 \begin{codefile}{misc.mli}
@@ -575,8 +576,7 @@ let rec restart_on_EINTR f x =
 \end{listingcodefile}
 % To wait on a child correctly, call
 % \ml+restart_on_EINTR (waitpid flags) pid+.
-子プロセスの終了をシグナルで中断されないように待つには、
-\ml+restart_on_EINTR (waitpid flags) pid+ を呼びます。
+子プロセスの終了をシグナルで中断されないように待つには、\ml+restart_on_EINTR (waitpid flags) pid+ を呼びます。
 
 \begin{example}\label{ex/childs}
 % Children can also be recovered asynchronously in the signal handler of
@@ -612,7 +612,7 @@ let free_children _ =
 \ml+free_children+ は \ml+waitpid+ をノンブロッキングモード (\ml+WNOHANG+ オプション) で実行して
 実行を終了した子プロセスを回収するということを
 子プロセスが全て実行中となる (\ml+waitpid+ が子のプロセス ID ではなく 0 を返す) か
-子プロセスがなくなる (\ml+ECHILD+ 例外が送出される) まで繰り返します。
+子プロセスがなくなる (\ml+ECHILD+ 例外が出される) まで繰り返します。
 
 % Note that it is not important to guard against the \ml+EINTR+
 % exception because \ml+waitpid+ is non-blocking when called with the
@@ -834,9 +834,9 @@ val $\libvalue{Unix}{gettimeofday}$ : unit -> float
 % \ml+ITIMER_REAL+ & Real time (\ml+sigalrm+). \\
 \ml+ITIMER_REAL+ & 実時間 (\ml+sigalrm+). \\
 % \ml+ITIMER_VIRTUAL+ & User time (\ml+sigvtalrm+). \\
-\ml+ITIMER_VIRTUAL+ & ユーザー時間 (\ml+sigvtalrm+). \\
+\ml+ITIMER_VIRTUAL+ & ユーザ時間 (\ml+sigvtalrm+). \\
 % \ml+ITIMER_PROF+ & User time and system time (\ml+sigprof+).
-\ml+ITIMER_PROF+ & ユーザー時間とシステム時間 (\ml+sigprof+).
+\ml+ITIMER_PROF+ & ユーザ時間とシステム時間 (\ml+sigprof+).
 \end{tabular}
 \end{mltypecases}
 %
