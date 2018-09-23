@@ -10,7 +10,7 @@ git -C $TMP checkout --orphan gh-pages
 git -C $TMP reset
 git -C $TMP clean -dxf
 ./build
-cp LICENSE _build/src/*.{html,css,png,gif} _build/src/ocamlunix.pdf $TMP/
+cp LICENSE _build/src/*.{html,css,png} _build/src/ocamlunix.pdf $TMP/
 git -C $TMP add .
 git -C $TMP commit -m "Update ocamlunix website."
 git -C $TMP push origin gh-pages -f 
