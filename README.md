@@ -1,3 +1,16 @@
+ocamlunix-jp -- OCaml による Unix システムプログラミング
+-------------------------------------------------------------------------------
+
+[ここから読めます。](https://inzkyk.github.io/ocamlunix-jp/)
+
+ocamlunix-jp は Xavier Leroy と Didier Rémy's による [Unix システムプログラミングコース](http://gallium.inria.fr/~remy/camlunix/) の Daniel C. Bünzli らによる [英語訳](http://ocaml.github.io/ocamlunix) を日本語に翻訳したものです。フランス語版と英語版はそれぞれ Creative Commons by-nc-sa でライセンスされています。
+
+ocamlunix-jp は Creative Commons by-nc-sa でライセンスされます。詳細は [`LICENSE`](LICENSE) を参照してください。
+
+tex ソースは英語版の [このコミット](https://github.com/ocaml/ocamlunix/tree/cae619474953ce4f51efedb1f05d86a057784f78) に基づいていますが、git リポジトリとしては別のものとしています。日本語の翻訳を行った後に行われる英語版の変更を git のマージを使って取り込むことが難しいことと、英語版のソースが3年以上更新されていないことから、英語版の git 履歴を日本語版に残しておくメリットは少ないと判断しました。
+
+以下は英語版の README です。ビルド方法などはここに書かれているとおりです。
+
 ocamlunix — Unix System Programming in OCaml
 -------------------------------------------------------------------------------
 Release !!VERSION!!
