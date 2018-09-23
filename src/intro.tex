@@ -20,9 +20,7 @@
 % fundamental and applied mathematics and computer science at the École
 % Normale Supérieure. This earliest version used the
 % Caml-Light~\cite{Caml-Light} language.
-この講義ノートは 1994 年に Xavier Leroy が高等師範学校で基礎・応用数学及び情報科学の修士課程 1 年生
-に対して行ったシステムプログラミングの講義が元になっています。
-初期の版では Caml-Light~\cite{Caml-Light} 言語が使われていました。
+この講義ノートは 1994 年に Xavier Leroy が高等師範学校で基礎・応用数学及び情報科学の修士課程 1 年生に対して行ったシステムプログラミングの講義が元になっています。初期の版では Caml-Light~\cite{Caml-Light} 言語が使われていました。
 
 %
 % For a Master's course in computer science at the École Polytechnique
@@ -35,23 +33,15 @@
 % {\http} relay example, now commonplace, may have been a forerunner in
 % 1994. But, most of all, the {\ocaml} language gained maturity and was
 % used to program real system applications like Unison~\cite{Unison}.
-2003年から2006年にエコール・ポリテクニークで開かれた情報科学の修士課程学生向け講義のために、
-Didier R\'emy はノートを改変し、 \ocaml \cite{OCaml} 言語が使われるようになりました。
-この期間に、Gilles Roussel, Fabrice Le Fessant と Maxence Guesdon は講義を助けるとともに、
-このノートにも貢献しました。
-この新しい版では要素の追加や更新が行われています。
+2003年から2006年にエコール・ポリテクニークで開かれた情報科学の修士課程学生向け講義のために、Didier R\'emy はノートを改変し、 \ocaml \cite{OCaml} 言語が使われるようになりました。この期間に、Gilles Roussel, Fabrice Le Fessant と Maxence Guesdon は講義を助けるとともに、このノートにも貢献しました。この新しい版では要素の追加や更新が行われています。
 
-最初の版からの約 10 年間のうちに、 扱われる数字の桁はコンマ 1 つ分大きくなりました。またweb は大きく発達し、
-1994 年当時には先駆的だった \http リレーの例は現在では平凡なものです。
-そしてなんといってもこの間に \ocaml 言語は成熟し、
-Unison \cite{Unison} のような実際のシステムアプリケーションに使われるようになりました。
+最初の版からの約 10 年間のうちに、 扱われる数字の桁はコンマ 1 つ分大きくなりました。またweb は大きく発達し、1994 年当時には先駆的だった \http リレーの例は現在では平凡なものです。そしてなんといってもこの間に \ocaml 言語は成熟し、Unison \cite{Unison} のような実際のシステムアプリケーションに使われるようになりました。
 
 % Tradition dictates that Unix system programming must be done in C. For
 % this course we found it more interesting to use a higher-level
 % language, namely {\ocaml}, to explain the fundamentals of Unix system
 % programming.
-伝統的に Unix システムプログラミングは C で行われなければならないという風潮があります。
-しかしこのコースで、私達はより高レベルな言語 --- 具体的には \ocaml\ --- のほうが Unix システムプログラミングの基礎を説明するのに適していることを発見しました。
+伝統的に Unix システムプログラミングは C で行われなければならないという風潮があります。しかしこのコースで私達はより高レベルな言語 --- 具体的には \ocaml\ --- のほうが Unix システムプログラミングの基礎を説明するのに適していることを発見しました。
 
 % The {\ocaml} interface to Unix system calls is more abstract. Instead
 % of encoding everything in terms of integers and bit fields as in C,
@@ -61,19 +51,13 @@ Unison \cite{Unison} のような実際のシステムアプリケーション�
 % oneself explaining how the arguments and the results have to be
 % en/decoded. (See, for example, the presentation of the system call
 % +wait+, page~\pageref{wait}.)
-\ocaml の Unix システムコールに対するインターフェースはより抽象的です。
-C では全てが整数とビットフィールドに変換されますが、
-\ocaml では ML の型システムを使うことで、システムコールの引数と返り値が明確になります。
-そのため引数と返り値がどのようにデコード/エンコードされるかを説明する必要がなく、
-システムコールの意味を説明するのが簡単になります。 (例えば \pageref{wait} ページにある \ml+wait+ システムコールの説明を見てみてください。)
+\ocaml の Unix システムコールに対するインターフェースはより抽象的です。C では全てが整数とビットフィールドに変換されますが、\ocaml では ML の型システムを使うことで、システムコールの引数と返り値が明確になります。そのため引数と返り値がどのようにデコード/エンコードされるかを説明する必要がなく、システムコールの意味を説明するのが簡単になります。 (例えば \pageref{wait} ページにある \ml+wait+ システムコールの説明を見てみてください。)
 
 % Furthermore, due to the static type system and the clarity of its
 % primitives, it is safer to program in {\ocaml} than in C. The
 % experienced C programmer may see these benefits as useless luxury,
 % however they are crucial for the inexperienced audience of this course.
-加えて \ocaml は静的な型システムを持ち、基本型が明確なので、 C よりも安全にプログラムを書けます。
-熟練した C プログラマーはこの利点を必要のない贅沢であるとみなすかもしれませんが、
-このコースが対象とする熟練していないプログラマーにとっては重要なことです。
+加えて \ocaml は静的な型システムを持ち、基本型が明確なので、 C よりも安全にプログラムを書けます。熟練した C プログラマーはこの利点を必要のない贅沢であるとみなすかもしれませんが、このコースが対象とする熟練していないプログラマーにとっては重要なことです。
 
 % A second goal of this exposition of system programming is to show
 % {\ocaml} performing in a domain out of its usual applications in
@@ -85,21 +69,14 @@ C では全てが整数とビットフィールドに変換されますが、
 % exclusive, their combination makes it possible to integrate in the
 % same program complex symbolic computations and a good interface with
 % the operating system.
-システムプログラミングに関するこのノートの二つ目の目標は、
-定理証明やコンパイラ、記号計算といった\ocaml の一般的な応用とは異なる分野における \ocaml の利用例を見せることです。
-\ocaml の持つ強固な命令的カーネルに加えてパラメトリック多相や高階関数、
-例外といった C にない優れた機能のおかげで、このノートの試みの結果は上々です。
-他にも関数型プログラミングと命令型プログラミングを互いに排他的にではなく組み合わせて使うことで、
-同じプログラムの中にオペレーティングシステムとの優れたインターフェースと複雑な記号計算を共存させることが可能なこと
-をこのノートは示しています。
+システムプログラミングに関するこのノートの二つ目の目標は、定理証明やコンパイラ、記号計算といった\ocaml の一般的な応用とは異なる分野における \ocaml の利用例を見せることです。\ocaml の持つ強固な命令的カーネルに加えてパラメトリック多相や高階関数、例外といった C にない優れた機能のおかげで、このノートで行われた試みの結果は上々です。他にも関数型プログラミングと命令型プログラミングを互いに排他的にではなく組み合わせて使うことで、同じプログラムの中にオペレーティングシステムとの優れたインターフェースと複雑な記号計算を共存させることが可能なことをこのノートは示しています。
 
 % These notes assume the reader is familiar with {\ocaml} and Unix shell
 % commands. For any question about the language, consult the OCaml
 % System documentation~\cite{OCaml} and for questions about Unix,
 % read section~1 of the Unix \texttt{man}ual or introductory books on Unix
 % like~\cite{KP,R1}.
-このノートは読者が \ocaml と Unix のシェルコマンドを知っていることを仮定します。
-\ocaml に関する疑問は OCaml System documentation~\cite{OCaml} を、 Unix についての疑問は Unix \texttt{man}ual のセクション 1 や \cite{KP,R1} などの入門書を参考にしてください。
+このノートは読者が \ocaml と Unix のシェルコマンドを知っていることを仮定します。\ocaml に関する疑問は OCaml System documentation~\cite{OCaml} を、 Unix についての疑問は Unix \texttt{man}ual のセクション 1 や \cite{KP,R1} などの入門書を参考にしてください。
 
 
 % This document describes only the programmatic interface to the Unix
@@ -108,9 +85,7 @@ C では全てが整数とビットフィールドに変換されますが、
 % described in~\cite{BSD} and of System~\textsc{v}
 % in~\cite{Bach}. Tanenbaum's books~\cite{T1,T2} give an overall view of
 % network and operating system architecture.
-このノートは Unix システムのプログラミング上のインターフェースしか示すことしかせず、その実装や内部構造には触れません。
-\textsc{bsd} 4.3 の内部構造は \cite{BSD} で、 System \textsc{v} の内部構造は \cite{Bach} で説明されています。
-Tanenbaum の本 \cite{T1, T2} はネットワークとオペレーティングシステムの構造に関する全体像が示されています。
+このノートは Unix システムのプログラミング上のインターフェースしか示すことしかせず、その実装や内部構造には触れません。\textsc{bsd} 4.3 の内部構造は \cite{BSD} で、 System \textsc{v} の内部構造は \cite{Bach} で説明されています。Tanenbaum の本 \cite{T1, T2} はネットワークとオペレーティングシステムの構造に関する全体像が示されています。
 
 % The Unix interface presented in this document is part of the
 % OCaml System available as free software at

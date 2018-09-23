@@ -16,26 +16,19 @@
 % We have shown how \ocaml's \libmodule{Sys}, \libmodule{Unix}, and
 % \libmodule{Threads} modules can be used to program applications that
 % interact with the operating system.
-\ocaml の \libmodule{Sys}、 \libmodule{Unix} そして \libmodule{Threads} モジュールを使って
-オペレーティングシステムとやり取りをするアプリケーションを作る方法をこれまで見てきました。
+これまで見てきたのはオペレーティングシステムとやり取りをするアプリケーションを作るために \ocaml の \libmodule{Sys}、 \libmodule{Unix} そして \libmodule{Threads} モジュールを使う方法です。
 
 % These modules allow the invocation of the most important Unix system calls
 % directly from {\ocaml}. Some of these calls were replaced by higher-level
 % functions, either to facilitate programming or to maintain invariants
 % needed by {\ocaml}'s runtime system. In any case, this higher-level
 % access to the Unix system streamlines the development of applications.
-これらのモジュールを使うと 重要な Unix システムコールのほとんどを \ocaml から
-直接呼び出すことができます。
-プログラミングを容易にするため、あるいは \ocaml のランタイムシステムが必要とする不変量を
-保つために、いくつかのシステムコールは高レベルな関数に置き換えられています。
-いずれの場合でも、この Unix システムへの高レベルなアクセスはアプリケーションの
-開発を円滑にします。
+これらのモジュールを使うと 重要な Unix システムコールのほとんどを \ocaml から直接呼び出すことができます。プログラミングを容易にするため、あるいは \ocaml のランタイムシステムが必要とする不変量を保つために、いくつかのシステムコールは高レベルな関数に置き換えられています。いずれの場合でも、この Unix システムへの高レベルなアクセスはアプリケーションの開発を円滑にします。
 
 % Not every feature of the Unix system is available through these
 % modules, however it is still possible to access the missing ones by
 % writing C bindings.
-全ての Unix の機能がこれらのモジュールから利用可能なわけではありません。
-しかし C のバインディングを書けば利用できない機能にアクセスすることが可能です。
+全ての Unix の機能がこれらのモジュールから利用可能なわけではありません。しかし C のバインディングを書けば利用できない機能にアクセスすることが可能です。
 
 % Another useful library is Cash~\cite{Cash} which focuses on writing
 % scripts directly in {\ocaml}. This library completes the \ml+Unix+
@@ -44,9 +37,4 @@
 % module, a few system call variations to assist the programmer in
 % process and pipe management. Second, it offers additional entry points
 % to the Unix system.
-別の便利なライブラリは \ocaml から直接スクリプトを書くことを目的とした Cash~\cite{Cash} です。
-このライブラリは \ml+Unix+ を二つの方法で補完します。
-一つ目はスクリプトを書くためのヘルパー関数に加えて、
-\ml+Unix+ モジュールの上にプロセスとパイプの管理を助けるための
-システムコールの亜種を用意していることです。
-もう一つは Unix システムに追加のエントリーポイントを追加することです。
+別の便利なライブラリは \ocaml から直接スクリプトを書くことを目的とした Cash~\cite{Cash} です。このライブラリは \ml+Unix+ を二つの方法で補完します。一つ目はスクリプトを書くためのヘルパー関数に加えて、\ml+Unix+ モジュールの上にプロセスとパイプの管理を助けるためのシステムコールの亜種を用意していることです。もう一つは Unix システムに追加のエントリーポイントを追加することです。

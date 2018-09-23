@@ -15,16 +15,13 @@
 % A \emph{thread}, also called a \emph{lightweight process}, is a flow
 % of control that can execute in parallel with other threads in the same
 % program.
-\emph{スレッド} とは一つのプログラムの中で互いに並列に実行できる
-制御の流れであり、\emph{軽量プロセス} とも言われます。
+\emph{スレッド} とは一つのプログラムの中で互いに並列に実行できる制御の流れであり、\emph{軽量プロセス} とも言われます。
 
 % This chapter describes the functions that allow a program to create
 % threads (\ml+Thread+ module) and synchronize by means of locks
 % (\ml+Mutex+ module), conditions (\ml+Condition+ module), and
 % synchronous events (\ml+Event+ module).
-この章ではスレッドを作成し (\ml+Thread+ モジュール) 同期を行うプログラムを説明します。
-同期にはロック (\ml+Mutex+ モジュール)、 条件変数 (\ml+Condition+ モジュール)、そして
-同期イベント (\ml+Event+ モジュール) が使われます。
+この章ではスレッドを作成し (\ml+Thread+ モジュール) 同期を行うプログラムを説明します。同期にはロック (\ml+Mutex+ モジュール)、 条件変数 (\ml+Condition+ モジュール)、そして同期イベント (\ml+Event+ モジュール) が使われます。
 
 % \section{Introduction}
 \section{イントロダクション}
@@ -34,11 +31,7 @@
 % copy of the program). After a fork, the address spaces of the parent
 % and child are totally disjoint, and the two processes can communicate
 % only through system calls (like reading or writing a file or a pipe).
-\indexvalue{fork} は現在のプロセスのコピーを
-作成します (したがってプログラムのコピーも作成します) が、スレッドの作成はこれとは大きく異なります。
-フォークを行った場合親プロセスと子プロセスのアドレス空間は完全に分離し、
-二つのプロセスは (ファイルやパイプに対する入出力といった) システムコールを通じてでしか
-やり取りをすることができません。
+\indexvalue{fork} は現在のプロセスのコピーを作成します (したがってプログラムのコピーも作成します) が、スレッドの作成はこれとは大きく異なります。フォークを行った場合親プロセスと子プロセスのアドレス空間は完全に分離し、二つのプロセスは (ファイルやパイプに対する入出力といった) システムコールを通じてでしかやり取りをすることができません。
 
 % In contrast, all the threads within a program share the same address
 % space. The only information that is not shared, and differentiates one
@@ -51,26 +44,13 @@
 % all the other threads and therefore the program as a whole. (Whenever
 % we speak of multiple threads, we will implicitly mean threads within a
 % given program.)
-これに対して、あるプログラム内の全てのスレッドは同じアドレス空間を共有します。
-スレッド間で共有されず、スレッド同士で異なる唯一の情報は
-スレッドの ID と実行スタック (シグナルマスクやロックと条件変数の状態などの
-システム情報を含む) です。
-この観点では、スレッドはコルーチンに似ています。
-プログラム内のスレッドは全て同じ方法で扱われますが、
-プログラムが始まって最初に作られるスレッドは別です。
-このスレッドが終了すると、そのプログラムが持つ全てのスレッドが終了し
-したがってプログラム全体が終了します
-(これから複数のスレッドといった場合には考えているプログラム内の複数のスレッドを
-意味し、別のプログラム内で動いているスレッドのことは意味しないことにします)。
+これに対して、あるプログラム内の全てのスレッドは同じアドレス空間を共有します。スレッド間で共有されず、スレッド同士で異なる唯一の情報はスレッドの ID と実行スタック (シグナルマスクやロックと条件変数の状態などのシステム情報を含む) です。この観点では、スレッドはコルーチンに似ています。プログラム内のスレッドは全て同じ方法で扱われますが、プログラムが始まって最初に作られるスレッドは別です。このスレッドが終了すると、そのプログラムが持つ全てのスレッドが終了ししたがってプログラム全体が終了します(これから複数のスレッドといった場合には考えているプログラム内の複数のスレッドを意味し、別のプログラム内で動いているスレッドのことは意味しないことにします)。
 
 % But unlike coroutines, which pass control explicitly from one to another
 % and cannot execute in parallel, threads can execute in parallel and
 % can be scheduled preemptively by the system. From this viewpoint,
 % threads resemble processes.
-制御を明示的にに受け渡し並列に実行できないコルーチンと違い、
-スレッドは並列に実行でき、(他のスレッドやプロセスではなく)
-システムによってプリエンプティブにスケジュールされます。
-この観点ではスレッドはプロセスに似ています。
+制御を明示的にに受け渡し並列に実行できないコルーチンと違い、スレッドは並列に実行でき、(他のスレッドやプロセスではなく) システムによってプリエンプティブにスケジュールされます。この観点ではスレッドはプロセスに似ています。
 
 % The common address space permits threads to communicate directly among
 % themselves using shared memory. The fact that threads can execute in
@@ -80,21 +60,12 @@
 % through the operating system. Synchronization is often a difficult
 % part of programming with threads. It can be done with locks and
 % conditions, or in a higher-level fashion with events.
-アドレス空間が共有されることで、スレッド同士は共有メモリを使って
-直接通信することができます。
-スレッドは並列に実行されるために、全てのスレッドは共有データに対するアクセスを
-同期しなければいけません。
-あるスレッドが書き込み終わってから別のスレッドが読み込むようにするためです。
-原理上は必要なわけではありませんが、実際にはこれを行うために
-オペレーティングシステムを介する必要があります。
-スレッドの同期はロックや条件変数を使うか、あるいはイベントを使って高レベルに行われます。
+アドレス空間が共有されることで、スレッド同士は共有メモリを使って直接通信することができます。スレッドは並列に実行されるために、全てのスレッドは共有データに対するアクセスを同期しなければいけません。あるスレッドが書き込み終わってから別のスレッドが読み込むようにするためです。原理上は必要なわけではありませんが、実際にはこれを行うためにオペレーティングシステムを介する必要があります。スレッドの同期はロックや条件変数を使うか、あるいはイベントを使って高レベルに行われます。
 
 % The advantages of threads over processes are the lower cost of
 % creation and the ability to exchange large data structures simply by
 % passing pointers rather than copying.
-プロセスに対するスレッドの利点は低い作成コストと
-大きなデータを受け渡すときにデータ全体をコピーするのではなく
-ポインタを渡すだけですむことです。
+プロセスに対するスレッドの利点は低い作成コストと大きなデータを受け渡すときにデータ全体をコピーするのではなくポインタを渡すだけですむことです。
 
 % On the other hand, using threads incurs the cost of managing the
 % synchronization among them, including the case of a fatal error in one
@@ -102,10 +73,7 @@
 % locks and preserve its invariant before stopping. Processes may also
 % be preferable to threads when we cannot really benefit from the
 % latter's advantages.
-一方、スレッドを使うとスレッド同士の同期を管理しなければならず、
-スレッドが致命的なエラーを出す場合にも対処する必要があります。
-例えばスレッドは停止する前にロックを開放し不変量が保存されるようにする必要があります。
-上記の利点による恩恵があまりないのであればスレッドよりもプロセスのほうが望ましいでしょう。
+一方、スレッドを使うとスレッド同士の同期を管理しなければならず、スレッドが致命的なエラーを出す場合にも対処する必要があります。例えばスレッドは停止する前にロックを開放し不変量が保存されるようにする必要があります。上記の利点による恩恵があまりないのであればスレッドよりもプロセスのほうが望ましいでしょう。
 
 % \paragraph{Implementation in {\ocaml}}
 \paragraph{{\ocaml} における実装}
@@ -119,8 +87,7 @@ ocamlopt -thread unix.cmxa threads.cmxa -o prog mod1.ml mod2.ml mod3.ml
 \end{lstlisting}
 % If the \ml+ocamlbuild+ tool is used, all that is needed is to add the
 % following to the \ml+_tags+ file:
-\ml+ocamlbuild+ ツールを使うのであれば、
-\ml+_tags+ ファイルに以下の内容を追加するだけですみます:
+\ml+ocamlbuild+ ツールを使うのであれば、\ml+_tags+ ファイルに以下の内容を追加するだけですみます:
 \begin{lstlisting}
 <mod{1,2,3}.ml> : thread
 <prog.{native,byte}> : use_unix, thread
@@ -131,11 +98,7 @@ ocamlopt -thread unix.cmxa threads.cmxa -o prog mod1.ml mod2.ml mod3.ml
 % how to use simulated \quotes{\textsc{vm}-level} threads.  The text
 % and examples in this chapter assume native threads and do not apply,
 % in general, to \textsc{vm}-level threads.
-インストールされた \ocaml がネイティブスレッドをサポートしない場合、
-\ref{sec/thread-implementation} 節およびマニュアルにある
-シミュレートされた  \quotes{\textsc{vm} レベル} スレッドを使う方法を参照してください。
-この章のこれ以降の内容はネイティブスレッドを仮定し、\textsc{vm} レベルスレッドには一般的では
-成り立ちません。
+インストールされた \ocaml がネイティブスレッドをサポートしない場合、\ref{sec/thread-implementation} 節およびマニュアルにあるシミュレートされた  \quotes{\textsc{vm} レベル} スレッドを使う方法を参照してください。この章のこれ以降の内容はネイティブスレッドを仮定し、\textsc{vm} レベルスレッドには一般的では成り立ちません。
 
 % \section{Creation and termination of threads}
 \section{スレッドの作成と終了}
@@ -147,9 +110,7 @@ ocamlopt -thread unix.cmxa threads.cmxa -o prog mod1.ml mod2.ml mod3.ml
 % The system call \pthreadcall{create} \ml+f v+ creates a new thread that
 % executes the function application \ml+f v+ and returns a \emph{thread id} that
 % the caller can use to control the newly-created thread.
-システムコール \pthreadcall{create} \ml+f v+ は関数適用 \ml+f v+ を実行する新しいスレッドを
-作成し、スレッド ID を返します。呼び出し側はこの ID を使って新しく作られたスレッドを
-制御することができます。
+システムコール \pthreadcall{create} \ml+f v+ は関数適用 \ml+f v+ を実行する新しいスレッドを作成し、スレッド ID を返します。呼び出し側はこの ID を使って新しく作られたスレッドを制御することができます。
 %
 \begin{codefile}{tmpthread.mli}
 type t
@@ -166,21 +127,14 @@ val $\libvalue{Thread}{create}$ : ('a -> 'b) -> 'a -> t
 % thread: a message is printed on the standard error output and the
 % exception is otherwise ignored.  (The other threads have proceeded
 % independently and would not be able to receive the exception.)
-新しいスレッドで実行される \ml+f v+ という関数適用はプログラム内の他のスレッドと並行に実行されます。
-関数適用が値を返すとスレッドは終了し、返り値は無視されます。
-スレッドが捕捉されないエラーによって終了したとしても、
-そのエラーが他のスレッドに及ぶことはありません。
-そのエラーに関するメッセージが標準エラー出力に出力されるか、エラーは完全に無視されます。
-他のスレッドは独立して実行されるので、このエラーを受け取ることはできません。
+新しいスレッドで実行される \ml+f v+ という関数適用はプログラム内の他のスレッドと並行に実行されます。関数適用が値を返すとスレッドは終了し、返り値は無視されます。スレッドが捕捉されないエラーによって終了したとしても、そのエラーが他のスレッドに及ぶことはありません。そのエラーに関するメッセージが標準エラー出力に出力されるか、エラーは完全に無視されます。他のスレッドは独立して実行されるので、このエラーを受け取ることはできません。
 
 % A thread can also terminate prematurely with the system call
 % \pthreadcall{exit} of the \ml+Thread+ module, not to be confused with
 % \ml+Pervasives.+\indexlibvalue{Pervasives}{exit} that terminates the
 % entire program, {\ie} all its threads.
-スレッドはこの他にも \ml+Thread+ モジュールのシステムコール \pthreadcall{exit} を呼ぶことによってでも
-終了できます。 \ml+Pervasives.+\indexlibvalue{Pervasives}{exit} と混同しないようにしてください。
-これはプログラム全体、つまり全てのスレッドを終了します。
-%
+スレッドはこの他にも \ml+Thread+ モジュールのシステムコール \pthreadcall{exit} を呼ぶことによってでも終了できます。 \ml+Pervasives.+\indexlibvalue{Pervasives}{exit} と混同しないようにしてください。これはプログラム全体、つまり全てのスレッドを終了します。%
+
 \begin{listingcodefile}{tmpthread.mli}
 val $\indexlibvalue{Thread}{exit}$ : unit -> unit
 \end{listingcodefile}
@@ -192,9 +146,7 @@ val $\indexlibvalue{Thread}{exit}$ : unit -> unit
 % When another thread terminates before the initial thread, it is
 % deallocated immediately by the {\ocaml} runtime library.  It does not
 % become a zombie as in the case of a Unix process created by \ml+fork+.
-最初のスレッドが終了する前にそれ以外のスレッドが終了すると、
-そのスレッドは \ocaml のランタイムライブラリによってすぐに開放されます。
-\ml+fork+ で作成された Unix プロセスのようにゾンビになることはありません。
+最初のスレッドが終了する前にそれ以外のスレッドが終了すると、そのスレッドは \ocaml のランタイムライブラリによってすぐに開放されます。\ml+fork+ で作成された Unix プロセスのようにゾンビになることはありません。
 
 % The system call \pthreadcall{self} returns the thread id of the
 % calling thread.
@@ -209,10 +161,7 @@ val $\libvalue{Thread}{self}$ : unit -> t
 % To establish such a server, we introduce a variant
 % \ml+Misc.co_treatment+ of the function \ml+Misc.fork_treatment+
 % defined in section~\ref{sec/service}.
-前の章で作成した \quotes{フォーク} と \quotes{ダブルフォーク} を使った並行サーバを、
-子プロセスではなくスレッドを使うように書き換えるための準備が整いました。
-そのようなサーバを作るためには、\ref{sec/service} 節で定義した \ml+Misc.fork_treatment+ に
-似た \ml+Misc.co_treatment+ を作成します。
+前の章で作成した \quotes{フォーク} と \quotes{ダブルフォーク} を使った並行サーバを、子プロセスではなくスレッドを使うように書き換えるための準備が整いました。そのようなサーバを作るためには、\ref{sec/service} 節で定義した \ml+Misc.fork_treatment+ に似た \ml+Misc.co_treatment+ を作成します。
 
 %
 \begin{codefile}{misc.mli}
@@ -235,11 +184,7 @@ let co_treatment server_sock service (client_descr, _ as client) =
 % \ml+client_descr+.  Otherwise, we close the \ml+client_descr+
 % descriptor, the client is abandoned, and we let the main program
 % handle the error.
-スレッドの作成に成功した場合、
-サービスと \ml+client_descr+ を閉じる処理は \ml+service+ 関数によって処理されます。
-スレッドの作成に失敗した場合、
-ディスクリプタ \ml+client_descr+ を閉じてクライアントを放棄し、
-エラーに対する処理をメインプログラムに任せます。
+スレッドの作成に成功した場合、サービスと \ml+client_descr+ を閉じる処理は \ml+service+ 関数によって処理されます。スレッドの作成に失敗した場合、ディスクリプタ \ml+client_descr+ を閉じてクライアントを放棄し、エラーに対する処理をメインプログラムに任せます。
 
 % Note that all the difficulty of the co-server is hidden in the
 % \ml+service+ function, which must handle the connection robustly until
@@ -257,20 +202,7 @@ let co_treatment server_sock service (client_descr, _ as client) =
 % not a solution either, because we risk not having properly
 % deallocated the thread's open resources, and in particular the
 % connection.
-スレッドを使ったサーバでは難しい部分が
-\ml+service+ 関数に隠れていることに注意してください。
-この関数は接続を切断するまでロバストに処理しなければいけません。
-プロセスを使った並行サーバの例ではサービスが他のプロセスによって実行されており、
-エラーが起こってサービスが途中で終了したとしても望みどおりの処理~---~接続の処理~---~が行われます。
-これはプロセスが終了するとシステムがファイルディスクリプタを閉じるためです。
-しかしサービスがスレッドによって実行されている場合、
-デフォルトの設定ではディスクリプタはスレッド間で共有され、
-スレッドの終了時に閉じられることがありません。
-そのためスレッドは終了する前にディスクリプタを閉じる必要があります。
-加えて、サービスは致命的なエラーのときに \ml+Pervasives.exit+ を呼ぶこともできません。
-なぜならこの呼び出しはサービスだけではなくサーバ全体を終了させるからです。
-致命的なエラーのときに \ml+Thread.exit+ を使っても解決にならないことが多いです。
-なぜならスレッドの持つ開いたままのリソース、つまり接続が閉じられていない可能性があるからです。
+スレッドを使ったサーバでは難しい部分が \ml+service+ 関数に隠れていることに注意してください。この関数は接続を切断するまでロバストに処理しなければいけません。プロセスを使った並行サーバの例ではサービスが他のプロセスによって実行されており、エラーが起こってサービスが途中で終了したとしても望みどおりの処理~---~接続の処理~---~が行われます。これはプロセスが終了するとシステムがファイルディスクリプタを閉じるためです。しかしサービスがスレッドによって実行されている場合、デフォルトの設定ではディスクリプタはスレッド間で共有され、スレッドの終了時に閉じられることがありません。そのためスレッドは終了する前にディスクリプタを閉じる必要があります。加えて、サービスは致命的なエラーのときに \ml+Pervasives.exit+ を呼ぶこともできません。なぜならこの呼び出しはサービスだけではなくサーバ全体を終了させるからです。致命的なエラーのときに \ml+Thread.exit+ を使っても解決にならないことが多いです。なぜならスレッドの持つ開いたままのリソース、つまり接続が閉じられていない可能性があるからです。
 
 % One solution consists of raising an exception to signify a fatal stop
 % (for example an \ml+Exit+ exception), causing finalization code to be
@@ -278,10 +210,7 @@ let co_treatment server_sock service (client_descr, _ as client) =
 % block the \ml+sigpipe+ signal during the handling of a service by a
 % thread, replacing the immediate termination of the thread by the
 % raising of an \ml+EPIPE+ exception.
-一つの解決法は終了処理を実行するコードがハンドラとして登録されている例外 (例えば \ml+Exit+ 例外)
-を使うことです。
-また同様の理由でサービスの実行中に \ml+sigpipe+ シグナルをブロックし、
-シグナルに対する動作を動作をスレッドの終了から \ml+EPIPE+ 例外に変えておくことが重要です。
+一つの解決法は終了処理を実行するコードがハンドラとして登録されている例外 (例えば \ml+Exit+ 例外) を使うことです。また同様の理由でサービスの実行中に \ml+sigpipe+ シグナルをブロックし、シグナルに対する動作を動作をスレッドの終了から \ml+EPIPE+ 例外に変えておくことが重要です。
 
 
 % \section{Waiting}
@@ -304,9 +233,7 @@ val $\libvalue{Thread}{join}$ : t -> unit
 % by the principal thread to wait for all the other threads to finish
 % before terminating itself and the program. (The default behavior is to
 % kill the other threads without waiting for them to terminate.)
-この関数を呼んだスレッドの実行は指定された ID のスレッドの実行が終了するまで中断されます。
-主スレッドがこの関数を使えば終了する前に他の全てのスレッドが終了するのを待つことができます
-(この関数を使わないと主スレッドが終了した時点で他の全てのスレッドも終了します)。
+この関数を呼んだスレッドの実行は指定された ID のスレッドの実行が終了するまで中断されます。主スレッドがこの関数を使えば終了する前に他の全てのスレッドが終了するのを待つことができます(この関数を使わないと主スレッドが終了した時点で他の全てのスレッドも終了します)。
 
 % Although this call is blocking and therefore \quotes{long}, it
 % is restarted automatically when a signal is received: it is
@@ -315,13 +242,7 @@ val $\libvalue{Thread}{join}$ : t -> unit
 % thread has really terminated, and the call never raises the \ml+EINTR+
 % exception.  From the viewpoint of the {\ocaml} programmer, it behaves as
 % if the signal was received at the moment when the call returns.
-\ml+join+ はブロックするので \quotes{遅い} システムコールですが、
-この関数はシグナルを受け取ったときに自動的に再開します。
-正確にはシグナルによって実行が中断され、ハンドラが呼び出されてから、もう一度関数が呼ばれます。
-そのためこの関数は指定したスレッドが本当に終了するまで返らず、
-\ml+EINTR+ 例外を出すことはありません。
-\ocaml プログラマの観点からは、
-\ml+join+ はシグナルは関数から返った瞬間に実行されるように振る舞います。
+\ml+join+ はブロックするので \quotes{遅い} システムコールですが、この関数はシグナルを受け取ったときに自動的に再開します。正確にはシグナルによって実行が中断され、ハンドラが呼び出されてから、もう一度関数が呼ばれます。そのためこの関数は指定したスレッドが本当に終了するまで返らず、\ml+EINTR+ 例外を出すことはありません。\ocaml プログラマの観点からは、\ml+join+ はシグナルは関数から返った瞬間に実行されるように振る舞います。
 
 % A thread does not return, since it is executed asynchronously.  But
 % its action can be observed~---~luckily!~---~by its side effects.  For
@@ -329,11 +250,7 @@ val $\libvalue{Thread}{join}$ : t -> unit
 % reference that another thread will consult after making sure that the
 % calculation has finished.  We illustrate this in the following
 % example.
-スレッドは非同期に実行されるので、値を返すことがありません。
-しかしその動作は~---~幸運にも!~---~副作用によって観測することができます。
-例えばスレッドは計算の結果を参照値に保存し、
-他のスレッドは計算が終わったことを確認してからその値を読み込むことができます。
-次の例がこのことを説明します。
+スレッドは非同期に実行されるので、値を返すことがありません。しかしその動作は~---~幸運にも!~---~副作用によって観測することができます。例えばスレッドは計算の結果を参照値に保存し、他のスレッドは計算が終わったことを確認してからその値を読み込むことができます。次の例がこのことを説明します。
 %
 \begin{codefile}{tmpthread.ml}
 open Thread;;
@@ -358,9 +275,7 @@ let v1 = coexec succ 4 and v2 = coexec succ 5 in v1 () + v2 ();;
 % process (file descriptors, for example).  A thread can also suspend
 % itself voluntarily.  The \ml+yield+ function allows a thread to give
 % up control explicitly, without waiting for preemption by the system.
-システムは他のスレッドに制御を移すため、あるいはスレッドが他のスレッドやプロセスが利用中のリソース
-(例えばロックや条件変数、ファイルディスクリプタ) を待つために、スレッドを停止することができます。
-\ml+yeild+ 関数を使うとシステムによるプリエンプションを待つことなく明示的に実行を停止することができます。
+システムは他のスレッドに制御を移すため、あるいはスレッドが他のスレッドやプロセスが利用中のリソース (例えばロックや条件変数、ファイルディスクリプタ) を待つために、スレッドを停止することができます。\ml+yeild+ 関数を使うとシステムによるプリエンプションを待つことなく明示的に実行を停止することができます。
 %
 \begin{listingcodefile}{tmpthread.mli}
 val $\indexlibvalue{Thread}{yield}$ : unit -> unit
@@ -369,9 +284,7 @@ val $\indexlibvalue{Thread}{yield}$ : unit -> unit
 % It is a hint for the thread scheduler, but it may have no effect, for
 % example if no other thread can execute immediately, the system may
 % give control back to the same thread.
-この関数はスレッドスケジューラに対してヒントを出しますが、なんの効果も持たない場合もあります。
-例えば \ml+yield+ が呼ばれた時点で他に実行できるスレッドがない場合は、
-システムは同じスレッドの実行を続けます。
+この関数はスレッドスケジューラに対してヒントを出しますが、なんの効果も持たない場合もあります。例えば \ml+yield+ が呼ばれた時点で他に実行できるスレッドがない場合は、システムは同じスレッドの実行を続けます。
 
 % Conversely, it is not necessary to execute \ml+yield+ to permit other
 % threads to execute, because the system reserves the right to execute
@@ -379,10 +292,7 @@ val $\indexlibvalue{Thread}{yield}$ : unit -> unit
 % this right sufficiently often to permit other threads to execute and
 % to give the illusion that the threads are running in parallel, even on
 % a uniprocessor machine.
-また他のスレッドが実行されるためには \ml+yeild+ を呼ばなくてはいけないわけではありません。
-システムは \ml+yield+ コマンドを任意のタイミングで実行する権限を持っているからです。
-実際にはシステムはこの権限を頻繁に使って他のスレッドを実行し、
-プロセスが一つしか無いマシンでもスレッドが並列に実行されているように見せています。
+また他のスレッドが実行されるためには \ml+yeild+ を呼ばなくてはいけないわけではありません。システムは \ml+yield+ コマンドを任意のタイミングで実行する権限を持っているからです。実際にはシステムはこの権限を頻繁に使って他のスレッドを実行し、プロセスが一つしか無いマシンでもスレッドが並列に実行されているように見せています。
 
 \begin{example}
 % We can revisit the example of section~\ref{ex/forksearch} and modify it to use
@@ -421,13 +331,7 @@ Pervasives.exit (if psearch 1 ((=) Sys.argv.(1)) arr then  0 else 1);;
 % in parallel, they write the same value.  It is important that the
 % threads do not write the result of the search when it is false!
 % For example, replacing line~\ref{prog:search} by
-\ml+psearch k f v+ は \ml+k+ このスレッドを使って配列の要素のうち \ml+f+ を
-満たすものを並列に探索します。
-\ml+pcond+ は探索がすでに成功している場合にスレッドを終了させることで探索を打ち切ります。
-全てのスレッドは参照 \ml+found+ を共有し、アクセスは並列に起こります。
-この参照への書き込みは必ず値を \ml+true+ にするので、クリティカルセクションは存在しません。
-探索対象が見つからなかったときに全体の探索結果をセットしてはいけません。
-例えば~\ref{prog:search} 行目を
+\ml+psearch k f v+ は \ml+k+ このスレッドを使って配列の要素のうち \ml+f+ を満たすものを並列に探索します。\ml+pcond+ は探索がすでに成功している場合にスレッドを終了させることで探索を打ち切ります。全てのスレッドは参照 \ml+found+ を共有し、アクセスは並列に起こります。この参照への書き込みは必ず値を \ml+true+ にするので、クリティカルセクションは存在しません。探索対象が見つからなかったときに全体の探索結果をセットしてはいけません。例えば~\ref{prog:search} 行目を
 %
 \begin{lstlisting}
 let search v = found := !found && simple_search pcond v
@@ -450,18 +354,13 @@ let search v = let r = simple_search pcond v in found := !found && r
 % performing the search passes control to another and the machine can
 % therefore continue the computation on another part of the array and
 % return to the blocked thread when its resource is free.
-要素の比較が (デイスクアクセスやネットワークへの接続で) 一時的なブロックを引き起こすならば、
-並列探索はプロセスが一つしか無いマシンでも意味があります。
-この場合リソースを待っているスレッドが他のスレッドに実行を譲ることで配列の他の部分の計算を続けることができ、
-ブロックされたスレッドの実行はリソースが利用可能になってから再開されます。
+要素の比較が (デイスクアクセスやネットワークへの接続で) 一時的なブロックを引き起こすならば、並列探索はプロセスが一つしか無いマシンでも意味があります。この場合リソースを待っているスレッドが他のスレッドに実行を譲ることで配列の他の部分の計算を続けることができ、ブロックされたスレッドの実行はリソースが利用可能になってから再開されます。
 
 % Access to certain elements can have significant latency, on the order
 % of a second if information must be retrieved over the network.  In
 % this case, the difference in behavior between a sequential search and
 % a parallel search becomes obvious.
-特定の要素へのアクセスがとても大きなレイテンシを持つという場合があり、
-とくにネットワーク越しにデータを取得しなければいけない場合にはレイテンシが他の要素に比べて数百倍となります。
-このようなケースではシーケンシャルな探索と並列な探索の差が明確になります。
+特定の要素へのアクセスがとても大きなレイテンシを持つという場合があり、とくにネットワーク越しにデータを取得しなければいけない場合にはレイテンシが他の要素に比べて数百倍となります。このようなケースではシーケンシャルな探索と並列な探索の差が明確になります。
 \medskip
 \begin{exercise}
 \label{ex/qsort}
@@ -473,10 +372,7 @@ let search v = let r = simple_search pcond v in found := !found && r
 % done recursively on independent sub-arrays.  This can be delegated to
 % threads whose only synchronization is to wait for all the threads to
 % finish their sorting, in order for the sub-array to be sorted.
-クイックソートは目的の配列を分割した配列を再帰的にソートし、
-この分割した配列に対するソートは独立に行われるので並列化はしやすいです。
-クイックソートを実行するスレッドにおける唯一の同期は
-分割した配列のソートが終わるのを待つ部分だけです。
+クイックソートは目的の配列を分割し、分割した配列をそれぞれ独立にソートするので並列化はしやすいです。クイックソートを実行するスレッドにおける唯一の同期は分割した配列のソートが終わるのを待つ部分だけです。
 
 \begin{codefile}{thsort.ml}
 let swap arr i j =
@@ -523,25 +419,17 @@ Array.iter print_endline arr;;
 % sorted before starting the sort of the upper portion.  We would thus
 % obtain the behavior of a sequential program, with the additional cost
 % of threads but without obtaining any benefit.
-\ref{prog:tcreate} 行目と~\ref{prog:tjoin} 行目を入れ替えても正しい答えは得られますが、
-あまり意味がないでしょう。
-配列の前半分がソートされてから後半分のソートが始まるので、
-動作はシーケンシャルなプログラムと同じになりますが、スレッドの生成の分だけ実行が遅くなります。
+\ref{prog:tcreate} 行目と~\ref{prog:tjoin} 行目を入れ替えても正しい答えは得られますが、あまり意味がないでしょう。配列の前半分がソートされてから後半分のソートが始まるので、動作はシーケンシャルなプログラムと同じになりますが、スレッドの生成の分だけ実行が遅くなります。
 
 % In practice, we should limit parallelization to a reasonable factor
 % and continue sequentially after that.
-並列クイックソートを実際のプログラムで使う場合には、
-配列の長さがある程度よりも小さくなったらスレッドを作らずにシーケンシャルに
-ソートしたほうが良いでしょう。
+並列クイックソートを実際のプログラムで使う場合には、配列の長さがある程度よりも小さくなったらスレッドを作らずにシーケンシャルにソートしたほうが良いでしょう。
 \end{answer}
 
 % The other forms of suspension are tied to operating system resources.
 % A thread can be suspended for a certain time by calling \ml+delay s+.
 % Once \ml+s+ seconds elapse, it can be restarted.
-これから紹介するスレッドを停止させる別の方法は、
-オペレーティングシステムのリソースに関係しています。
-スレッドは \ml+delay s+ を呼ぶことで任意の時間だけ実行を停止することができます。
-実行は \ml+s+ 秒後に再開されます。
+これから紹介するスレッドを停止させる別の方法は、オペレーティングシステムのリソースに関係しています。スレッドは \ml+delay s+ を呼ぶことで任意の時間だけ実行を停止することができます。実行は \ml+s+ 秒後に再開されます。
 %
 \begin{listingcodefile}{tmpthread.mli}
 val $\indexlibvalue{Thread}{delay}$ : float -> unit
@@ -551,9 +439,7 @@ val $\indexlibvalue{Thread}{delay}$ : float -> unit
 % \ml+delay s+ is simply an abbreviation for
 % \ml+ignore (Unix.select [] [] [] s)+. This call, unlike \ml+join+, is
 % not restarted when it is interrupted by a signal.
-この関数は \textsc{vm}-レベルのスレッドでもポータブルに使うことができますが、
-\ml+delay s+ は \ml+ignore (Unix.select [] [] [] s)+ の省略形に過ぎません。
-\ml+join+ と違ってこの関数はシグナルで中断されても自動的に再開しません。
+この関数は \textsc{vm}-レベルのスレッドでもポータブルに使うことができますが、\ml+delay s+ は \ml+ignore (Unix.select [] [] [] s)+ の省略形に過ぎません。\ml+join+ と違ってこの関数はシグナルで中断されても自動的に再開しません。
 
 %% Un processus peut attendre sur un signal.
 %% \begin{lstlisting}
@@ -569,14 +455,7 @@ val $\indexlibvalue{Thread}{delay}$ : float -> unit
 % \libvalue{Thread}{select} from the \ml+Thread+ module and not
 % \ml+Unix.select+, even if the two are equivalent in the case of native
 % threads.)
-スレッドを外部の操作と同期させるために \indexvalue{select} を使うことができます。
-この関数がブロックするのはプログラム全体ではなくこの関数を読んだスレッドだけであることに
-注意してください。
-シミュレートされたスレッドが \ml+Unix+ モジュールの \ml+select+ を呼ぶとプログラム全体すなわち
-全てのスレッドをブロックしてしまうために、\ml+Thread+ モジュールはこの関数を再定義しています。
-ネイティブスレッドを利用するプログラムでは \ml+Unix.select+ と \ml+Thread.select+ の動作に違いはありませんが、
-この理由からネイティブスレッドを利用するプログラムでも \ml+Unix+ モジュールではなく \ml+Thread+ モジュールの \libvalue{Thread}{select} 関数を使うことが
-必要になります。
+スレッドを外部の操作と同期させるために \indexvalue{select} を使うことができます。この関数がブロックするのはプログラム全体ではなくこの関数を読んだスレッドだけであることに注意してください。シミュレートされたスレッドが \ml+Unix+ モジュールの \ml+select+ を呼ぶとプログラム全体すなわち全てのスレッドをブロックしてしまうために、\ml+Thread+ モジュールはこの関数を再定義しています。ネイティブスレッドを利用するプログラムでは \ml+Unix.select+ と \ml+Thread.select+ の動作に違いはありませんが、この理由からネイティブスレッドを利用するプログラムでも \ml+Unix+ モジュールではなく \ml+Thread+ モジュールの \libvalue{Thread}{select} 関数を使うことが必要になります。
 
 \begin{example}
 \label{ex/crible-copro}
@@ -585,8 +464,7 @@ val $\indexlibvalue{Thread}{delay}$ : float -> unit
 % it suffices to replace the
 % lines~{\ref{prog:sievefilterfork}--\ref{prog:sievefilterdone}} of the
 % function \ml+filter+ by:
-\ref{ex/crible} 節のエラトステネスのふるいの例を Unix プロセスではなくスレッドを使って
-動かすためには、 \ml+filter+ 関数の~{\ref{prog:sievefilterfork}--\ref{prog:sievefilterdone}} 行目を
+\ref{ex/crible} 節のエラトステネスのふるいの例を Unix プロセスではなくスレッドを使って動かすためには、 \ml+filter+ 関数の~{\ref{prog:sievefilterfork}--\ref{prog:sievefilterdone}} 行目を
 %
 \begin{codefile}{thcrible.ed}
 f th/crible.ml
@@ -632,8 +510,7 @@ wq
 %
 % However, we cannot expect any significant gain from this example,
 % which uses few processes relative to computation time.
-に変えれば十分です。ただし、計算時間に比べてプロセスをあまり使わないこの例では
-実行速度の高速化は望めません。
+に変えれば十分です。ただし、計算時間に比べてプロセスをあまり使わないこの例では実行速度の高速化は望めません。
 \end{example}
 
 %% Pour attendre sur un seul descripteur de fichier (en écriture ou en
@@ -661,20 +538,14 @@ wq
 % resources. In particular, the following scenario illustrates the
 % problem of access to shared resources.  Consider a counter $c$ and two
 % processes $p$ and $q$, each incrementing the counter in parallel.
-前の節で変更可能なリソースに対する並行アクセスの問題に触れました。
-次のシナリオは共有リソースへのアクセスの問題を説明します。
-二つのスレッド $p$ と $q$ がカウンタ $c$ の値を進めようとしているとします。
+前の節で変更可能なリソースに対する並行アクセスの問題に触れました。次のシナリオは共有リソースへのアクセスの問題を説明します。二つのスレッド $p$ と $q$ がカウンタ $c$ の値を進めようとしているとします。
 
 % Assume the scenario described in figure~\ref {fig/competition}.
 % Thread $p$ reads the value of counter $c$, then gives control to $q$.
 % In its turn, $q$ reads the value of $c$, then writes the value $k+1$
 % to $c$.  The thread $p$ resumes control and writes the value $k+1$ to
 % $c$. The final value of $c$ is therefore $k+1$ instead of $k+2$.
-図\ref {fig/competition}にあるシナリオを考えます。
-スレッド $p$ がカウンタ $c$ の値を読み、実行が $q$ へ移ります。
-この次に $q$ は $c$ の値を読み、値 $k+1$ を $c$ に書き込みます。
-次に実行は $p$ へと戻りますが、このスレッドは $k+1$ を $c$ に書き込みます。
-この結果、最小的な $c$ の値は $k+2$ ではなく $k+1$ となってしまいます。
+図\ref {fig/competition}にあるシナリオを考えます。スレッド $p$ がカウンタ $c$ の値を読み、実行が $q$ へ移ります。この次に $q$ は $c$ の値を読み、値 $k+1$ を $c$ に書き込みます。次に実行は $p$ へと戻りますが、このスレッドは $k+1$ を $c$ に書き込みます。この結果、最小的な $c$ の値は $k+2$ ではなく $k+1$ となってしまいます。
 \begin{myfigure}
 \begin{myimage}[width="100\%"]
 \begin{tikzpicture}
@@ -710,9 +581,7 @@ wq
 % Locks are shared objects that can be held by at most a single thread
 % within a program at a time. A lock is created by the function
 % \ml+create+.
-ロックとは共有オブジェクトであり、プログラムの各時点でロックを所有できるのは
-多くとも一つのスレッドだけです。
-ロックは \ml+create+ 関数で作成します。
+ロックとは共有オブジェクトであり、プログラムの各時点でロックを所有できるのは多くとも一つのスレッドだけです。ロックは \ml+create+ 関数で作成します。
 %
 \begin{codefile}{tmpmutex.mli}
   type t
@@ -728,13 +597,7 @@ val $\libvalue{Mutex}{create}$ : unit -> t
 % held by another thread, the caller is frozen until the lock is released.
 % A lock must be released explicitly by the thread that holds it with
 % the system call \pthreadcall[mutex]{unlock}.
-この関数はどのスレッドにも所有されていない新しいロックを返します。
-作成したロックを取得するには、そのロックに対してシステムコール \pthreadcall[mutex]{lock} を
-呼ぶ必要があります。
-目的のロックが他のスレッドによって所有されていた場合、 \ml+lock+ を読んだスレッドは
-ロックが開放されるまでブロックします。
-ロックを所有しているスレッドはシステムコール \pthreadcall[mutex]{unlock} によって
-ロックを開放しなければいけません。
+この関数はどのスレッドにも所有されていない新しいロックを返します。作成したロックを取得するには、そのロックに対してシステムコール \pthreadcall[mutex]{lock} を呼ぶ必要があります。目的のロックが他のスレッドによって所有されていた場合、 \ml+lock+ を読んだスレッドはロックが開放されるまでブロックします。ロックを所有しているスレッドはシステムコール \pthreadcall[mutex]{unlock} によってロックを開放しなければいけません。
 %
 \begin{listingcodefile}{tmpmutex.mli}
 val $\libvalue{Mutex}{lock}$ : t -> unit
@@ -749,12 +612,7 @@ val $\libvalue{Mutex}{unlock}$ : t -> unit
 % acquired, and never raises the \ml+EINTR+ exception.  The real
 % treatment of the signal by {\ocaml} will happen only upon the return
 % from \ml+lock+.
-シグナルへの動作について、\ml+lock+ は \ml+Thread.join+ に似ています。
-もし \ml+lock+ の実行中にシグナルを受け取った場合、そのシグナルは記録され
-\ocaml ランタイムがシグナルの到着を通知しますが、
-関数を呼び出したスレッドは \ml+lock+ がロックが取得できるまでブロックされ、
-\ml+lock+ から \ml+ENITR+ 例外が出ることはありません。
-\ocaml によるシグナルの処理は \ml+lock+ が返るタイミングで行われます。
+シグナルへの動作について、\ml+lock+ は \ml+Thread.join+ に似ています。もし \ml+lock+ の実行中にシグナルを受け取った場合、そのシグナルは記録され\ocaml ランタイムがシグナルの到着を通知しますが、関数を呼び出したスレッドは \ml+lock+ がロックが取得できるまでブロックされ、\ml+lock+ から \ml+ENITR+ 例外が出ることはありません。\ocaml によるシグナルの処理は \ml+lock+ が返るタイミングで行われます。
 
 % We can also try to acquire a lock without blocking with the system call
 % \pthreadcall[mutex]{trylock}
@@ -768,9 +626,7 @@ val $\libvalue{Mutex}{try\_lock}$ : t -> bool
 % \ml+false+ otherwise.  In the latter case, execution is not suspended
 % since the lock is not acquired. The thread can therefore do something
 % else and eventually return and try its luck later.
-この関数はロックが取得できた場合に \ml+true+ を返し、それ以外のときには \ml+false+
-を返します。後者の場合、ロックは取得されないのでスレッドの実行が停止することはありません。
-そのためスレッドは他の処理を行ってからもう一度ロックの取得を試みることができます。
+この関数はロックが取得できた場合に \ml+true+ を返し、それ以外のときには \ml+false+ を返します。後者の場合、ロックは取得されないのでスレッドの実行が停止することはありません。そのためスレッドは他の処理を行ってからもう一度ロックの取得を試みることができます。
 
 \begin{example}
 
@@ -779,11 +635,7 @@ val $\libvalue{Mutex}{try\_lock}$ : t -> bool
 % counter and writing the incremented value are in a critical region,
 % {\ie} two threads cannot be in this region at the same time. The
 % synchronization can easily be managed with a lock.
-複数のスレッドによって利用されるグローバルなカウンタを進める処理には
-同期の問題があります。
-カウンタの値を読んでから新しい値を書き込むまでの間はクリティカルセクション、
-つまり二つ以上のスレッドが同時に実行してはいけない区間になります。
-ロックを使えば同期を簡単に管理できます。
+複数のスレッドによって利用されるグローバルなカウンタを進める処理には同期の問題があります。カウンタの値を読んでから新しい値を書き込むまでの間はクリティカルセクション、つまり二つ以上のスレッドが同時に実行してはいけない区間になります。ロックを使えば同期を簡単に管理できます。
 %
 \begin{listingcodefile}{cthread.ml}
 type counter = { lock : Mutex.t; mutable counter : int }
@@ -798,20 +650,14 @@ let addtocounter c k =
 % performed in parallel with a modification of the counter: the result
 % will simply be the value of the counter just before or just after the
 % modification, both results being consistent.
-カウンタの値を読むだけであれば同期の問題は起こりません。
-カウンタの変更と同時に読み込みが起こることはありえます。
-しかしその場合書き込みの直前または直後の値を読み込むだけであり、
-いずれにせよ矛盾が起きることはありません。
+カウンタの値を読むだけであれば同期の問題は起こりません。カウンタの変更と同時に読み込みが起こることはありえます。しかしその場合書き込みの直前または直後の値を読み込むだけであり、いずれにせよ矛盾が起きることはありません。
 \end{example}
 
 % A common pattern is to hold a lock temporarily during a function call.
 % It is of course necessary to make sure to release the lock at the end
 % of the call, whether the call succeeded or failed. We can abstract
 % this behavior in a library function:
-ある関数を実行する間ロックを保持するというパターンがよく必要になります。
-このパターンでは関数が成功するか失敗するかにかかわらず最後にロックを
-開放することが当然必要になります。
-この処理を次のライブラリ関数にまとめます:
+ある関数を実行する間ロックを保持するというパターンがよく必要になります。このパターンでは関数が成功するか失敗するかにかかわらず最後にロックを開放することが当然必要になります。この処理を次のライブラリ関数にまとめます:
 \begin{codefile}{misc.mli}
 val run_with_lock : Mutex.t -> ('a -> 'b) -> 'a -> 'b
 \end{codefile}
@@ -832,8 +678,7 @@ let addtocounter c =
 \begin{example}
 % An alternative to the model of the server with threads is to start a
 % number of threads in advance which handle requests in parallel.
-スレッドを使ったサーバのモデルの代わりに、
-リクエストを並列に処理するスレッドをいくつか事前に作っておくことができます。
+スレッドを使ったサーバのモデルの代わりに、リクエストを並列に処理するスレッドをいくつか事前に作っておくことができます。
 %
 \begin{codefile}{farm.mli}
 open Unix
@@ -850,11 +695,7 @@ val tcp_farm_server :
 % of a pool of threads is to reduce the time to handle each connection
 % by eliminating the cost of creating a thread for it, since they are
 % created once and for all.
-\ml+tcp_farm_server+ 関数は \ml+tcp_server+ と同じように動作しますが、
-開始するスレッドの数を表す引数を追加で取ります。
-スレッドは同じアドレスに対するサーバになります。
-スレッドプールを使う利点はスレッドを一括して事前に作っておくことで
-接続を処理するときにスレッドを作る処理の分だけ時間を節約できる点です。
+\ml+tcp_farm_server+ 関数は \ml+tcp_server+ と同じように動作しますが、開始するスレッドの数を表す引数を追加で取ります。スレッドは同じアドレスに対するサーバになります。スレッドプールを使う利点はスレッドを一括して事前に作っておくことで接続を処理するときにスレッドを作る処理の分だけ時間を節約できる点です。
 %
 \begin{codefile}{farm.ml}
 open Sys;;
@@ -880,11 +721,7 @@ let tcp_farm_server n treat_connection addr =
 % sequential treatment, but it is not a requirement~---~we can
 % effectively combine a pool of threads with the creation of new
 % threads, which can be dynamically adjusted depending on the load.
-唯一注意するべき点は \ml+accept+ 関数を排他的に実行することです。
-これによって接続を受け付ける関数が常に多くとも一つとなります。
-ここでは \ml+treat_connection+ 関数がシーケンシャルな処理を行うことを想定していますが、
-これが必須なわけではありません。スレッドプールとスレッドの作成を
-同時に行って使用率に応じてスレッドの数を調整することもできます。
+唯一注意するべき点は \ml+accept+ 関数を排他的に実行することです。これによって接続を受け付ける関数が常に多くとも一つとなります。ここでは \ml+treat_connection+ 関数がシーケンシャルな処理を行うことを想定していますが、これが必須なわけではありません。スレッドプールとスレッドの作成を同時に行って使用率に応じてスレッドの数を調整することもできます。
 \end{example}
 
 % Acquisition of a lock is an inexpensive operation when it succeeds
@@ -902,17 +739,7 @@ let tcp_farm_server n treat_connection addr =
 % critical region and therefore the frequency with which another thread
 % finds itself effectively in competition for the lock and in need of
 % suspension.
-ロックの取得がブロックせずに成功した場合、時間のかからない処理となります。
-ロックの取得は全ての現代的なプロセッサで提供される \quotes{test-and-set} 命令
-(とキャシュの更新などのコストの小さないくつかの処理) で一般的に実装されます。
-一方ロックが利用可能でない場合は、スレッドは実行を停止しもう一度スケジュールされるまで
-待たなくてはならず、大量のコストがかさみます。
-そのためこのコストを取るのは他のスレッドに実行を受け渡すために本当に実行を中断するときだけにするべきであり、
-ロックを取得しようとした結果実行がブロックされたというのはできる限り避けるべきです。
-したがってほとんど常にロックはなるべく早く開放して必要になったらもう一度取得するようにするべきで、
-ロックを保持したままでいることは避けるべきです。
-ロックの開放を行わないとクリティカルセクションが大きくなり、
-他のスレッドのロックの取得が競合し、実行を停止しなければならなくなる頻度が上がります。
+ロックの取得がブロックせずに成功した場合、処理はすぐに終了します。ロックの取得は全ての現代的なプロセッサで提供される \quotes{test-and-set} 命令 (とキャシュの更新などのコストの小さないくつかの処理) で一般的に実装されているためです。一方ロックが利用可能でない場合は、スレッドは実行を停止しもう一度スケジュールされるまで待たなくてはならず、大量のコストがかさみます。そのためこのコストを取るのは他のスレッドに実行を受け渡すために本当に実行を中断するときだけにするべきであり、ロックを取得しようとした結果実行がブロックされたというのはできる限り避けるべきです。したがってほとんど常にロックはなるべく早く開放して必要になったらもう一度取得するようにするべきで、ロックを保持したままでいることは避けるべきです。ロックの開放を行わないとクリティカルセクションが大きくなり、他のスレッドのロックの取得が競合し、実行を停止しなければならなくなる頻度が上がります。
 
 % Locks reduce interleaving.  In return, they increase the risk of
 % deadlock.  For example, there is a deadlock if a thread $p$ waits for
@@ -925,23 +752,14 @@ let tcp_farm_server n treat_connection addr =
 % dynamically respects the hierarchy: a thread never acquires a lock
 % unless that lock is dominated by all the other locks that the thread
 % already holds.
-ロックによってスレッドが交互に実行されなくなりますが、そのかわりデッドロックの
-危険性があります。
-例えばスレッド $p$ がロック $v$ の開放を待っていて、$v$ を持っているスレッド $q$ は
-$p$ が持っているロック $u$ を待っている場合です (最悪な場合には、スレッドが自分が持っているロックを
-待つこともあります) 。
-並行プログラミングは難しく、デッドロックの排除は常に簡単なわけではありません。
-デッドロックを避ける単純で実行可能なことが多い方法は、ロックに階層を定義して
-ロックの取得が階層をたどるようにするというものです。
-スレッドがあるロックを取得できるのはそのロックよりも下のロックを全て取得しているときだけです。
+ロックによってスレッドが交互に実行されなくなりますが、そのかわりデッドロックの危険性があります。例えばスレッド $p$ がロック $v$ の開放を待っていて、$v$ を持っているスレッド $q$ は $p$ が持っているロック $u$ を待っている場合です (最悪な場合には、スレッドが自分が持っているロックを待つこともあります) 。並行プログラミングは難しく、デッドロックの排除は常に簡単なわけではありません。デッドロックを避ける単純で実行可能なことが多い方法は、ロックに階層を定義してロックの取得が階層をたどるようにするというものです。スレッドがあるロックを取得できるのはそのロックよりも下のロックを全て取得しているときだけです。
 
 % \section{\label{ex/th-relais}Complete example: {\normalfont\http} relay}
 \section{\label{ex/th-relais}完全な例: {\normalfont\http} リレー}
 
 % We modify the {\http} relay developed in section~\ref{sec/relay} so
 % that it services requests using threads.
-\ref{sec/relay} 節で作成した \http リレーを改変し、リクエストを
-スレッドを使って処理するようにします。
+\ref{sec/relay} 節で作成した \http リレーを改変し、リクエストをスレッドを使って処理するようにします。
 
 % Intuitively, it suffices to replace the \ml+establish_server+ function
 % that creates a process clone with a function that creates a
@@ -951,13 +769,7 @@ $p$ が持っているロック $u$ を待っている場合です (最悪な場
 % other's toes} with one undoing what was just done by another.
 % That typically happens when two threads modify the same mutable
 % structure in parallel.
-直感的には、プロセスのクローンを作成する \ml+establish_server+ 関数を
-スレッドを作るようにすればすみます。
-しかし、いくつか注意点があります。
-複数のスレッドを使用する上での困難はメモリ空間を全て共有することです。
-そのためあるスレッド行ったことを他のスレッドが打ち消してしまうような、
-\quotes{互いのつま先を踏み合う} ことのないようにしなければなりません。
-これは二つのスレッドが変更可能な同じ構造体を並列に変更するときによく起こります。
+直感的には、プロセスのクローンを作成する \ml+establish_server+ 関数をスレッドを作るようにすればすみます。しかし、いくつか注意点があります。複数のスレッドを使用する上での困難はメモリ空間を全て共有することです。そのためあるスレッド行ったことを他のスレッドが打ち消してしまうような、\quotes{互いのつま先を踏み合う} ことのないようにしなければなりません。これは二つのスレッドが変更可能な同じ構造体を並列に変更するときによく起こります。
 
 % In the case of the {\http} server, there are several changes to make.
 % Let us start by resolving problems with access to resources.  The
@@ -973,26 +785,13 @@ $p$ が持っているロック $u$ を待っている場合です (最悪な場
 % with locks (and there is really no other choice). We must still take
 % the precaution of releasing the lock when returning from the function
 % abnormally due to an exception.
-\http サーバにはいくつかの変更が必要になります。
-まずリソースへのアクセスの問題から始めます。
-\ref{page/get_url} 節で説明した \ml+proxy_service+ 関数は接続への対応を処理します。
-\ml+parse_host+ と \ml+parse_url+ そして \ml+parse_request+ を途中で使って、
-\ml+proxy_service+ は \ml+Str+ ライブラリの \ml+regexp_match+ 関数を呼びます。
-しかし、このライブラリは再入可能ではありません (最後の探索の結果がグローバル変数に
-か格納されます)。
-一見害の無いように見える関数呼び出しも内部にデータの衝突を隠しているかもしれないので
-注意しなければいけないことをこの例は示しています。
-今回は \ml+Str+ ライブラリを書き直すのではなく単純にその利用をシーケンシャルにします。
-ライブラリ関数の呼び出しをロックで防御するだけで十分です (他の選択肢があるわけでもありません)。
-例外によって関数が異常終了した場合にもロックを開放するように注意する必要があります。
+\http サーバにはいくつかの変更が必要になります。まずリソースへのアクセスの問題から始めます。~\ref{page/get_url} 節で説明した \ml+proxy_service+ 関数は接続への対応を処理します。\ml+parse_host+ と \ml+parse_url+ そして \ml+parse_request+ を途中で使って、\ml+proxy_service+ は \ml+Str+ ライブラリの \ml+regexp_match+ 関数を呼びます。しかし、このライブラリは再入可能ではありません (最後の探索の結果がグローバル変数にか格納されます)。一見害の無いように見える関数呼び出しも内部にデータの衝突を隠しているかもしれないので注意しなければいけないことをこの例は示しています。今回は \ml+Str+ ライブラリを書き直すのではなく単純にその利用をシーケンシャルにします。ライブラリ関数の呼び出しをロックで防御するだけで十分です (他の選択肢があるわけでもありません)。例外によって関数が異常終了した場合にもロックを開放するように注意する必要があります。
 
 % To modify the existing code as little as possible, we can just rename
 % the definition of \ml+regexp_match+ in the \ml+Url+ module as
 % \ml+unsafe_regexp_match+ and then define \ml+regexp_match+ as a
 % protected version of \ml+unsafe_regexp_match+.
-現在のコードへの変更を最小限にするために、\ml+Url+ モジュールの
-\ml+regexp_match+ 関数の名前を \ml+unsafe_regexp_match+ に変更し、
-新たに \ml+regexp_match+ 関数を防御された \ml+unsafe_regexp_match+ として作成します。
+現在のコードへの変更を最小限にするために、\ml+Url+ モジュールの\ml+regexp_match+ 関数の名前を \ml+unsafe_regexp_match+ に変更し、新たに \ml+regexp_match+ 関数を防御された \ml+unsafe_regexp_match+ として作成します。
 %
 \begin{codefile}{thurl.ed}
 f th/url.ml
@@ -1013,27 +812,19 @@ let regexp_match r string =
 % the extraction of the matched groups.  It would definitely have been
 % incorrect to protect the \ml+Str.string_match+ and
 % \ml+Str.matched_group+ functions individually.
-変更は最小限だと言えるでしょう。
-\ml+regexp_match+ 関数が正規表現に対するマッチングとマッチしてグループの
-取得を両方を含むことを指摘しておきます。
-\ml+Str.string_match+ と \ml+Str.matched_group+ を個別にロックで防御するのは
-完全な間違いです。
+変更は最小限だと言えるでしょう。\ml+regexp_match+ 関数が正規表現に対するマッチングとマッチしてグループの取得を両方を含むことを指摘しておきます。\ml+Str.string_match+ と \ml+Str.matched_group+ を個別にロックで防御するのは完全な間違いです。
 
 % Another solution would be to rewrite the analysis functions without using
 % the \ml+Str+ library.  But there is no reason for such a choice, since
 % synchronizing the library primitives is easy to do and does not turn
 % out to be a source of inefficiency.  Obviously, a better solution
 % would be for the \ml+Str+ library to be re-entrant in the first place.
-もう一つの解法は \ml+Str+ ライブラリを使わずに解析関数を書き直すことです。
-しかしライブラリ関数を同期して実行するのは簡単であり、実行を遅くしないことが
-実行すれば分かるので、この方法を取るべき理由は何もありません。
-ただ \ml+Str+ が最初から再入可能であればそのほうが良かったでしょう。
+もう一つの解法は \ml+Str+ ライブラリを使わずに解析関数を書き直すことです。しかしライブラリ関数を同期して実行するのは簡単であり、実行を遅くしないことが実行すれば分かるので、この方法を取るべき理由は何もありません。ただ \ml+Str+ が最初から再入可能であればそのほうが良かったでしょう。
 
 % The other functions that are called are already re-entrant, in particular
 % the \ml+Misc.retransmit+ function that allocates different buffers for
 % each call.
-他の関数はすでに再入可能です。
-例えば \ml+Misc.retransmit+ 関数は呼び出しごとに違うバッファを確保します。
+他の関数はすでに再入可能です。例えば \ml+Misc.retransmit+ 関数は呼び出しごとに違うバッファを確保します。
 
 % However, there are still some precautions to take regarding error
 % handling.  The handling of a connection by a thread must be robust, as
@@ -1052,20 +843,10 @@ let regexp_match r string =
 % particular \ml+Exit+ but also \ml+EPIPE+, which can be raised if the
 % client closes the connection prematurely.  We will take care of this
 % by using a protected function.
-しかしエラー処理に関連して気をつけなければいけないことがあります。
-前に書いたように、スレッドによる接続の処理はロバストでなければいけません。
-特にエラーが起こった場合に他のスレッドが影響を受けてはいけません。
-つまりそのスレッドは受け持った接続を適切に閉じて
-他の待っている接続を受け付ける状態に戻るという \quotes{通常} 終了をする必要があります。
+これ以外にエラー処理に関連して気をつけなければいけないことがあります。前に書いたように、スレッドによる接続の処理はロバストでなければいけません。特にエラーが起こった場合に他のスレッドが影響を受けてはいけません。つまりそのスレッドは受け持った接続を適切に閉じて他の待っている接続を受け付ける状態に戻るという \quotes{通常} 終了をする必要があります。
 
-このためにまず \ml+handle_error+ 関数中の \ml+exit+ の呼び出しを \ml+Thread.exit+ に変更します。
-これは \ml+exit+ がプロセス全体を終了させるためです。
-しかしただ \ml+Thread.exit+ を読ぶだけでは正しくなりません。なぜなら
-プロセスの終了と違ってスレッドの終了は (共有された) ディスクリプタを閉じないからです。
-接続処理中にエラーが起きても接続は開いたままなので、 \ml+Exit+ 例外を出して最終処理を行うようにする
-必要があります。そして \ml+treat_connection+ 関数は \ml+EPIIE+ だけでなく \ml+Exit+ を含んだ全ての
-例外を補足しなければいけません。例外を捕捉するように関数を呼び出す関数を使ってこれを行います:
-%
+このためにまず \ml+handle_error+ 関数中の \ml+exit+ の呼び出しを \ml+Thread.exit+ に変更します。これは \ml+exit+ がプロセス全体を終了させるためです。しかしただ \ml+Thread.exit+ を読ぶだけでは正しくなりません。なぜならプロセスの終了と違ってスレッドの終了は (共有された) ディスクリプタを閉じないからです。接続処理中にエラーが起きても接続は開いたままなので、 \ml+Exit+ 例外を出して最終処理を行うようにする必要があります。そして \ml+treat_connection+ 関数は \ml+EPIIE+ だけでなく \ml+Exit+ を含んだ全ての例外を補足しなければいけません。例外を捕捉するように関数を呼び出す関数を使ってこれを行います:%
+
 \begin{codefile}{thurl.ed}
 .
 1;#
@@ -1111,9 +892,7 @@ wq
 % Coroutines can be seen as a very particular kind of threads where each
 % process must surrender control explicitly before another can execute.
 % Give an implementation of coroutines using threads.
-コルーチンは別のスレッドへの実行の受け渡しを常に明示的に行う必要がある
-非常に特殊なスレッドと見ることができます。
-スレッドを使ってコルーチンを実装してください。
+コルーチンは別のスレッドへの実行の受け渡しを常に明示的に行う必要がある非常に特殊なスレッドと見ることができます。スレッドを使ってコルーチンを実装してください。
 \end{exercise}
 
 % \section{Conditions}
@@ -1138,22 +917,11 @@ wq
 % called \quotes{busy-waiting}, is definitely not satisfactory.  Either
 % it consumes computing cycles unnecessarily (period too short) or else
 % it it is not reactive enough (period too long).
-ロックを使った同期はとてもシンプルですが、機能が十分ではありません。
-ロックを使うと共有データが開放されるのを待つことができますが、
-データがある状態になるのを待つことはできません。
+ロックを使った同期はとてもシンプルですが、機能が十分ではありません。ロックを使うと共有データが開放されるのを待つことができますが、データがある状態になるのを待つことはできません。
 
-カウンタの例をスレッド感で共有される (先入れ先出しの) キューを使って書き直してみましょう。
-キューに要素を追加することはこれまで説明してきたロックによって行えます。これは
-キューの状態にかかわらず要素を追加することは常に可能なためです。
+カウンタの例をスレッド感で共有される (先入れ先出しの) キューを使って書き直してみましょう。キューに要素を追加することはこれまで説明してきたロックによって行えます。これはキューの状態にかかわらず要素を追加することは常に可能なためです。
 
-しかしキューから要素を削除する場合はどうでしょうか?
-キューが空のときは何をすればいいでしょうか?
-キューが空の場合にロックを持ちながら新しい要素を待つことはできません。
-なぜならキューに要素を追加するにはロックが必要なために、ロックを持っている限り
-キューに新しい要素が足されることはないからです。
-だとすれば、キューが空でないことをどうやって知ることができるでしょうか?
-キューの状態を定期的にチェックする方法は \quotes{ビジーウェイト} と呼ばれ、望ましい解決法ではありません。
-(周期が短ければ) 計算機のサイクルを無駄遣いし、 (周期が長ければ) 反応時間が長くなるからです。
+しかしキューから要素を削除する場合はどうでしょうか? キューが空のときは何をすればいいでしょうか? キューが空の場合にロックを持ちながら新しい要素を待つことはできません。なぜならキューに要素を追加するにはロックが必要なために、ロックを持っている限りキューに新しい要素が足されることはないからです。だとすれば、キューが空でないことをどうやって知ることができるでしょうか?キューの状態を定期的にチェックする方法は \quotes{ビジーウェイト} と呼ばれ、望ましい解決法ではありません。(周期が短ければ) 計算機のサイクルを無駄遣いし、 (周期が長ければ) 反応時間が長くなるからです。
 
 % \emph{Conditions} provide a solution to this problem.  A thread that
 % holds a lock can wait for a condition object until another thread
@@ -1161,10 +929,7 @@ wq
 % passive structures that can be manipulated by synchronization
 % functions.  They can be created by the \ml+create+
 % function.
-\emph{条件変数} がこの問題を解決します。
-ロックを持つスレッドは条件変数に対して別のスレッドがシグナルを送るまで待つことができます。
-ロックと同じように、条件変数は同期関数によって生成される中身の見えないオブジェクトです。
-\ml+create+ 関数で条件変数を作ることができます。
+\emph{条件変数} がこの問題を解決します。ロックを持つスレッドは条件変数に対して別のスレッドがシグナルを送るまで待つことができます。ロックと同じように、条件変数は同期関数によって生成される中身の見えないオブジェクトです。\ml+create+ 関数で条件変数を作ることができます。
 %
 \begin{codefile}{tmpcondition.mli}
 type t
@@ -1181,13 +946,7 @@ val $\libvalue{Condition}{create}$ : unit -> t
 % sleep.  It will not be woken up by the system until another thread $q$
 % signals a change on the condition \ml+c+ and the lock \ml+v+ is
 % available; the process $p$ will then hold the lock \ml+v+ again.
-システムコール \pthreadcall[cond]{wait} を使うと、
-ロック $v$ を \emph{すでに持つ} プロセス $p$ は条件変数 \ml+c+ とロック \ml+v+
-に対して待つことができます。
-この呼び出しによって プロセス $p$ はシステムに条件変数 \ml+c+ とロック \ml+v+ に対して待っていると伝え、
-ロック \ml+v+ を開放して実行を中断します。
-他のスレッド $q$ が条件変数 \ml+c+ の変更をシグナルし、かつロック \ml+v+ が
-利用可能になると \ml+v+ を持った状態で実行が再開されます。
+システムコール \pthreadcall[cond]{wait} を使うと、ロック $v$ を \emph{すでに持つ} プロセス $p$ は条件変数 \ml+c+ とロック \ml+v+に対して待つことができます。この呼び出しによって プロセス $p$ はシステムに条件変数 \ml+c+ とロック \ml+v+ に対して待っていると伝え、ロック \ml+v+ を開放して実行を中断します。他のスレッド $q$ が条件変数 \ml+c+ の変更をシグナルし、かつロック \ml+v+ が利用可能になると \ml+v+ を持った状態で実行が再開されます。
 %
 \begin{listingcodefile}{tmpcondition.mli}
 val $\libvalue{Condition}{wait}$ : t -> Mutex.t -> unit
@@ -1196,16 +955,13 @@ val $\libvalue{Condition}{wait}$ : t -> Mutex.t -> unit
 % Note: it is an error to call \ml+wait c v+ without holding the lock
 % \ml+v+.  The behavior of \ml+wait c v+ with respect to signals is the
 % same as for \ml+Mutex.lock+.
-ロック \ml+v+ を取得していない状態で \ml+wait c v+ を呼ぶとエラーとなります。
-またシグナルに対する \ml+wait c v+ の動作は \ml+Mutex.lock+ と同じです。
+ロック \ml+v+ を取得していない状態で \ml+wait c v+ を呼ぶとエラーとなります。またシグナルに対する \ml+wait c v+ の動作は \ml+Mutex.lock+ と同じです。
 
 % When a thread signals a change on a condition, it can either ask for
 % all threads waiting on that condition to be woken up
 % (system call \pthreadcall[cond]{broadcast}), or else for just one of them to be
 % woken up (system call \pthreadcall[cond]{signal}).
-スレッドが条件変数が変更されたシグナルを送ると、
-その条件変数に対して待っている全てのスレッドを起動する (システムコール \pthreadcall[cond]{broadcast}) か、
-それらのうち一つを起動する (システムコール \pthreadcall[cond]{signal}) かのどちらかが行われます。
+スレッドが条件変数が変更されたシグナルを送ると、その条件変数に対して待っている全てのスレッドを起動する (システムコール \pthreadcall[cond]{broadcast}) か、それらのうち一つを起動する (システムコール \pthreadcall[cond]{signal}) かのどちらかが行われます。
 %
 \begin{listingcodefile}{tmpcondition.mli}
 val $\libvalue{Condition}{signal}$ : t -> unit
@@ -1215,8 +971,7 @@ val $\libvalue{Condition}{broadcast}$ : t -> unit
 % Sending a signal or a broadcast on a condition does not require
 % holding a lock (unlike waiting), in the sense that it will not trigger
 % a \quotes{system} error.
-条件変数のシグナルの送信またはブロードキャストは (\ml+wait+ と違って) ロックを必要と
-しません。そのためシステムのエラーは起きませんが、それでもプログラミング上のエラーは起きます。
+条件変数のシグナルの送信またはブロードキャストは (\ml+wait+ と違って) ロックを必要としません。そのためシステムのエラーは起きませんが、それでもプログラミング上のエラーは起きます。
 %%
 %% Est-ce vrai? c'est à celui qui se met en attente à avoir pris le verrou
 %% avant de tester, puis fait wait. Il est donc sûr que la condition n'est
@@ -1245,17 +1000,9 @@ val $\libvalue{Condition}{broadcast}$ : t -> unit
 % The choice between these two strategies is a bet on whether the queue
 % is usually empty (first solution) or usually non-empty (second
 % solution).
-スレッドを一つだけ起動するのか全て起動するかは問題によります。
-キューの例をもう一度考えると、スレッドが空のキューに要素を入れたときに
-待っているスレッドを全て起動する必要はありません。
-キューから要素を取り出して処理を行えるのは一つのスレッドだけだからです。
-一方、もしスレッドが複数の要素をキューに入れ、その要素の数が静的にわからない場合には
-待っている全てのスレッドを起動する必要があります。
+スレッドを一つだけ起動するのか全て起動するかは問題によります。キューの例をもう一度考えると、スレッドが空のキューに要素を入れたときに待っているスレッドを全て起動する必要はありません。キューから要素を取り出して処理を行えるのは一つのスレッドだけだからです。一方、もしスレッドが複数の要素をキューに入れ、その要素の数が静的にわからない場合には待っている全てのスレッドを起動する必要があります。
 
-空でないキューに要素を追加するときにシグナルを出さない場合には、
-空のキューへの要素の追加は常にブロードキャストを行う必要があることに注意してください。
-空のキューへの要素の追加されてからシグナルが発せられるまでに他の要素が追加されることがあり、
-このときは要素が複数追加されたとして対処しなければならないためです。
+空でないキューに要素を追加するときにシグナルを出さない場合には、空のキューへの要素の追加は常にブロードキャストを行う必要があることに注意してください。空のキューへの要素の追加されてからシグナルが発せられるまでに他の要素が追加されることがあり、このときは要素が複数追加されたとして対処しなければならないためです。
 
 % Often, one thread knows only an approximation of the reason why
 % another thread is waiting on a condition.  It will therefore signal
@@ -1265,30 +1012,19 @@ val $\libvalue{Condition}{broadcast}$ : t -> unit
 % general, re-test the state of its shared data, and if necessary wait
 % on the condition again.  This does not constitute busy-waiting, because
 % it only happens when another thread signals the condition.
-通常スレッドは他のスレッドが条件変数に対して待っている理由を近似的にしか知りません。
-そのため他のスレッドが条件変数を待っているかもしれない状況では常にシグナルすることが
-求められます。また起動されたスレッドは期待した状況が整っていると仮定してはいけません。
-一般的には、起動されたスレッドは共有状態のデータを読み取って所望の条件が成り立っていることを確認し、
-必要ならばもう一度待つ必要があります。
-この処理は他のスレッドがシグナルしたときにだけ起こるのでビジーウェイトとは違います。
+通常スレッドは他のスレッドが条件変数に対して待っている理由を近似的にしか知りません。そのため他のスレッドが条件変数を待っているかもしれない状況では常にシグナルすることが求められます。また起動されたスレッドは期待した状況が整っていると仮定してはいけません。一般的には、起動されたスレッドは共有状態のデータを読み取って所望の条件が成り立っていることを確認し、必要ならばもう一度待つ必要があります。この処理は他のスレッドがシグナルしたときにだけ起こるのでビジーウェイトとは違います。
 
 % Here is another justification for this approach: when a thread has
 % just produced a lot of some resource and wakes all the others using a
 % \ml+broadcast+, nothing prevents the first one that wakes up from
 % being greedy and exhausting the entire resource.  The second one to
 % wake up must go back to sleep, hoping to be luckier next time.
-このアプローチを正当化する理由がもう一つあります。
-スレッドが大量のリソースを生み出して \ml+broadcast+ を使って全てのスレッドを
-起動したときに、最初に実行されるスレッドは貪欲に全てのリソースを消費することが可能な点です。
-このとき二番目以降に起動されるスレッドは次回はもっとラッキーになるように願いながらもう一度
-実行を中断することになります。
+このアプローチを正当化する理由がもう一つあります。スレッドが大量のリソースを生み出して \ml+broadcast+ を使って全てのスレッドを起動したときに、最初に実行されるスレッドは貪欲に全てのリソースを消費することが可能な点です。このとき二番目以降に起動されるスレッドは次回はもっとラッキーになるように願いながらもう一度実行を中断することになります。
 
 % We can now give a concrete solution for shared queues.  The queue
 % structure defined in the \libmodule{Queue} module is extended with a lock and
 % a \ml+non_empty+ condition.
-今までの説明でキューに関する完全な回答の準備が整いました。
-\libmodule{Queue} に定義されているキューの構造がロックと条件変数 \ml+non_empty+ で
-拡張されます。
+今までの説明でキューに関する完全な回答の準備が整いました。\libmodule{Queue} に定義されているキューの構造がロックと条件変数 \ml+non_empty+ で拡張されます。
 %
 \begin{listingcodefile}[style=numbers]{thcheck.ml}
 type 'a t =
@@ -1314,19 +1050,13 @@ let take q =
 % Addition never blocks, but we must not forget to signal
 % the \ml+non_empty+ condition when the list is empty beforehand,
 % because it is possible that someone is waiting on the condition.
-要素の追加ではスレッドはブロックしませんが、追加の前にキューが空だった場合に
-条件変数 \ml+non_empty+ をシグナルすることを忘れてはいけません。
-この条件変数に対して待っているスレッドが存在する可能性があるからです。
+要素の追加ではスレッドはブロックしませんが、追加の前にキューが空だった場合に条件変数 \ml+non_empty+ をシグナルすることを忘れてはいけません。この条件変数に対して待っているスレッドが存在する可能性があるからです。
 
 % Removal is a little more complicated: after acquiring the lock, we
 % must try to remove an element from the queue. If the queue is empty,
 % we must wait on the \ml+non_empty+ condition.  When awakened, we try
 % again, knowing that we already have the lock.
-要素の削除はもう少し複雑です。
-スレッドはロックを取得してから削除を試みますが、
-キューが空だった場合には条件変数 \ml+non_empty+に対して待ち
-起動されたあとにもう一度同じことを行います。
-同じことができるのは起動されたスレッドがロックを持っているからです。
+要素の削除はもう少し複雑です。スレッドはロックを取得してから削除を試みますが、キューが空だった場合には条件変数 \ml+non_empty+に対して待ち起動されたあとにもう一度同じことを行います。同じことができるのは起動されたスレッドがロックを持っているからです。
 
 % As explained above, the \ml+broadcast q.non_empty+ signal
 % (line~\ref{prog:broadcast}) is executed by a thread $p$ already in
@@ -1340,16 +1070,7 @@ let take q =
 % sent its signal.
 % The lock therefore guarantees that either $q$ is already asleep or
 % else has not yet tested the state of the queue.
-上で説明したように、\ml+broadcast q.non_empty+ によるシグナル
-(\ref{prog:broadcast} 行目) はすでにロック \ml+q.lock+ を持っているスレッド
-$p$ によって実行されます。
-これは読み込むを行うために \ml+take+ を実行するスレッド $q$ が
-~\ref{prog:lock} 行目と~\ref{prog:slock} 行目の間の、
-キューが空であることは確認したがまだ実行を中断していない状態にないことを意味します。
-もしスレッド $q$ がこの状態になったとすると、$p$ によって送られるシグナルは無視され効果を持ちません。
-その後 $q$ は実行を中断しますが、 $p$ がすでにシグナルしているために $q$ が起動されることはありません。
-スレッド $p$ によるロックの取得は $q$ がすでに実行を中断したかキューの状態を調べていないかのどちらかで
-あり、キューの状態を調べたが実行を中断していないという状況にならないことを保証します。
+上で説明したように、\ml+broadcast q.non_empty+ によるシグナル (\ref{prog:broadcast} 行目) はすでにロック \ml+q.lock+ を持っているスレッド $p$ によって実行されます。これは読み込むを行うために \ml+take+ を実行するスレッド $q$ が~\ref{prog:lock} 行目と~\ref{prog:slock} 行目の間の、キューが空であることは確認したがまだ実行を中断していない状態にないことを意味します。もしスレッド $q$ がこの状態になったとすると、$p$ によって送られるシグナルは無視され効果を持ちません。その後 $q$ は実行を中断しますが、 $p$ がすでにシグナルしているために $q$ が起動されることはありません。スレッド $p$ によるロックの取得は $q$ がすでに実行を中断したかキューの状態を調べていないかのどちらかであり、キューの状態を調べたが実行を中断していないという状況にならないことを保証します。
 
 \begin{exercise}
 % Implement a variant in which the queue is bounded: addition to the
@@ -1357,10 +1078,7 @@ $p$ によって実行されます。
 % value. (In a concurrent world, we might need this scheme to avoid
 % having a producer that produces endlessly while the consumer is
 % blocked.)
-有界なキューを実装してください。
-キューへ追加されるのはキューがある長さに達したときにブロックする機能です
-(並行プログラミングで限りなく生産する生産者と実行が
-ブロックする消費者が存在する場合にこのキューが必要になります)。
+有界なキューを実装してください。キューへ追加されるのはキューがある長さに達したときにブロックする機能です (並行プログラミングで限りなく生産する生産者と実行がブロックする消費者が存在する場合にこのキューが必要になります)。
 \end{exercise}
 \begin{answer}
 % We must introduce an additional \ml+non_full+ condition.
@@ -1395,8 +1113,7 @@ let add x q =
 %
 % Removal is symmetric to addition (and must now signal \ml+non_full+
 % when the queue is full beforehand), and is left to the reader.
-要素の削除は追加と似ていますが、削除する前のキューが満杯な場合には \ml+non_full+ を
-シグナルする必要があります。
+要素の削除は追加と似ていますが、削除する前のキューが満杯な場合には \ml+non_full+ をシグナルする必要があります。
 %
 \begin{codefile}{thtqueue.ml}
 let take q =
@@ -1426,10 +1143,7 @@ let take q =
 % expressed.  However, their use is not always easy, as shown
 % by the example of the initially simple queue whose synchronization
 % code subsequently turned out to be subtle.
-ロックと条件変数を使えばどんな形の同期も行うことができますが、
-必ずしも簡単に行えるというわけではありません。
-最初は単純だったキューでも同期のためのコードが緻密になることは
-前節の例で見ました。
+ロックと条件変数を使えばどんな形の同期も行うことができますが、必ずしも簡単に行えるというわけではありません。最初は単純だったキューでも同期のためのコードが緻密になることは前節の例で見ました。
 
 % Event-based synchronous communication is a collection of higher-level
 % communication primitives that tend to facilitate concurrent
@@ -1438,12 +1152,7 @@ let take q =
 % language called \emph{Concurrent ML}~\cite{CML}.  In {\ocaml}, these
 % primitives are located above the more elementary synchronization of
 % locks and conditions.
-イベントベースの同期通信は高レベルの通信プリミティブを集めたものであり、
-並行プログラミングを容易にすることを意図しています。
-\ml+Event+ モジュールのプリミティブはまず John Reppy によって \emph{Standard ML} 言語の拡張
-\emph{Concurrent ML}~\cite{CML} として開発されました。
-\ocaml ではこれらの通信プリミティブはロックと条件変数などのより基本的な同期の
-上のレベルに位置しています。
+イベントベースの同期通信は高レベルの通信プリミティブを集めたものであり、並行プログラミングを容易にすることを意図しています。\ml+Event+ モジュールのプリミティブはまず John Reppy によって \emph{Standard ML} 言語の拡張 \emph{Concurrent ML}~\cite{CML} として開発されました。\ocaml ではこれらの通信プリミティブはロックと条件変数などの基本的な同期よりも上のレベルに位置しています。
 
 % Communication occurs by sending \emph{events} along \emph{channels}.
 % Channels are like \quotes{lightweight pipes}: they allow communication
@@ -1452,12 +1161,7 @@ let take q =
 % \ml+'a+ has the type \ml+'a Event.channel+.  Channels are homogeneous
 % and therefore always carry values of the same type.  A channel is
 % created with the \ml+new_channel+ function.
-通信は \emph{イベント} を \emph{チャンネル} を通じて送ることで行います。
-チャンネルとは \quotes{軽量パイプ} のようなものです。
-これを使うと同じプログラム内のスレッド間で通信を行い、生産者と消費者の間で
-同期を行うことができます。\ml+'a+ 型の値を運ぶチャンネルは \ml+'a channel+ 型を
-持ちます。チャンネルは途中で型を変えることなく常に同じ型の値を運びます。
-チャンネルは \ml+new_channel+ 関数で作成されます。
+通信は \emph{イベント} を \emph{チャンネル} を通じて送ることで行います。チャンネルとは \quotes{軽量パイプ} のようなものです。これを使うと同じプログラム内のスレッド間で通信を行い、生産者と消費者の間で同期を行うことができます。\ml+'a+ 型の値を運ぶチャンネルは \ml+'a channel+ 型を持ちます。チャンネルは途中で型を変えることなく常に同じ型の値を運びます。チャンネルは \ml+new_channel+ 関数で作成されます。
 %
 \begin{codefile}{tmpevent.mli}
 type 'a channel
@@ -1472,9 +1176,7 @@ val $\indexlibvalue{Event}{new\_channel}$ : unit -> 'a channel
 % intermediary of an event.  An elementary event is \quotes{sending a
 % message} or \quotes{receiving a message}.  They are constructed by
 % means of the following primitives:
-メッセージの送受信は直接的にではなくイベントという中間体を通して行われます。
-基本的なイベントは \quotes{メッセージの送信} と \quotes{メッセージの受信} であり、
-以下のプリミティブによって作成できます。
+メッセージの送受信は直接的にではなくイベントという中間体を通して行われます。基本的なイベントは \quotes{メッセージの送信} と \quotes{メッセージの受信} であり、以下のプリミティブによって作成できます。
 %
 \begin{listingcodefile}{tmpevent.mli}
 val $\indexlibvalue{Event}{send}$ : 'a channel -> 'a -> unit event
@@ -1487,12 +1189,7 @@ val $\indexlibvalue{Event}{receive}$ : 'a channel -> 'a event
 % to make the complementary event happen.  The \ml+sync+ primitive
 % allows a thread to wait for the occurrence of the event passed
 % as argument.
-メッセージの作成してもすぐに何かが起こるわけではありません。
-行われるべき動作を示すデータ構造が作られるだけです。
-イベントを実際に起こすには、スレッドはそのイベントを実行すべき
-スレッドと同期しなければいけません。
-\ml+sync+ プリミティブを使うと引数として渡すイベントが実際に実行されるのを待つ
-ことができます。
+メッセージの作成してもすぐに何かが起こるわけではありません。行われるべき動作を示すデータ構造が作られるだけです。イベントを実際に起こすには、スレッドはそのイベントを実行すべきスレッドと同期しなければいけません。\ml+sync+ プリミティブを使うと引数として渡すイベントが実際に実行されるのを待つことができます。
 %
 \begin{listingcodefile}{tmpevent.mli}
 val $\indexlibvalue{Event}{sync}$ : 'a event -> 'a
@@ -1503,11 +1200,7 @@ val $\indexlibvalue{Event}{sync}$ : 'a event -> 'a
 % that is to say until another thread is ready to receive a value on the
 % channel \ml+c+.  In a symmetric fashion, a thread can wait for a
 % message on channel \ml+c+ by performing \ml+sync (receive c)+.
-まとめると、値 \ml+v+ をチャンネル \ml+c+ に送るには \ml+sync (send c v)+ を実行します。
-\ml+sync+ を読んだスレッドはイベントが起こるまで、つまり他のスレッドがチャンネル \ml+c+
-から値を受信可能になるまでブロックされます。
-対称的に、スレッドがチャンネル \ml+c+ に対するメッセージを待つには
-\ml+sync (recieve c)+ を使います。
+まとめると、値 \ml+v+ をチャンネル \ml+c+ に送るには \ml+sync (send c v)+ を実行します。\ml+sync+ を読んだスレッドはイベントが起こるまで、つまり他のスレッドがチャンネル \ml+c+から値を受信可能になるまでブロックされます。対称的に、スレッドがチャンネル \ml+c+ に対するメッセージを待つには \ml+sync (recieve c)+ を使います。
 
 % There is a competition among all the producers on one hand and all the
 % consumers on the other.  For example, if several threads try to send a
@@ -1515,17 +1208,11 @@ val $\indexlibvalue{Event}{sync}$ : 'a event -> 'a
 % that only one producer will make the event occur.  The others will
 % remain suspended, without even noticing that another was
 % \quotes{served} ahead of them.
-全ての生産者と全ての消費者は競合します。
-例えばいくつかのスレッドが一つのチャンネルにメッセージを送り
-メッセージを受信できるスレッドが一つしか無かった場合、
-自分の送ったイベントが起きる生産者は一つだけなのは明らかです。
-他の生産者は実行を中断されたままであり、
-先に他のスレッドがイベントを受け取ったことに気がつくことはありません。
+全ての生産者と全ての消費者は競合します。例えばいくつかのスレッドが一つのチャンネルにメッセージを送りメッセージを受信できるスレッドが一つしか無かった場合、自分の送ったイベントが起きる生産者は一つだけなのは明らかです。他の生産者は実行を中断されたままであり、先に他のスレッドがイベントを受け取ったことに気がつくことはありません。
 
 % The competition can also occur within the same thread.
 % Multiple events can be combined by the \ml+choose+ primitive.
-競合は同じスレッド内でも起こりえます。
-複数のイベントは \ml+choose+ プリミティブを使うとまとめることができます。
+競合は同じスレッド内でも起こりえます。複数のイベントは \ml+choose+ プリミティブを使うとまとめることができます。
 %
 \begin{listingcodefile}{tmpevent.mli}
 val $\indexlibvalue{Event}{choose}$ : 'a event list -> 'a event
@@ -1539,12 +1226,7 @@ val $\indexlibvalue{Event}{choose}$ : 'a event list -> 'a event
 % occur (the offer of the other event will be simultaneously canceled).
 % The \ml+wrap_abort+ primitive allows to handle an event being
 % canceled.
-この関数は引数に渡されたイベントを並列にオファーし、これらのイベントのうちちょうど一つが
-実行されます。ここではオファーと実行を区別していることに注意してください。
-\ml+sync (choose [e1; e2])+ は二つのイベント \ml+e1+ と \ml+e2+ の選択をオファー
-し、同期したときには二つのうち一つのイベントしか実行されません (実行と同時に同時にもう一つのイベントは
-キャンセルされます)。
-\ml+wrap_abort+ プリミティブを使うとイベントがキャンセルされたときの処理を設定できます。
+この関数は引数に渡されたイベントを並列にオファーし、これらのイベントのうちちょうど一つが実行されます。ここではオファーと実行を区別していることに注意してください。\ml+sync (choose [e1; e2])+ は二つのイベント \ml+e1+ と \ml+e2+ の選択をオファーし、同期したときには二つのうち一つのイベントしか実行されません (実行と同時に同時にもう一つのイベントはキャンセルされます)。\ml+wrap_abort+ プリミティブを使うとイベントがキャンセルされたときの処理を設定できます。
 %
 \begin{listingcodefile}{tmpevent.mli}
 val $\indexlibvalue{Event}{wrap\_abort}$ : 'a event -> (unit -> unit) -> 'a event
@@ -1554,14 +1236,11 @@ val $\indexlibvalue{Event}{wrap\_abort}$ : 'a event -> (unit -> unit) -> 'a even
 % \ml+e+, but if it is not chosen during synchronization, then the
 % function \ml+f+ is executed.  (This is only interesting when it is
 % part of a complex event.)
-\ml+wrap_abort e f+ は \ml+e+ と同じイベントを作成しますが、
-同期したときにこのイベントが実行されなかった場合には \ml+f+ が実行されます
-(このイベントが複雑なイベントの一部であるときにだけ意味を持ちます)。
+\ml+wrap_abort e f+ は \ml+e+ と同じイベントを作成しますが、同期したときにこのイベントが実行されなかった場合には \ml+f+ が実行されます (このイベントが複雑なイベントの一部であるときにだけ意味を持ちます)。
 
 % A thread can try to synchronize on an event without blocking (somewhat
 % like \ml+Mutex.try_lock+) with \ml+poll+.
-\ml+poll+ を使うと (\ml+Mutex.try_lock+ のように) ブロックせずにイベントの
-同期を試みることができます。
+\ml+poll+ を使うと (\ml+Mutex.try_lock+ のように) ブロックせずにイベントの同期を試みることができます。
 %
 \begin{listingcodefile}{tmpevent.mli}
 val $\indexlibvalue{Event}{poll}$ : 'a event -> 'a option
@@ -1574,12 +1253,7 @@ val $\indexlibvalue{Event}{poll}$ : 'a event -> 'a option
 % happen immediately, then it behaves as if the thread had done
 % \ml+sync e+, except that the value \ml+Some v+ is returned
 % rather than \ml+v+.
-\ml+poll e+ はイベント \ml+e+ をオファーしますが、このイベントがすぐに実行されない
-場合にはブロックせずにオファーをキャンセルします。このとき関数呼び出しは
-なんの効果も持ちません (より正確には、\ml+poll e+ という式が \ml+None+ で
-置き換えられたかのような動作をします)。これに対して、
-もしイベントがすぐに実行できるならば \ml+sync e+ が実行されたときの動作をします。
-ただしその時の返り値は \ml+v+ ではなく \ml+Some v+ となります。
+\ml+poll e+ はイベント \ml+e+ をオファーしますが、このイベントがすぐに実行されない場合にはブロックせずにオファーをキャンセルします。このとき関数呼び出しはなんの効果も持ちません (より正確には、\ml+poll e+ という式が \ml+None+ で置き換えられたかのような動作をします)。これに対して、もしイベントがすぐに実行できるならば \ml+sync e+ が実行されたときの動作をします。ただしその時の返り値は \ml+v+ ではなく \ml+Some v+ となります。
 
 \begin{example}
 % In section~\ref{ex/crible-copro} the example of the Sieve of Eratosthenes,
@@ -1588,11 +1262,7 @@ val $\indexlibvalue{Event}{poll}$ : 'a event -> 'a option
 % We may think that it is more efficient to communicate
 % directly by using the memory of the process.  A simple solution
 % consists of replacing the pipe by a channel on which integers are sent.
-\ref{ex/crible-copro} 節で示したエラトステネスのふるいの例では、
-異なるスレッド感の通信には元のプログラムと同じパイプが使われ、
-システムメモリ (パイプ) が中間体でした。
-プロセスのメモリを使って直接通信を行ったほうが効率的な可能性もあります。
-単純な解法はパイプを整数が送られるチャンネルで置き換えることです。
+\ref{ex/crible-copro} 節で示したエラトステネスのふるいの例では、異なるスレッド感の通信には元のプログラムと同じパイプが使われ、システムメモリ (パイプ) が中間体でした。プロセスのメモリを使って直接通信を行ったほうが効率的な可能性もあります。単純な解法はパイプを整数が送られるチャンネルで置き換えることです。
 
 % Sending integers on the channel is not sufficient, because we must
 % also be able to detect the end of the stream.  The simplest is
@@ -1601,20 +1271,14 @@ val $\indexlibvalue{Event}{poll}$ : 'a event -> 'a option
 % of the example in section~\ref{ex/crible}.  We simulate pipes and the
 % functions for reading and writing pipes by channels and functions for
 % reading and writing channels.
-整数をチャンネルに送るだけでは十分ではなく、ストリームの終端を検出する必要もあります。
-最も単純な解法は整数を \ml+Some n+ の形で送り、\ml+None+ を送ることで終了することです。
-変更を最小にするために、\ref{ex/crible} 節の例で使ったコードを再利用します。
-パイプとその入出力関数をチャンネルとその入出力関数でシミュレートします。
+整数をチャンネルに送るだけでは十分ではなく、ストリームの終端を検出する必要もあります。最も単純な解法は整数を \ml+Some n+ の形で送り、\ml+None+ を送ることで終了することです。変更を最小にするために、\ref{ex/crible} 節の例で使ったコードを再利用します。パイプとその入出力関数をチャンネルとその入出力関数でシミュレートします。
 
 % It is sufficient to take the previous version of the program and
 % change the input/output functions to ones that read and write a channel,
 % rather than an input/output buffer from the \ml+Pervasives+ library.
 % For example, we can insert the following code at the beginning of the
 % program just after the \ml+open Unix;;+ directive:
-前のバージョンのプログラムを取ってきて
-入出力関数を \ml+Pervasives+ ライブラリの入出力バッファを使った
-ものからチャンネルを使ったものに入れ替えればすみます。
-例えば次のコードを \ml+open Unix+ 命令の後に追加します。
+前のバージョンのプログラムを取ってきて入出力関数を \ml+Pervasives+ ライブラリの入出力バッファを使ったものからチャンネルを使ったものに入れ替えればすみます。例えば次のコードを \ml+open Unix+ 命令の後に追加します。
 %
 \begin{codefile}{theventcrible.ed}
 f th/eventcrible.ml
@@ -1648,12 +1312,7 @@ wq
 % several system calls for acquiring and releasing locks.  On the other
 % hand, communication via pipes uses buffered \io{} that allows several
 % thousand integers to be exchanged with each system call.
-しかしチャンネルを使ったバージョンの実行速度を前のバージョンと比べると、
-チャンネルを使うほうが二倍程度遅いことがわかります。
-整数を通信するときに毎回二つのスレッドの同期が必要となり、
-ロックの取得と開放に何回かのシステムコールが必要となるためです。
-一方で、バッファされた \io を使うパイプを用いた通信では
-一回のシステムコールで数千個の整数がまとめて送られます。
+しかしチャンネルを使ったバージョンの実行速度を前のバージョンと比べると、チャンネルを使うほうが二倍程度遅いことがわかります。整数を通信するときに毎回二つのスレッドの同期が必要となり、ロックの取得と開放に何回かのシステムコールが必要となるためです。一方で、バッファされた \io を使うパイプを用いた通信では一回のシステムコールで数千個の整数がまとめて送られます。
 
 % To be fair, one should also provide buffered communication on
 % channels, using the channel only to exchange a packet of integers.
@@ -1662,13 +1321,7 @@ wq
 % or upon an explicit request, it is emptied by synchronizing on the
 % channel.  The parent has its own queue that it receives by
 % synchronizing and empties gradually.
-公平な比較のためには、チャンネルを使った通信にバッファを用意して
-いくつかの整数をまとめてチャンネルを利用するようにするべきです。
-子はプライベートなキューに計算結果を他のスレッドと同期することなく蓄積します。
-キューが満杯になるか明示的な要求が届くと、
-チャンネルが同期されてキューが空になります。
-親は自分用のキューを持ち、このキューはチャンネル同期によって満たされ
-計算が進むに連れて一つづつ消費されます。
+公平な比較のためには、チャンネルを使った通信にバッファを用意していくつかの整数をまとめてチャンネルを利用するようにするべきです。子はプライベートなキューに計算結果を他のスレッドと同期することなく蓄積します。キューが満杯になるか明示的な要求が届くと、チャンネルが同期されてキューが空になります。親は自分用のキューを持ち、このキューはチャンネル同期によって満たされ計算が進むに連れて一つづつ消費されます。
 
 % Here is a solution:
 このときのコードは以下のようになります:
@@ -1720,8 +1373,7 @@ wq
 %
 % This version allows us to regain efficiency comparable to (but not
 % better than) the version with pipes.
-このバージョンではパイプを使ったバージョンと比較可能な程度の効率を
-取り戻すことができます。
+このバージョンではパイプを使ったバージョンと比較可能な程度の効率を取り戻すことができます。
 
 % Compared to the original version with processes and pipes, there are
 % two potential advantages. First, threads are more lightweight and less
@@ -1729,21 +1381,13 @@ wq
 % pointer, without copying.  But these advantages are not noticeable
 % here, because the number of threads created and the data exchanged are
 % not big enough compared to the cost of system calls and compute time.
-プロセスとパイプを使ったオリジナルのバージョンと比べると、
-チャンネルと使った方法には利点が二つあります。
-一つ目はスレッドの起動はプロセスのものと比べてコストがかからないことです。
-二つ目はチャンネルを使った通信がデータ全体のコピーではなくポインタの
-受け渡しのみを行うことです。
-今回の例ではスレッドの数とやり取りされるデータのサイズがシステムコールと計算のコストに比べて
-小さいのでこの利点はわかりにくなっています。
+プロセスとパイプを使ったオリジナルのバージョンと比べると、チャンネルと使った方法には利点が二つあります。一つ目はスレッドの起動はプロセスのものと比べてコストがかからないことです。二つ目はチャンネルを使った通信がデータ全体のコピーではなくポインタの受け渡しのみを行うことです。今回の例ではスレッドの数とやり取りされるデータのサイズがシステムコールと計算のコストに比べて小さいのでこの利点はわかりにくなっています。
 
 % In conclusion, we can say that communication between threads has a
 % cost of up to one system call (if the process must be suspended) and
 % the cost can be significantly reduced by buffering communication and
 % sending larger structures less often.
-まとめると、スレッド間の通信は (プロセスが中断される場合) システムコールと同程度の
-コストがかかりますが、このコストは通信をバッファして大きな構造体をやり取りすることで
-大きく削減できるということになります。
+まとめると、スレッド間の通信は (プロセスが中断される場合) システムコールと同程度のコストがかかりますが、このコストは通信をバッファして大きな構造体をやり取りすることで大きく削減できるということになります。
 \end{example}
 
 \begin{exercise}[noanswer]
@@ -1752,12 +1396,7 @@ wq
 % always keeping a dozen threads ready to handle new requests. This means
 % that a thread does not handle only a single request, but a potentially
 % infinite series of requests that it reads from a queue.
-\http サーバには高く激しい負荷がかかることがあります。
-応答にかかる時間を減らすために、
-新しい接続を処理するためのスレッドを常に数十個保持するように \http
-サーバのアーキテクチャを変更することができます。
-この変更は各スレッドが一つのリクエストを処理するのではなく、
-キューから読んだリクエストを際限なく処理することを意味します。
+\http サーバには高く激しい負荷がかかることがあります。応答にかかる時間を減らすために、新しい接続を処理するためのスレッドを常に数十個保持するように \http サーバのアーキテクチャを変更することができます。この変更は各スレッドが一つのリクエストを処理するのではなく、キューから読んだリクエストを際限なく処理することを意味します。
 
 
 % To avoid overloading the machine, we can limit the number of threads
@@ -1768,13 +1407,7 @@ wq
 % load diminishes and the number of threads is above the \quotes{ideal}
 % value, some of them are allowed to die and the others remain ready for
 % the next requests.
-マシンへの負荷を避けるために、スレッドの数を
-タスクを管理する時間がリクエストに対応する時間 (ディスクのデータ待ちの時間など)
-よりも小さくなる数に制限する必要があります。
-さらに接続が増えた場合は接続を処理待ち状態にしておき、
-それ以上に増えた場合は接続を拒否します。
-負荷が減りスレッドの数が \quotes{理想的な} 数よりも大きくなれば
-スレッドのいくつかを削除します。
+マシンへの負荷を避けるために、スレッドの数をタスクを管理する時間がリクエストに対応する時間 (ディスクのデータ待ちの時間など) よりも小さくなる数に制限する必要があります。さらに接続が増えた場合は接続を処理待ち状態にしておき、それ以上に増えた場合は接続を拒否します。負荷が減りスレッドの数が \quotes{理想的な} 数よりも大きくなればスレッドのいくつかを削除します。
 
 % Transform the example of section~\ref{ex/th-relais} into this architecture.
 \ref{ex/th-relais} 節の例をこのアーキテクチャに変更してください。
@@ -1798,24 +1431,13 @@ wq
 % The special case of a call to \ml+fork+ where the child immediately
 % launches another program does not cause the parent any problem.
 % Luckily, since that is the only way to start other programs!
-もともと Unix システムはスレッドをサポートするようにデザインされていませんでしたが、
-ほとんどの現代的な Unix 実装はスレッドをサポートします。
-ただしスレッドが後から追加されたものであるということが明白になることがあります。
-例えば \ml+exec+ を直後に実行するのでない限り、スレッドを使っているときに
-\indexvalue{fork} を使うことは強く非推奨とされています。
-\ml+fork+ は現在のスレッドをコピーし、
-そのスレッドは他のスレッドが存在すると信じて実行を続けますが、
-実際には他のスレッドは存在せず、正しく動作することができません。
+もともと Unix システムはスレッドをサポートするようにデザインされていませんでしたが、ほとんどの現代的な Unix 実装はスレッドをサポートします。ただしスレッドが後から追加されたものであるということが明白になることがあります。例えば \ml+exec+ を直後に実行するのでない限り、スレッドを使っているときに \indexvalue{fork} を使うことは強く非推奨とされています。\ml+fork+ は現在のスレッドをコピーし、そのスレッドは他のスレッドが存在すると信じて実行を続けますが、実際には他のスレッドは存在せず、正しく動作することができません。
 
-\ml+fork+ を実行した親は通常通り実行を続けます。また \ml+fork+ の直後に子プロセスが
-他のプログラムを起動する特殊ケースについては親プロセスに問題は起こりません。
-この方法で問題が起きないことはラッキーです。なぜならこれが
-他のプログラムを起動する唯一の方法だからです。
+\ml+fork+ を実行した親は通常通り実行を続けます。また \ml+fork+ の直後に子プロセスが他のプログラムを起動する特殊ケースについては親プロセスに問題は起こりません。この方法で問題が起きないことはラッキーです。なぜならこれが他のプログラムを起動する唯一の方法だからです。
 
 % Inversely, one can do \ml+fork+ (not followed by \ml+exec+), and then launch
 % several threads in the child and the parent, without any problem.
-順番を逆にして、\ml+fork+ の後に
-親または子プロセスがスレッドを作成することは問題ありません。
+順番を逆にして、\ml+fork+ の後に親または子プロセスがスレッドを作成することは問題ありません。
 
 % \paragraph {\label{sec/thread-implementation}Native and simulated implementation in {\ocaml}}
 \paragraph {\label{sec/thread-implementation} {\ocaml} におけるネイティブおよびシミュレート実装}
@@ -1824,21 +1446,14 @@ wq
 % a native implementation of threads, leaving their management to the
 % operating system as much as possible.  Each thread then lives in a
 % different Unix process but shares the same address space.
-実行されているオペレーティングシステムがスレッドの機能を持つ場合には、
-\ocaml はスレッドのネイティブ実装を使います。
-このとき \ocaml はオペレーティングシステムにスレッドの管理をできるだけ任せます。
-スレッドは同じアドレス空間を共有する異なる Unix プロセスとなります。
+実行されているオペレーティングシステムがスレッドの機能を持つ場合には、\ocaml はスレッドのネイティブ実装を使います。このとき \ocaml はオペレーティングシステムにスレッドの管理をできるだけ任せます。スレッドは同じアドレス空間を共有する異なる Unix プロセスとなります。
 
 % When the system does not provide support for threads, {\ocaml} can
 % emulate them.  All the threads then execute in the same Unix process,
 % and their management, including their scheduling, is handled by the
 % {\ocaml} runtime system.  However, this implementation is only
 % available when compiling to bytecode.
-システムがスレッドをサポートしない場合には、\ocaml はスレッドをエミュレート
-することができます。
-全てのスレッドは同じ Unix プロセスで実行されそのスケジューリングを含んだ管理は
-\ocaml のランタイムシステムによって行われます。
-ただし、この実装はバイトコードにコンパイルするときにのみ利用可能です。
+システムがスレッドをサポートしない場合には、\ocaml はスレッドをエミュレートすることができます。全てのスレッドは同じ Unix プロセスで実行されそのスケジューリングを含んだ管理は\ocaml のランタイムシステムによって行われます。ただし、この実装はバイトコードにコンパイルするときにのみ利用可能です。
 
 % The {\ocaml} system provides the same programming interface for the
 % native and simulated versions of threads. The implementation of
@@ -1858,29 +1473,14 @@ wq
 % discussion mainly concern these two implementations, but recall
 % that by default, we have taken the viewpoint of a native
 % implementation.
-\ocaml システムはネイティブとシミュレートされたバージョンのスレッドに同じ
-インターフェースを提供しています。
-そのためスレッドの実装は二つに分かれています。
-一つはエミュレートされたバージョンのためのもので、タスクコントローラを含みます。
-もう一つは \textsc{posix}~(1003.1c) に基づくスレッドの実装で、
-他の言語で書かれたライブラリ関数を \ocaml へとつなぐものです。
-\ocaml は単純な管理タスクを行いインターフェースが
-エミュレートされたバージョンと同じことを確認します。
-これによってある Unix アーキテクチャでコンパイルできたプログラムがほかの
-Unix アーキテクチャでもコンパイルできることが保証されます。
+\ocaml システムはネイティブとシミュレートされたバージョンのスレッドに同じインターフェースを提供しています。そのためスレッドの実装は二つに分かれています。一つはエミュレートされたバージョンのためのもので、タスクコントローラを含みます。もう一つは \textsc{posix}~(1003.1c) に基づくスレッドの実装で、他の言語で書かれたライブラリ関数を \ocaml へとつなぐものです。\ocaml は単純な管理タスクを行いインターフェースがエミュレートされたバージョンと同じことを確認します。これによってある  Unix アーキテクチャでコンパイルできたプログラムがほかの Unix アーキテクチャでもコンパイルできることが保証されます。
 
-ただしネイティブのスレッドとエミュレートされたスレッドでは同期のための
-C ライブラリへの呼び出しが異なるために、プログラムの意味全体が異なってしまいます。
-そのためプログラムが二つのバージョンで同じように動くと信じる前にいくつか
-対処をしなくてはいけません。この節では
-主に二つの実装の違いについて議論しますが、通常はネイティブ実装について語ることを覚えておいてください。
+ただしネイティブのスレッドとエミュレートされたスレッドでは同期のための C ライブラリへの呼び出しが異なるために、プログラムの意味全体が異なってしまいます。そのためプログラムが二つのバージョンで同じように動くと信じる前にいくつか対処をしなくてはいけません。この節では主に二つの実装の違いについて議論しますが、通常はネイティブ実装について語ることを覚えておいてください。
 
 % To use emulated threads, one must pass the \ml+-vmthread+ option
 % instead of \ml+-thread+ to the \ml+ocamlc+ compiler. This option is
 % not accepted by the \ml+ocamlopt+ compiler.
-エミュレートされたスレッドを使うには \ml+ocamlc+ コンパイラに \ml+-thread+ ではなく
-\ml+-vmthread+ オプションを渡します。
-このオプションを \ml+ocamlopt+ コンパイラに渡すことはできません。
+エミュレートされたスレッドを使うには \ml+ocamlc+ コンパイラに \ml+-thread+ ではなく \ml+-vmthread+ オプションを渡します。このオプションを \ml+ocamlopt+ コンパイラに渡すことはできません。
 
 % \paragraph{Sequentialization of {\ocaml} code}
 \paragraph{{\ocaml} コードの逐次化}
@@ -1900,24 +1500,13 @@ C ライブラリへの呼び出しが異なるために、プログラムの意
 % {\texttt{sched\_yield}},
 % performed at regular intervals to suspend the running thread and give
 % control to another.
-\ocaml によるスレッドの実装は自動メモリ管理やアロケートされたデータの頻繁な利用といった
-\ocaml の特色を持っている必要があります。
-採用されている解法は一番シンプルで最も効率的なもので、\ocaml の全てのスレッドの実行を逐次化するというものです。
-つまりランタイムシステムが持つロックによって二つ以上の \ocaml コードを同時に実行できなくします。
-これはスレッドという考え方と矛盾するように聞こえますが、そうではありません。
-ロックはブロックするシステムコールの直前に開放され、システムコールから返るともう一度取得されるからです。
-この間に他のスレッドが実行されます。
-このようなシステムコールの特殊なケースは実行中のスレッドで定期的に実行され、他のスレッドに
-実行を受け渡す \href{http://www.opengroup.org/onlinepubs/007908799/xsh/sched_yield.html}%
-{\texttt{sched\_yield}} の呼び出しです。
+\ocaml によるスレッドの実装は自動メモリ管理やアロケートされたデータの頻繁な利用といった \ocaml の特色を持っている必要があります。採用されている解法は一番シンプルで最も効率的なもので、\ocaml の全てのスレッドの実行を逐次化するというものです。つまりランタイムシステムが持つロックによって二つ以上の \ocaml コードを同時に実行できなくします。これはスレッドという考え方と矛盾するように聞こえますが、そうではありません。ロックはブロックするシステムコールの直前に開放され、システムコールから返るともう一度取得されるからです。この間に他のスレッドが実行されます。このようなシステムコールの特殊なケースは実行中のスレッドで定期的に実行され、他のスレッドに実行を受け渡す \href{http://www.opengroup.org/onlinepubs/007908799/xsh/sched_yield.html}{\texttt{sched\_yield}} の呼び出しです。
 
 % On a multiprocessor machine, the only source of true parallelism comes
 % from the execution of C code and system calls.  On a uniprocessor
 % machine, the fact that the {\ocaml} code is sequentialized is not
 % really noticeable.
-マルチプロセッサのマシンでは、本当の並列性は C のコードとシステムコールを
-実行することでしか得ることができません。プロセッサが一つしか無いマシンでは、
-\ocaml コードが逐次化されたということに気づくことはできません。
+マルチプロセッサのマシンでは、本当の並列性は C のコードとシステムコールを実行することでしか得ることができません。プロセッサが一つしか無いマシンでは、 \ocaml コードが逐次化されたということに気づくことはできません。
 
 % The programmer cannot rely on this sequentialization, because one
 % thread can give control to another at almost any moment.  With one
@@ -1928,13 +1517,7 @@ C ライブラリへの呼び出しが異なるために、プログラムの意
 % occurring after a write operation to the same address by another
 % thread will always return the freshly-written value, with no need for
 % additional synchronization.
-スレッドの実行はほぼ任意のタイミングで他のスレッドに移るので、
-プログラマはこの逐次化を頼ることはできません。
-ただし例外として、逐次化されたコードではメモリの一貫性が保証されます。
-つまり、C のコードを実行するときなどを除いて二つのスレッドは同じメモリを目にするということです。
-その結果として、ロックの受け渡しがメモリの同期を意味するようになります。
-あるスレッドが書き込んだアドレスを別のスレッドが読み込んだ場合
-常に新しい値が読み込まれ、同期処理は必要ありません。
+スレッドの実行はほぼ任意のタイミングで他のスレッドに移るので、プログラマはこの逐次化を頼ることはできません。ただし例外として、逐次化されたコードではメモリの一貫性が保証されます。つまり、C のコードを実行するときなどを除いて二つのスレッドは同じメモリを目にするということです。その結果として、ロックの受け渡しがメモリの同期を意味するようになります。あるスレッドが書き込んだアドレスを別のスレッドが読み込んだ場合常に新しい値が読み込まれ、同期処理は必要ありません。
 
 % \paragraph {Threads and signals}
 \paragraph {スレッドとシグナル}
@@ -1947,35 +1530,21 @@ C ライブラリへの呼び出しが異なるために、プログラムの意
 % thread sends a signal to another?  In fact, threads were implemented
 % before answering these questions, and different implementations can
 % behave differently with respect to signals.
-一般的に言って、非同期という特性を持つシグナルを使うことはシングルスレッドの
-プログラムでさえ注意を要する難しいものでした。
-シグナルはマルチスレッドのプログラムではさらに難しくなります。
-どのスレッドにシグナルが送られるべきでしょうか?
-全てのスレッド、主スレッド、それとも現在実行しているスレッド?
-あるスレッドが別のスレッドにシグナルを送りたい場合どうすればいいでしょうか?
-実際のところ、スレッドはこのような問題に答えることなく実装されました。
-そのため実装によってシグナルへの動作は異なります。
+一般的に言って、非同期という特性を持つシグナルを使うことはシングルスレッドのプログラムでさえ注意を要する難しいものでした。シグナルはマルチスレッドのプログラムではさらに難しくなります。どのスレッドにシグナルが送られるべきでしょうか? 全てのスレッド、主スレッド、それとも現在実行しているスレッド? あるスレッドが別のスレッドにシグナルを送りたい場合どうすればいいでしょうか? 実際のところ、スレッドはこのような問題に答えることなく実装されました。そのため実装によってシグナルへの動作は異なります。
 
 % The \ml+Thread.join+, \ml+Mutex.lock+, and \ml+Condition.wait+ functions
 % despite being long system calls, are not interruptible by a signal.
 % (They cannot therefore fail with the \ml+EINTR+ error.)  If a signal
 % is sent while waiting, it will be received and handled when the call
 % returns.
-\ml+Thread.join+ と \ml+Mutex.lock+ そして \ml+Condition.wait+ は
-遅いシステムコールにもかかわらずシグナルによって中断されることがありません
-(したがって \ml+EINTR+ エラーを出して失敗することもありません)。
-待っているときにシグナルが送られた場合、そのシグナルはシステムコールから返ってから
-受け取られて処理されます。
+\ml+Thread.join+ と \ml+Mutex.lock+ そして \ml+Condition.wait+ は遅いシステムコールにもかかわらずシグナルによって中断されることがありません (したがって \ml+EINTR+ エラーを出して失敗することもありません)。待っているときにシグナルが送られた場合、そのシグナルはシステムコールから返ってから受け取られて処理されます。
 
 % The \textsc{posix} standard specifies that the signal handler is
 % shared among all the threads and in contrast the signal mask is
 % private to each thread and inherited upon creation of a thread.  But
 % the behavior of threads with respect to signals remains largely
 % underspecified and therefore non-portable.
-\textsc{posix} 規格はシグナルハンドラがスレッド間で共有されることと
-シグナルマスクはスレッドの作成時にもとのスレッドから継承された後はスレッドに
-プライベートとなることを定めています。
-しかしシグナルに対するスレッドの動作は主に定められておらず、ポータブルにはなっていません。
+\textsc{posix} 規格はシグナルハンドラがスレッド間で共有されることとシグナルマスクはスレッドの作成時にもとのスレッドから継承された後はスレッドにプライベートとなることを定めています。しかしシグナルに対するスレッドの動作は主に定められておらず、ポータブルにはなっていません。
 
 % It is therefore preferable to avoid as much as possible the use of
 % asynchronous signals (such as \ml+sigalrm+, \ml+sigvtalrm+,
@@ -1985,21 +1554,13 @@ C ライブラリへの呼び出しが異なるために、プログラムの意
 % handling and nothing else: it can wait for the reception of signals,
 % undertake the necessary actions, and update certain information
 % examined by other threads.
-したがってスレッドではできる限り非同期シグナル
-(\ml+sigalrm+ や \ml+sigvtalrm+、 \ml+sigchld+ など) を避けることが望ましいです。
-シグナルは \ml+Thread.+\libvalue{Thread}{wait\_signal} によってブロックと
-調査をすることができます。
-シグナルの処理だけを行うスレッドを作ることもできます。
-このスレッドはシグナルを待ち、適切な処理を行い、他のスレッドにシグナルの情報を伝えます。
+したがってスレッドではできる限り非同期シグナル (\ml+sigalrm+ や \ml+sigvtalrm+、 \ml+sigchld+ など) を避けることが望ましいです。シグナルは \ml+Thread.+\libvalue{Thread}{wait\_signal} によってブロックと調査をすることができます。シグナルの処理だけを行うスレッドを作ることもできます。このスレッドはシグナルを待ち、適切な処理を行い、他のスレッドにシグナルの情報を伝えます。
 
 % In addition, {\ocaml} threads (since version 3.08) use the
 % \ml+sigvtalarm+ signal internally to implement preemption of threads.
 % This signal is therefore reserved and must not be used by the program
 % itself, since there is a risk of interference.
-加えて、(バージョン 3.08 以降の) \ocaml のスレッドはスレッドのプリエンプションに
-内部で \ml+sigvtalarm+ を使います。
-そのためこのシグナルを使うとシステムと干渉する可能性があるために、
-\ml+sigvtalarm+ シグナルはプログラムの中で使うことができません。
+加えて、(バージョン 3.08 以降の) \ocaml のスレッドはスレッドのプリエンプションに内部で \ml+sigvtalarm+ を使います。そのためこのシグナルを使うとシステムと干渉する可能性があるために、\ml+sigvtalarm+ シグナルはプログラムの中で使うことができません。
 
 \begin{codefile}{thmisc.ed}
 f th/misc.mli
