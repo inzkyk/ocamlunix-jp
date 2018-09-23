@@ -1,0 +1,27 @@
+#!/bin/sh
+# Script to publish to ocamlunix.forge.ocamlcore.org
+# The existence of an empty file ~/.unison/empty.prf is needed.
+
+set -e
+
+HOST=${HOST:="ocamlcore"}
+ROOTDIR=${ROOTDIR:="/home/groups/ocamlunix/htdocs"}
+TMP=${TMP:="/tmp/ocamlcore"}
+SCP=${SCP:="scp"}
+RM=${RM:="rm"}
+MKDIR=${MKDIR:="mkdir"}
+UNISON=${UNISON:="unison"}
+
+$RM -rf $TMP
+$MKDIR -p $TMP
+INSTALLDIR=$TMP ./build install-distrib
+
+#$UNISON empty $TMP ssh://$HOST/$ROOTDIR -force $TMP \
+#  -ignore "Name .htaccess" -ignore "Path french"
+
+#Without unison use the line below
+$SCP $TMP/* $HOST:$ROOTDIR/
+
+
+
+

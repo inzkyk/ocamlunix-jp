@@ -1,0 +1,165 @@
+%------------------------------------------------------------------------------
+% Copyright (c) 1991-2014, Xavier Leroy and Didier Remy.  
+%
+% All rights reserved. Distributed under a creative commons
+% attribution-non-commercial-share alike 2.0 France license.
+% http://creativecommons.org/licenses/by-nc-sa/2.0/fr/
+%------------------------------------------------------------------------------
+
+\documentclass[twoside,openright,a4paper,11pt]{memoir}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+
+\usepackage{ifthen}
+\usepackage{listings}
+\lstset{
+  language=[objective]caml,
+  columns=fixed,
+  basicstyle=\ttfamily,
+  keywordstyle=\bfseries,
+  numberstyle=\tiny,
+  escapeinside={\$}{\$},
+  showstringspaces=false}
+\lstdefinestyle{numbers}{numbers=left}
+\let \ml \lstinline
+
+\newcommand{\mytitle}{Unix system programming in OCaml}
+\newcommand{\myauthors}{Xavier Leroy and Didier Rémy}
+\newcommand{\mykeywords}{Software,OCaml,Unix,Programming,System}
+\newcommand{\licenseURL}{http://creativecommons.org/licenses/by-nc-sa/2.0/fr/}
+
+\usepackage{hyperref}
+\usepackage{prelude}   % Differentiation between html and pdf output
+
+
+% Misc
+\newcommand{\ocaml}{OCaml}
+\newcommand{\ocamlversion}{\texttt{\input{ocamlversion.tex}}}
+\newcommand{\http}{\textsc{http}}
+\newcommand{\URL}{\textsc{url}}
+
+\newcommand{\ie}{i.e.}
+\newcommand{\etc}{etc.}
+\newcommand{\eg}{e.g.}
+\newcommand{\io}{\textsc{i/o}}
+\newcommand{\quotes}[1]{``#1''}
+
+% Indexing
+\makeindex
+\newcommand{\hyperpageit}[1]{{\footnotesize{\hyperpage{#1}}}}
+\newcommand{\hyperpagebf}[1]{\textbf{\footnotesize{\hyperpage{#1}}}}
+
+% Reference to OCaml documentation
+\newcommand{\tmpurl}{} % For url hacks.
+
+\newcommand{\libbase}{http://caml.inria.fr/pub/docs/manual-ocaml/libref}
+
+\newcommand{\libmodule}[1]{%
+  \renewcommand{\tmpurl}{\libbase/#1.html}%
+  \href{\tmpurl}{\texttt{#1}}}
+
+\newcommand{\libvalue}[2]{%
+  \renewcommand{\tmpurl}{\libbase/#1.html\#VAL#2}%
+  \href{\tmpurl}{\texttt{#2}}}
+
+\newcommand{\libtype}[2]{%
+  \renewcommand{\tmpurl}{\libbase/#1.html\#TYPE#2}%
+  \href{\tmpurl}{\texttt{#2}}}
+
+\newcommand{\libexn}[2]{%
+  \renewcommand{\tmpurl}{\libbase/#1.html\#EXCEPTION#2}%
+  \href{\tmpurl}{\texttt{#2}}}
+
+\newcommand{\indexlibvalue}[2]{%
+  \libvalue{#1}{#2}\index{\texttt{#2}|hyperpageit}}
+
+\newcommand{\indexvalue}[1]{\texttt{#1}\index{\texttt{#1}|hyperpageit}}
+
+% Reference to POSIX documentation
+\newcommand{\posixbase}{http://www.opengroup.org/onlinepubs/009696799}
+
+\newcommand{\syscall}[1]{%
+  \renewcommand{\tmpurl}{\posixbase/functions/#1.html}%
+  \href{\tmpurl}{\texttt{#1}}\index{\texttt{#1}|hyperpagebf}}
+
+\newcommand{\pthreadcall}[2][]{% 
+ \ifthenelse{\equal{#1}{}}%
+            {\renewcommand{\tmpurl}{\posixbase/functions/pthread\_#2.html}}%
+            {\renewcommand{\tmpurl}{\posixbase/functions/pthread\_#1\_#2.html}}%
+ \href{\tmpurl}{\texttt{#2}}\index{\texttt{#2}|hyperpagebf}}
+
+% Reference to RFCs 
+\newcommand{\rfcbase}{http://www.faqs.org/rfcs}
+\newcommand{\rfc}[1]{%
+  \renewcommand{\tmpurl}{\rfcbase/rfc#1.html}%
+  \href{\tmpurl}{\textsc{rfc}~#1}}
+
+\title{\mytitle}
+\author{\myauthors}
+\date{\today}
+
+\begin{document}
+
+%% Title page, copyright page with abstract
+\pagestyle{empty}
+\input{front.tex}
+
+\frontmatter
+\pagestyle{myheaders}
+
+%% Table of contents
+\ifhtmlelse%
+{\tableofcontents\cutname{toc.html}}%
+{\tableofcontents*}
+
+\mainmatter
+\ifnothtml{\counterwithout{figure}{chapter}} % have to do that here 
+\ifnothtml{\counterwithout{table}{chapter}} % have to do that here 
+
+%% Chapters 
+\input{intro.tex}
+\input{general.tex}
+\input{files.tex}
+\input{processes.tex}
+\input{signals.tex}
+\input{pipes.tex}
+\input{sockets.tex}
+\input{threads.tex}
+\input{more.tex}
+
+\backmatter
+
+%% Exercise answers
+\ifnothtml{\chapter{Exercise answers}\inputexerciseanswers}
+
+%% References
+\input{references.tex}
+
+\appendix
+
+%% Index
+\renewcommand{\preindexhook} {
+  \ifhtml{\aname{htocindex}{}} %% how can I put that in the title?
+  \ifhtmlelse{Links}{Pages} in bold refer to the description of 
+  a \textsc{posix} system call.
+  \ifnothtml{\medskip}}
+
+\printindex
+\ifhtml{\addcontentsline{toc}{chapter}{\ahrefloc{htocindex}{Index}}}
+\cutname{docindex.html}
+
+%% Add a blank page
+\pagestyle{empty}
+\newpage
+\mbox{}
+
+%% Include standard implementation in .ml to check against our signatures. 
+\begin{codefile}{tmpunix.ml}include Unix;;\end{codefile}
+\begin{codefile}{tmpsys.ml}include Sys;;\end{codefile}
+\begin{codefile}{tmppervasives.ml}include Pervasives;;\end{codefile}
+\begin{codefile}{tmpevent.ml}include Event;;\end{codefile}
+\begin{codefile}{tmpmutex.ml}include Mutex;;\end{codefile}
+\begin{codefile}{tmpthread.ml}include Thread;;\end{codefile}
+\begin{codefile}{tmpcondition.ml}include Condition;;\end{codefile}
+\end{document}
+

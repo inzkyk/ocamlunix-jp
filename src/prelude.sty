@@ -1,0 +1,267 @@
+%------------------------------------------------------------------------------
+% Copyright (c) 2009, Daniel C. Buenzli
+%
+% All rights reserved. Distributed under a creative commons
+% attribution-non-commercial-share alike 2.0 France license.
+% http://creativecommons.org/licenses/by-nc-sa/2.0/fr/
+%------------------------------------------------------------------------------
+
+% Definitions for PDF output.
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{prelude}
+
+%% Encoding & Fonts 
+\RequirePackage[T1]{fontenc}
+\RequirePackage{textcomp}
+\RequirePackage{lmodern}
+\RequirePackage[scaled=0.8]{beramono}
+
+%% Html conditionals
+\newcommand{\ifhtml}[1]{}
+\newcommand{\ifnothtml}[1]{#1}
+\newcommand{\ifhtmlelse}[2]{#2}
+
+%% Inactive in PDF
+\newcommand{\cutname}[1]{}
+
+% PDF meta data & hyperlinks
+\hypersetup{%
+  pdftitle={\mytitle},
+  pdfauthor={\myauthors},
+  pdfsubject={Course on Unix system programming in OCaml},
+  pdfkeywords={\mykeywords},
+  pdfborder={0 0 0.5},
+  pdflang={en-US},
+  urlbordercolor={0 0 1},
+  citebordercolor={1 0 0},
+  linkbordercolor={1 0 0}}
+
+%% Page geometry.
+\setlxvchars
+\settrimmedsize{297mm}{210mm}{*} %{148mm}{105mm}{*}
+\settrims{0pt}{0pt}
+\settypeblocksize{*}{1.2\lxvchars}{*}
+\setlrmargins{*}{*}{1.618}
+\setulmarginsandblock{72pt}{*}{1.618}
+\setheadfoot{\onelineskip}{3\onelineskip}
+\setheaderspaces{*}{\onelineskip}{*}
+\setmarginnotes{1em}{0.75\foremargin}{\onelineskip}
+\checkandfixthelayout
+
+%% Title
+\pretitle{\hrule\begin{flushleft}\Huge\scshape\MakeLowercase}
+\posttitle{\end{flushleft}\vskip 2em}
+\preauthor{\begin{flushleft}\Large}
+\postauthor{\par\end{flushleft}\vskip 0.5em}
+\predate{\begin{flushleft}\Large}
+\postdate{\par\end{flushleft}}
+
+%% Copyright notice
+\newenvironment{copyrightnotice}
+   {\begingroup
+    \footnotesize
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{\baselineskip}}
+   {\endgroup}
+
+%% Abstract
+\renewcommand{\abstractnamefont}{\bfseries}
+\renewcommand{\abstracttextfont}{\normalfont}
+\abslabeldelim{\quad}
+\setlength{\absrightindent}{0pt}
+\setlength{\absleftindent}{0pt}
+\setlength{\abstitleskip}{-\parindent}
+\abstractrunin
+
+%% Sections & paragraphs
+\setsecnumdepth{section}
+\openright 
+\makechapterstyle{mychap}{%
+  \renewcommand{\chapterheadstart}{\clearforchapter}
+  \renewcommand{\printchaptername}{}
+  \renewcommand{\chapternamenum}{}
+  \renewcommand{\chaptitlefont}{\huge\normalfont\bfseries\raggedright}
+  \renewcommand{\chapnumfont}{\chaptitlefont}
+  \renewcommand{\printchapternum}{\chapnumfont\thechapter\hspace{1ex}}
+  \renewcommand{\afterchapternum}{}}
+\chapterstyle{mychap}
+
+\setsecheadstyle{\Large\bfseries\raggedright}
+\setbeforesecskip{-\onelineskip}
+\setaftersecskip{\onelineskip}
+%\setsubsecheadstyle{\sethangfrom{\noindent ##1}\raggedright\itshape}
+\setsubsecheadstyle{\raggedright\bfseries}
+\setbeforesubsecskip{-\onelineskip}
+%\setaftersubsecskip{\onelineskip}
+
+\setbeforeparaskip{-\onelineskip}
+\setparaheadstyle{\raggedright\bfseries}
+
+%% Headers and footers
+\makepagestyle{myheaders}
+\makeevenhead{myheaders}{}{\large\itshape\leftmark}{}
+\makeoddhead{myheaders}{}{\large\itshape\rightmark}{}
+\makeevenfoot{myheaders}{\thepage}{}{}
+\makeoddfoot{myheaders}{}{}{\thepage}
+\makepsmarks{myheaders}{%
+%  \def\chaptermark##1{\markboth{\thechapter\space ##1}{}}%
+  \def\chaptermark##1{\markboth{##1}{}}%
+  \def\sectionmark##1{\markright{##1}}}
+
+\makepagestyle{mypagefooter}
+\makeevenhead{mypagefooter}{}{}{}
+\makeoddhead{mypagefooter}{}{}{}
+\makeevenfoot{mypagefooter}{\thepage}{}{}
+\makeoddfoot{mypagefooter}{}{}{\thepage}
+
+\nouppercaseheads
+
+\aliaspagestyle{chapter}{mypagefooter}
+\aliaspagestyle{title}{empty}
+
+%% Table of contents
+\setpnumwidth{0pt}
+\renewcommand{\cftchapterpagefont}{\rmfamily\scriptsize\quad}
+\renewcommand{\cftchapterleader}{}
+\renewcommand{\cftchapterafterpnum}{\cftparfillskip}
+\renewcommand{\cftsectionpagefont}{\rmfamily\scriptsize\quad}
+\renewcommand{\cftsectionleader}{}
+\renewcommand{\cftsectionafterpnum}{\cftparfillskip}
+
+%% Examples
+
+\newcommand{\myfancybreak}{\medskip\fancybreak{*\ *\ *}\medskip}
+
+\newenvironment{example}
+{\begingroup\paragraph{Example}}
+{\myfancybreak\endgroup}
+
+%% Code listings
+
+\lstset{upquote=true} %% Otherwise ticks look like backticks.
+
+\RequirePackage{fink} % Maintains the current tex input filename in \finkfile
+
+\newoutputstream{code}
+\newoutputstream{codetmp}
+\openoutputfile{\jobname.code}{code}
+\newcommand{\codefilename}[1]{%
+\addtostream{code}{=#1}%
+\addtostream{code}{\finkfile}%
+\addtostream{code}{\the\inputlineno}}
+
+\newenvironment{listingcodefile}[2][]%
+{\setlength{\topsep}{\z@}% 
+ \setlength{\partopsep}{\z@}% 
+ \setlength{\parskip}{\z@}%
+ \renewcommand{\verbatim@processline}%
+               {\addtostream{code}{\the\verbatim@line}%
+                \addtostream{codetmp}{\the\verbatim@line}}%
+  \openoutputfile{\jobname.codetmp}{codetmp}%
+  \lstset{#1}%
+  \codefilename{#2}%
+  \verbatim}%
+{\endverbatim%
+ \vspace{-\baselineskip}%
+ \closeoutputstream{codetmp}%
+ \lstinputlisting{\jobname.codetmp}}
+
+\newenvironment{codefile}[1]
+{\codefilename{#1}\writeverbatim{code}}
+{\endwriteverbatim}
+
+\newenvironment{mltypecases}
+{\begin{flushleft}}
+{\end{flushleft}}
+
+%% Enumerate, itemize
+
+\tightlists
+\renewenvironment{enumerate}[1][\arabic]
+                 {\begin{list}{#1{enumi}.}
+                     {\usecounter{enumi}
+                       \setlength{\topsep}{\medskipamount}
+                       \setlength{\partopsep}{0pt}
+                       \setlength{\labelwidth}{2ex}
+                       \setlength{\labelsep}{1ex}
+                       \setlength{\parsep}{0pt}
+                       \setlength{\itemindent}{0em}
+                       \setlength{\listparindent}{\parindent}
+                       \setlength{\itemsep}{\medskipamount}
+                       \setlength{\leftmargin}{0ex}
+                       \setlength{\rightmargin}{0em}}}
+                 {\end{list}}
+
+\renewenvironment{itemize}[1][\arabic]
+                 {\begin{list}{\textbullet}
+                     {\setlength{\topsep}{\medskipamount}
+                       \setlength{\partopsep}{0pt}
+                       \setlength{\labelwidth}{2ex}
+                       \setlength{\labelsep}{1ex}
+                       \setlength{\parsep}{0pt}
+                       \setlength{\itemindent}{0em}
+                       \setlength{\listparindent}{\parindent}
+                       \setlength{\itemsep}{\medskipamount}
+                       \setlength{\leftmargin}{0ex}
+                       \setlength{\rightmargin}{0em}}}
+                 {\end{list}}
+
+%% Exercises
+\newoutputstream{ans}
+\openoutputfile{\jobname.ans}{ans}
+\newcounter{exercise}
+\newcommand{\exerciseanswer}{}
+\newenvironment{exercise}[1][]
+{\stepcounter{exercise}%
+ \renewcommand{\exerciseanswer}{#1}%
+ \begingroup\paragraph{Exercise~\theexercise}\label{ex\theexercise}}
+{\ifthenelse{\equal{\exerciseanswer}{noanswer}}{}%
+ {Answer page~\pageref{exans\theexercise}.}%
+ \myfancybreak\endgroup}
+
+\newenvironment{answer}{%
+ \renewcommand{\verbatim@processline}%
+               {\addtostream{ans}{\the\verbatim@line}}
+ \addtostream{ans}{%
+   \protect%
+   \paragraph{Exercise~\theexercise~(page~\pageref{ex\theexercise})}%
+   \protect\label{exans\theexercise}}%
+ \verbatim}
+{\endverbatim}
+
+\newcommand{\inputexerciseanswers}{%
+\closeoutputstream{ans}
+\input{\jobname.ans}}
+
+%% Figures, tables, captions and floats
+\newenvironment{myfigure}%
+{\figure\centering\vspace{\onelineskip}}%
+{\endfigure}
+\renewcommand{\figurename}{Figure}
+
+\newenvironment{mytable}
+{\table\centering\vspace{\onelineskip}}%
+{\endtable}
+\renewcommand{\tablename}{Table}
+\renewcommand{\arraystretch}{1.4} 
+
+\captiondelim{~---~}
+\captionnamefont{\normalfont\normalsize}
+\captiontitlefont{\normalfont\normalsize}
+\setlength{\abovecaptionskip}{\baselineskip}
+
+% Pictures and extraction
+\usepackage{graphics}
+\usepackage{tikz}
+\usetikzlibrary{%
+ arrows,decorations.pathmorphing,positioning,fit,shapes.geometric}
+\tikzset{every picture/.style={>=stealth'}} %% arrow kind
+
+\newenvironment{myimage}[1][]{\center}{\endcenter}
+
+\usepackage[tightpage]{preview}
+\PreviewEnvironment[{[]}]{tikzpicture}
+
+%% Bibliography
+\newcommand{\bibcomment}[1]{\item[\textbf{#1}]}
