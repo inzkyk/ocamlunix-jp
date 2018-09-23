@@ -57,7 +57,7 @@ Unix において \quotes{ファイル} という言葉はいくつかのもの�
 % but this is ambiguous, as we can also designate any node as a
 % \quotes{file}. To avoid all ambiguity we refer to them as
 % \emph{non-directory files}.
-大ざっぱにいって、ファイルシステムは木と考えることができます。根 (ルート)は \ml+/+ で表されます。枝は \ml+'\000'+ と \ml+/+ を除く文字列からなるファイルの名前でラベル付けされています (ただし空白文字と印字できない文字は避けたほうが良いとされます) 。終端でないノードは \emph{ディレクトリ} です: これらのノードは必ず二つの枝 \ml+.+ と \ml+..+ を含み、それぞれこのディレクトリそのものと親のディレクトリを表します。ディレクトリでないノードのことを \emph{ファイル} と呼ぶことがありますが、木のどのノードもファイルであることを考えると、これは曖昧です。曖昧さを避けるために、このノートではこれらのことを \emph{非ディレクトリファイル} と呼ぶことにします。
+大ざっぱにいって、ファイルシステムは木と考えることができます。根 (ルート)は \ml+/+ で表され、枝は \ml+'\000'+ と \ml+/+ を除く文字列からなるファイルの名前でラベル付けされます (ただし空白文字と印字できない文字は避けたほうが良いとされます) 。終端でないノードは \emph{ディレクトリ} です: これらのノードは必ず二つの枝 \ml+.+ と \ml+..+ を含み、それぞれこのディレクトリそのものと親のディレクトリを表します。ディレクトリでないノードのことを \emph{ファイル} と呼ぶことがありますが、木のどのノードもファイルであることを考えると、これは曖昧です。曖昧さを避けるために、このノートではこれらのことを \emph{非ディレクトリファイル} と呼ぶことにします。
 
 % The nodes of the tree are addressed by paths. If the start of the path
 % is the root of the file hierarchy, the path is \emph{absolute}, whereas if the
@@ -169,7 +169,7 @@ Unix において \quotes{ファイル} という言葉はいくつかのもの�
     \item シンボリックリンク 10 は 5 を指す。 \\ 11 はどんなノードも指さない。\vspace{5pt}
     \item 9 から 8 への等価なパス: \\
       \texttt{../usr/lib} \\
-      \texttt{./../usr/lib}, {など} \\
+      \texttt{./../usr/lib} \\
       \texttt{foo/lib}
   \end{itemize}
 };

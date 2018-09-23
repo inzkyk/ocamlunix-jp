@@ -29,7 +29,7 @@
 
 %% Page geometry
 \newstyle{*}{ padding: 0em; border: 0em; margin: 0em;
-              font-family: font-family: 'ヒラギノ角ゴシック','Hiragino Sans',sans-serif; font-weight: normal;
+              font-family: 'ヒラギノ角ゴシック','Hiragino Sans',sans-serif; font-weight: normal;
               font-size: 100\%;}
 
 \newstyle{BODY} { margin: 2em 10\% 2em 10\%;

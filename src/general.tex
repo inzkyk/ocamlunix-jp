@@ -21,7 +21,7 @@
 % common to Unix and other operating systems under which {\ocaml} runs.
 % The second module, \libmodule{Unix}, contains everything specific to
 % Unix.
-\ocaml からシステムにアクセスするときに使われる関数は \ml+Sys+ と \ml+Unix+ の二つのモジュールにまとめられています。一つ目の \libmodule{Sys} モジュールは \ocaml が実行される Unixおよびその他のオペレーティングシステムで一般的な関数を含みます。二つ目の \libmodule{Unix} モジュールは Unix に特有なものが全て含まれています。
+\ocaml からシステムにアクセスするときに使われる関数は \ml+Sys+ と \ml+Unix+ の二つのモジュールにまとめられています。一つ目の \libmodule{Sys} モジュールは \ocaml が実行される Unix およびその他のオペレーティングシステムで一般的な関数を含みます。二つ目の \libmodule{Unix} モジュールは Unix に特有なものを全て含みます。
 
 % In what follows, we will refer to identifiers from the \ml+Sys+ and
 % \ml+Unix+ modules without specifying which modules they come from.  That is, we
@@ -410,7 +410,7 @@ let try_finalize f x finally y =
 % {\ocaml}, version {\ocamlversion}$\!\!\!$.  %% To get rid of that space !
 % Some programs will have to be slightly modified in order to work with
 % older versions.
-このコースにはたくさんの例が含まれています。 これらはバージョン \ocamlversion の \ocamlでコンパイルされることを確認しています。古いバージョンではプログラムを若干改変する必要があります。
+このコースにはたくさんの例が含まれています。これらはバージョン \ocamlversion の \ocaml でコンパイルされることを確認しています。古いバージョンではプログラムを若干改変する必要があります。
 
 % There are two kinds of examples: \quotes{library functions} (very
 % general functions that can be reused) and small applications. It is

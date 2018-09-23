@@ -1337,7 +1337,7 @@ CAMLprim value caml_single_write
 % defined in \ml+unix_support.h+. If an error occurs during the system
 % call (indicated by a negative return value) it is propagated to
 % {\ocaml} by the function \ml+uerror+, defined in the {\ocaml} Unix library.
-システムコールの間に \ocaml はガベージコレクションが実行され、\ocaml の文字列 \ml+buf+ がメモリ内を移動する可能性があります。この問題を解決するために \ml+buf+ を C の文字列 \ml+iobuf+ にコピーします。これには追加のコストがかかりますが、10\% 前後のオーダーです (50\% 程度と考えるかもしれませんが、そうではありません)。関数全体のコストはシステムコールがほとんどを占めるためです。バッファに使う C の文字列の大きさは \ml+unix_support.h+ に定義されています。システムコール中にエラーが起こった場合 (負の返り値で示されます) はそのエラーは \ml+uerror+ 関数によって \ocaml に運ばれます。 \ml+uerror+ 関数は \ocaml の Unix ライブラリで定義されています。
+システムコールの間に \ocaml はガベージコレクションが実行され、\ocaml の文字列 \ml+buf+ がメモリ内を移動する可能性があります。この問題を解決するために \ml+buf+ を C の文字列 \ml+iobuf+ にコピーします。これには追加のコストがかかりますが、10\% 前後のオーダーです (50\% 程度と考えるかもしれませんが、そうではありません)。関数全体のコストはシステムコールがほとんどを占めるためです。バッファに使う C の文字列の大きさは \ml+unix_support.h+ に定義されています。システムコール中にエラーが起こった場合 (負の返り値で示されます) そのエラーは \ml+uerror+ 関数によって \ocaml に運ばれます。 \ml+uerror+ 関数は \ocaml の Unix ライブラリで定義されています。
 
 % To access this code from {\ocaml}, the file \ml+unix.mli+ declares:
 この関数を \ocaml から利用するには、 \ml+unix.mli+ を作って以下の宣言を書きます:
