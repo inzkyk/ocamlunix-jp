@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>Answer of exercise 6</title>
+</head>
+<body>
+<div class="answer">
+<h5 class="paragraph" id="sec53">練習問題 <a href="files.html#ex6">exercise 6</a> の解答</h5>
+<p>
+<a id="exans6"></a>
+すでにコピーされたファイルについて、識別子 <code>(st_dev, st_ino)</code> からコピー先へのマップを記録するようにします。各コピーを実行する前にマップを探索し、同じ識別子を持ったファイルがすでにコピーされていないかをチェックします。もしすでにコピーされたファイルが見つかったらファイルをコピーする代わりにコピー元ファイルと同じ名前のハードリンクを作成します。マップの大きさを最小化するために一つ以上の名前を持つファイル、つまり <code>st_nlink &gt; 1</code> を満たすファイルのみについてマップを持つようにします。
+
+</p><div class="mylisting"><span class="c001">let</span> copied_files = (Hashtbl.create 53 : ((int * int), string) Hashtbl.t)
+
+<span class="c001">let rec</span> copy source dest =
+  <span class="c001">let</span> infos = lstat source <span class="c001">in
+  match</span> infos.st_kind <span class="c001">with</span>
+    S_REG -&gt;
+      <span class="c001">if</span> infos.st_nlink &gt; 1 <span class="c001">then begin
+        try
+          let</span> dest' =
+            Hashtbl.find copied_files (infos.st_dev, infos.st_ino)
+          <span class="c001">in</span> link dest' dest
+        <span class="c001">with</span> Not_found -&gt;
+          Hashtbl.add copied_files (infos.st_dev, infos.st_ino) dest;
+          file_copy source dest;
+          set_infos dest infos
+      <span class="c001">end else begin</span>
+        file_copy source dest;
+        set_infos dest infos
+      <span class="c001">end</span></div><div class="mylisting">  | S_LNK -&gt; ...</div><div class="fancybreak">* * *</div></div></body>
+</html>

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>Answer of exercise 3</title>
+</head>
+<body>
+<div class="answer">
+<h5 class="paragraph" id="sec35">練習問題 <a href="files.html#ex3">exercise 3</a> の解答</h5>
+<p>
+<a id="exans3"></a>
+<code>-a</code> オプションが与えられた場合、行うべき処理が
+</p><div class="mylisting">openfile output_name [O_WRONLY; O_CREAT; O_APPEND] 0o666</div><p>ではなく
+</p><div class="mylisting">openfile output_name [O_WRONLY; O_CREAT; O_TRUNC] 0o666</div><p>となります。 新しいオプションをコマンドラインからパースする部分は読者に残します。
+</p><div class="fancybreak">* * *</div></div></body>
+</html>

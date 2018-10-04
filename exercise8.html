@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>Answer of exercise 8</title>
+</head>
+<body>
+<div class="answer">
+<h5 class="paragraph" id="sec63">練習問題 <a href="files.html#ex8">exercise 8</a> の解答</h5>
+<p>
+<a id="exans8"></a>
+この練習問題では一つ前の練習問題 <a href="files.html#ex%2Freadtar">2.16</a>と再帰的なファイルのコピーについての練習問題 <a href="files.html#ex%2Fcopyrec">2.15</a> を組み合わせます。</p><p>すこし難しい部分は権限の管理です。アーカイブのディレクトリを書き込み権限で作成して全てのファイルを抽出し終わってから本来の権限に設定しなければいけません。</p><p>最初に補助関数 <code>mkpath p m</code> を書きます。この関数はパス <code>p</code> に含まれるディレクトリでまだ作成されていないものを、 <code>m</code> の権限で作成します。<code>p</code> の最後には余分な “<code>/</code>” が含まれていても構いません。
+
+</p><div class="mylisting"><span class="c001">let</span> warning mes = prerr_string mes;prerr_newline ();;
+<span class="c001">open</span> Filename
+<span class="c001">let</span> mkpath p perm =
+  <span class="c001">let</span> normal_path =
+    <span class="c001">if</span> basename p = <span class="c002">""</span> <span class="c001">then</span> dirname p <span class="c001">else</span> p <span class="c001">in
+  let</span> path_to_dir = dirname normal_path <span class="c001">in
+  let rec</span> make p =
+    <span class="c001">try</span> ignore (stat p)
+    <span class="c001">with</span> Unix_error (ENOENT, _, _) -&gt;
+      <span class="c001">if</span> p = current_dir_name <span class="c001">then</span> ()
+      <span class="c001">else if</span> p = parent_dir_name <span class="c001">then</span>
+        warning <span class="c002">"Ill formed archive: path contains \"..\""</span>
+      <span class="c001">else begin</span>
+        make (dirname p);
+        mkdir p perm
+      <span class="c001">end in</span>
+  make path_to_dir;;</div><p><a href="files.html#sec%2Fcopyrec">2.15</a> 節でファイルをコピーするときに利用したものと似た<code>set_infos</code> を定義します。
+</p><div class="mylisting"><span class="c001">let</span> set_infos header =
+  chmod header.name header.perm;
+  <span class="c001">let</span> mtime = float header.mtime <span class="c001">in</span>
+  utimes header.name mtime mtime;
+  <span class="c001">begin match</span> header.kind <span class="c001">with</span>
+  | LNK f -&gt; ()
+  | _ -&gt;  chmod header.name header.perm
+  <span class="c001">end</span>;
+  <span class="c001">try</span> chown header.name  header.uid header.gid
+  <span class="c001">with</span> Unix_error(EPERM,_,_) -&gt; ();;</div><p><code>untar_file_collect_dirs</code> は作成されるディレクトリを記録しながら一つのレコードをコピーします。
+</p><div class="mylisting"><span class="c001">let</span> verbose = <span class="c001">ref true</span>;;
+<span class="c001">let</span> default_dir_perm = 0o777;;
+<span class="c001">let</span> default_file_perm = 0o666;;
+
+<span class="c001">let</span> protect f x g y = <span class="c001">try</span> f x; g y <span class="c001">with</span> z -&gt; g y; raise z
+<span class="c001">let</span> file_exists f = <span class="c001">try</span> ignore (stat f); <span class="c001">true with</span> _ -&gt; <span class="c001">false</span>;;
+
+<span class="c001">let</span> untar_file_collect_dirs file dirs =
+  <span class="c001">let</span> fh = file.header <span class="c001">in
+  if</span> !verbose <span class="c001">then begin</span> print_string fh.name; print_newline () <span class="c001">end</span>;
+  <span class="c001">match</span> fh.kind <span class="c001">with</span>
+  | CHR (_,_) | BLK(_,_) | FIFO -&gt;
+      warning (fh.name ^ <span class="c002">"Ignoring special files"</span>);
+      dirs
+  | DIR -&gt;
+      mkpath fh.name default_dir_perm;
+      <span class="c001">if</span> file_exists fh.name <span class="c001">then</span> dirs
+      <span class="c001">else begin</span> mkdir fh.name default_dir_perm; fh :: dirs <span class="c001">end</span>
+  | x -&gt;
+      mkpath fh.name default_dir_perm;
+      <span class="c001">begin match</span> x <span class="c001">with</span>
+      | REG | CONT -&gt;
+          <span class="c001">let</span> flags = [ O_WRONLY; O_TRUNC; O_CREAT; ] <span class="c001">in
+          let</span> out = openfile fh.name flags default_file_perm <span class="c001">in</span>
+          protect (copy_file file) out close out
+      | LNK f -&gt;
+          symlink f fh.name
+      | LINK f -&gt;
+          <span class="c001">begin
+            try if</span> (stat fh.name).st_kind = S_REG <span class="c001">then</span> unlink fh.name
+            <span class="c001">with</span> Unix_error(_,_,_) -&gt; ();
+          <span class="c001">end</span>;
+          Unix.link f fh.name;
+      | _ -&gt; <span class="c001">assert false
+      end</span>;
+      set_infos fh;
+      dirs;;</div><p>メインプログラムは <code>untar_file_collect_dirs</code> を全てのレコードに適用し、最後にディレクトリのアクセス権限を修正するだけです。
+</p><div class="mylisting"><span class="c001">let</span> extract tarfile =
+  <span class="c001">let</span> fd = openfile tarfile [ O_RDONLY ] 0 <span class="c001">in
+  let</span> new_directories =
+    fold untar_file_collect_dirs [] fd <span class="c001">in</span>
+  List.iter set_infos new_directories;
+  close fd;;</div><div class="mylisting"><span class="c001">let</span> untar () =
+  <span class="c001">let</span> nargs = Array.length Sys.argv <span class="c001">in
+  if</span> nargs = 2 <span class="c001">then</span> extract Sys.argv.(1)
+  <span class="c001">else</span> prerr_endline (<span class="c002">"Usage: "</span> ^ Sys.argv.(0) ^ <span class="c002">" &lt;tarfile&gt;"</span>);;
+handle_unix_error untar ();;</div><div class="fancybreak">* * *</div></div></body>
+</html>

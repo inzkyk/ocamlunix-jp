@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>イントロダクション</title>
+</head>
+<body>
+<a href="toc.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="generalities.html"><img src="next_motif.svg" alt="Next"></a>
+<hr>
+<h1 class="chapter" id="sec/intro"><a id="htocintro">イントロダクション</a></h1>
+<p>この講義ノートは 1994 年に Xavier Leroy が高等師範学校で基礎・応用数学及び情報科学の修士課程 1 年生に対して行ったシステムプログラミングの講義が元になっています。初期の版では Caml-Light [<a href="references.html#Caml-Light">1</a>] 言語が使われていました。</p><p>2003年から2006年にエコール・ポリテクニークで開かれた情報科学の修士課程学生向け講義のために、Didier Rémy はノートを改変し、 OCaml[<a href="references.html#OCaml">2</a>] 言語が使われるようになりました。この期間に、Gilles Roussel, Fabrice Le Fessant と Maxence Guesdon は講義を助けるとともに、このノートにも貢献しました。この新しい版では要素の追加や更新が行われています。</p><p>最初の版からの約 10 年間のうちに、 扱われる数字の桁はコンマ 1 つ分大きくなりました。またweb は大きく発達し、1994 年当時には先駆的だった <span class="c007">http</span>リレーの例は現在では平凡なものです。そしてなんといってもこの間に OCaml言語は成熟し、Unison [<a href="references.html#Unison">18</a>] のような実際のシステムアプリケーションに使われるようになりました。</p><p>伝統的に Unix システムプログラミングは C で行われなければならないという風潮があります。しかしこのコースで私達はより高レベルな言語 — 具体的には OCaml — のほうが Unix システムプログラミングの基礎を説明するのに適していることを発見しました。</p><p>OCamlの Unix システムコールに対するインターフェースはより抽象的です。C では全てが整数とビットフィールドに変換されますが、OCamlでは ML の型システムを使うことで、システムコールの引数と返り値が明確になります。そのため引数と返り値がどのようにデコード/エンコードされるかを説明する必要がなく、システムコールの意味を説明するのが簡単になります。 (例えば <a href="processes.html#wait">??</a> ページにある <code>wait</code> システムコールの説明を見てみてください。)</p><p>加えて OCamlは静的な型システムを持ち、基本型が明確なので、 C よりも安全にプログラムを書けます。熟練した C プログラマーはこの利点を必要のない贅沢であるとみなすかもしれませんが、このコースが対象とする熟練していないプログラマーにとっては重要なことです。</p><p>システムプログラミングに関するこのノートの二つ目の目標は、定理証明やコンパイラ、記号計算といったOCamlの一般的な応用とは異なる分野における OCamlの利用例を見せることです。OCamlの持つ強固な命令的カーネルに加えてパラメトリック多相や高階関数、例外といった C にない優れた機能のおかげで、このノートで行われた試みの結果は上々です。他にも関数型プログラミングと命令型プログラミングを互いに排他的にではなく組み合わせて使うことで、同じプログラムの中にオペレーティングシステムとの優れたインターフェースと複雑な記号計算を共存させることが可能なことをこのノートは示しています。</p><p>このノートは読者が OCamlと Unix のシェルコマンドを知っていることを仮定します。OCamlに関する疑問は OCaml System documentation [<a href="references.html#OCaml">2</a>] を、 Unix についての疑問は Unix <span class="c003">man</span>ual のセクション 1 や [<a href="references.html#KP">5</a>, <a href="references.html#R1">6</a>] などの入門書を参考にしてください。</p><p>このノートは Unix システムのプログラミング上のインターフェースしか示すことしかせず、その実装や内部構造には触れません。<span class="c007">bsd</span> 4.3 の内部構造は [<a href="references.html#BSD">8</a>] で、 System <span class="c007">v</span> の内部構造は [<a href="references.html#Bach">9</a>] で説明されています。Tanenbaum の本 [<a href="references.html#T1">13</a>, <a href="references.html#T2">14</a>] はネットワークとオペレーティングシステムの構造に関する全体像が示されています。</p><p>このノートで説明される Unix インターフェースは <a href="http://caml.inria.fr/ocaml/"><span class="c003">http://caml.inria.fr/ocaml/</span></a> でフリーソフトウェアとして配布されている OCaml System の一部です。
+
+</p>
+<hr>
+<a href="toc.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="generalities.html"><img src="next_motif.svg" alt="Next"></a>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>Answer of exercise 18</title>
+</head>
+<body>
+<div class="answer">
+<h5 class="paragraph" id="sec156">練習問題 <a href="threads.html#ex18">exercise 18</a> の解答</h5>
+<p>
+<a id="exans18"></a>
+クイックソートは目的の配列を分割し、分割した配列をそれぞれ独立にソートするので並列化はしやすいです。クイックソートを実行するスレッドにおける唯一の同期は分割した配列のソートが終わるのを待つ部分だけです。</p><div class="mylisting"><span class="c005">   1</span> <span class="c001">let</span> qsort cmp arr =
+<span class="c005">   2</span>   <span class="c001">let rec</span> qsort lo hi =
+<span class="c005">   3</span>   <span class="c001">if</span> hi - lo &gt; 0 <span class="c001">then</span>
+<span class="c005">   4</span>     <span class="c001">begin</span>
+<span class="c005">   5</span>       <span class="c001">let</span> mid = (lo + hi) <span class="c001">lsr</span> 1 <span class="c001">in</span>
+<span class="c005">   6</span>       <span class="c001">if</span> cmp arr.(mid) arr.(lo) <span class="c001">then</span> swap arr mid lo;
+<span class="c005">   7</span>       <span class="c001">if</span> cmp arr.(hi) arr.(mid) <span class="c001">then</span>
+<span class="c005">   8</span>         <span class="c001">begin</span>
+<span class="c005">   9</span>           swap arr mid hi;
+<span class="c005">  10</span>           <span class="c001">if</span> cmp arr.(mid) arr.(lo) <span class="c001">then</span> swap arr mid lo
+<span class="c005">  11</span>         <span class="c001">end</span>;
+<span class="c005">  12</span>       <span class="c001">let</span> pivot = arr.(mid) <span class="c001">in</span>
+<span class="c005">  13</span>       <span class="c001">let</span> i = <span class="c001">ref</span> (lo + 1) <span class="c001">and</span> j = <span class="c001">ref</span> (hi - 1) <span class="c001">in</span>
+<span class="c005">  14</span>       <span class="c001">while</span> !i &lt; !j <span class="c001">do</span>
+<span class="c005">  15</span>         <span class="c001">while</span> not (cmp pivot arr.(!i)) <span class="c001">do</span> incr i <span class="c001">done</span>;
+<span class="c005">  16</span>         <span class="c001">while</span> not (cmp arr.(!j) pivot) <span class="c001">do</span> decr j <span class="c001">done</span>;
+<span class="c005">  17</span>         <span class="c001">if</span> !i &lt; !j <span class="c001">then</span> swap arr !i !j;
+<span class="c005">  18</span>       <span class="c001">done</span>;
+<span class="c005">  19</span>       <span class="c001">let</span> u = Thread.create (qsort lo) (!i-1) <span class="c001">in</span>
+<span class="c005">  20</span>       <span class="c001">let</span> v = Thread.create (qsort (!i+1)) hi <span class="c001">in</span> <a id="prog:tcreate"></a>
+<span class="c005">  21</span>       Thread.join u; <a id="prog:tjoin"></a>
+<span class="c005">  22</span>       Thread.join v
+<span class="c005">  23</span>     <span class="c001">end in</span>
+<span class="c005">  24</span>   qsort 0 (Array.length arr - 1);;</div><p>
+<a href="#prog%3Atcreate">20</a> 行目と <a href="#prog%3Atjoin">21</a> 行目を入れ替えても正しい答えは得られますが、あまり意味がないでしょう。配列の前半分がソートされてから後半分のソートが始まるので、動作はシーケンシャルなプログラムと同じになりますが、スレッドの生成の分だけ実行が遅くなります。</p><p>並列クイックソートを実際のプログラムで使う場合には、配列の長さがある程度よりも小さくなったらスレッドを作らずにシーケンシャルにソートしたほうが良いでしょう。
+</p><div class="fancybreak">* * *</div></div></body>
+</html>

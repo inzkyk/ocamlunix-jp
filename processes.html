@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>プロセス</title>
+</head>
+<body>
+<a href="files.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="signals.html"><img src="next_motif.svg" alt="Next"></a>
+<hr>
+<h1 class="chapter" id="sec/processes"> 3  プロセス</h1>
+<p>プロセスとはオペレーティングシステム上で実行されるプログラムのことです。プロセスはプログラム (機械語) とその状態 (現在の実行位置、変数の値、関数呼び出しスタック、開いているファイルディスクリプタなど) からなります。</p><p>この章では新しいプロセスを作ったり新しいプログラムを実行したりするための Unix のシステムコールを紹介します。</p>
+<h2 class="section" id="sec67">3.1  プロセスの作成</h2>
+<p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/fork.html"><span class="c003">fork</span></a><a id="hevea_default68"></a> はプロセスを作成します。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALfork">fork</a> : unit -&gt; int</div><p><code>fork</code> を呼び出した <em>親プロセス</em> のほぼ完璧な複製である <em>子プロセス</em> が新しく作られます。二つのプログラムは同じプログラムを同じ実行位置 (<code>fork</code> から返った位置) から実行します。このとき全ての変数は同じ値を持ち、スタックは同一で、開かれているファイルディスクリプタも同じです。二つのプロセスを区別する唯一のものは <code>fork</code> の返り値です。子プロセスでは <code>fork</code> は 0 を返し、 親プロセスでは 0 でない整数を返します。<code>fork</code> の返り値を確認することで、プログラムは自分が親なのか子なのかを確認してそれによって動作を変えることができます。
+</p><div class="mylisting"><span class="c001">match</span> fork () <span class="c001">with</span>
+| 0 -&gt;   <em>(* 子プロセスだけが実行するコード *)</em>
+| pid -&gt; <em>(* 親プロセスだけが実行するコード *)</em></div><p><code>fork</code> によって親プロセスに返される 0 でない整数は子プロセスの <em>プロセス ID</em> です。カーネルはプロセス IDを使ってプロセスを一意に識別します。プロセスは <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgetpid"><span class="c003">getpid</span></a><a id="hevea_default69"></a> 関数を呼ぶことでプロセス ID を取得できます。</p><p>子プロセスは親プロセスと同じ状態 (同じ変数の値、同じファイルディスクリプタ) に初期化されます。この状態は親と子で共有されるのではなく、 <code>fork</code> が呼ばれたときにコピーされます。例えば <code>fork</code> の前に定義した参照変数があった場合、 <code>fork</code> の後には親と子プロセスはこの参照を互いに影響を及ぼすこと無く独立に変更できます。</p><p>同様にファイルディスクリプタも <code>fork</code> が呼ばれたときにコピーされます。そのため一方を閉じたとしてももう一方は開いたままです。ただし二つのディスクリプタは (システムメモリにある) ファイルテーブル内の同じエントリを指すので、入出力の現在位置を共有します。親と子のどちらかが読み込みを行った場合、その次に読み込むのがどちらであっても読み込み位置は変化します。また <code>lseek</code> による入出力位置の変更はもう一方のプロセスにすぐに伝わります。</p>
+<h2 class="section" id="sec68">3.2  完全な例: <span class="c003">leave</span> コマンド</h2>
+<p><code>leave hhmm</code> コマンドは時刻 <code>hhmm</code> に利用を終える時間だとユーザに報告するバックグラウンドプロセスをフォークしてすぐに終了します。このコマンドを作成します。
+</p><div class="mylisting"><span class="c005">   1</span> <span class="c001">open</span> Unix;;
+<span class="c005">   2</span> 
+<span class="c005">   3</span> <span class="c001">let</span> leave () =
+<span class="c005">   4</span>  <span class="c001">let</span> hh = int_of_string (String.sub Sys.argv.(1) 0 2)
+<span class="c005">   5</span>  <span class="c001">and</span> mm = int_of_string (String.sub Sys.argv.(1) 2 2) <span class="c001">in</span>
+<span class="c005">   6</span>  <span class="c001">let</span> now = localtime(time ()) <span class="c001">in</span>
+<span class="c005">   7</span>  <span class="c001">let</span> delay = (hh - now.tm_hour) * 3600 + (mm - now.tm_min) * 60 <span class="c001">in</span>
+<span class="c005">   8</span> <a id="prog:delay"></a>
+<span class="c005">   9</span>  <span class="c001">if</span> delay &lt;= 0 <span class="c001">then begin</span>
+<span class="c005">  10</span>    print_endline <span class="c002">"Hey! That time has already passed!"</span>;
+<span class="c005">  11</span>    exit 0
+<span class="c005">  12</span>  <span class="c001">end</span>;
+<span class="c005">  13</span>  <span class="c001">if</span> fork () &lt;&gt; 0 <span class="c001">then</span> exit 0;
+<span class="c005">  14</span>  sleep delay;
+<span class="c005">  15</span>  print_endline <span class="c002">"\007\007\007Time to leave!"</span>;
+<span class="c005">  16</span>  exit 0;;
+<span class="c005">  17</span> 
+<span class="c005">  18</span> handle_unix_error leave ();;</div><p>プログラムは最初にコマンドラインをパースして時刻を取得し、報告するまでの秒数を計算します (<a href="#prog%3Adelay">8</a> 行目) 。<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALtime"><span class="c003">time</span></a><a id="hevea_default70"></a> 関数はエポック (1970 年 1 月 1 日 午前 0 時 0 分 0 秒) から現在時刻までの経過秒数を返します。 <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALlocaltime"><span class="c003">localtime</span></a><a id="hevea_default71"></a> を使うとこの値から年、月、日、時、分、秒を計算することができます。プログラムはその後 <code>fork</code> で新しいプロセスを作ります。親プロセス (<code>fork</code> の返り値が 0 でないプロセス) はすぐに終了するため、<code>leave</code> を起動したシェルの制御はすぐにユーザに戻ります。子プロセス (<code>fork</code> の返り値が 0 のプロセス) の実行は続き、<code>sleep</code> を呼んで指定された時間まで待ってからメッセージを表示して終了します。</p>
+<h2 class="section" id="sec69">3.3  プロセスの終了を待つ</h2>
+<p>システムコール <code>wait</code> は <code>fork</code> によって作られた子プロセスの一つが終了するまで待ち、そのプロセスがどのように終了したかについての情報を返します。これは親子間の同期メカニズムであり、子から親へのとても原始的な形のコミュニケーションです。
+<a id="wait"></a>
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALwait">wait</a><a id="hevea_default72"></a> : unit -&gt; int * process_status
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALwaitpid">waitpid</a> : wait_flag list -&gt; int -&gt; int * process_status</div><p>基礎となるシステムコールは <a href="http://www.opengroup.org/onlinepubs/009696799/functions/waitpid.html"><span class="c003">waitpid</span></a><a id="hevea_default73"></a> であり、 <code>wait ()</code> という呼び出しは <code>waitpid [] (-1)</code> の短縮形に過ぎません。
+<code>waitpid [] p</code> の動作は <code>p</code> の値によって異なります。
+</p><ul class="itemize"><li class="li-itemize">
+<code>p</code> &gt; 0 ならば、プロセス ID が <code>p</code> である子プロセスの終了を待つ。
+</li><li class="li-itemize"><code>p</code> = 0 ならば、同じグループ ID を持つ任意の子プロセスの終了を待つ。
+</li><li class="li-itemize"><code>p</code> = −1 ならば、任意の子プロセスの終了を待つ。
+</li><li class="li-itemize"><code>p</code> &lt;−1 ならば、グループ ID が <code>-p</code> である子プロセスの終了を待つ。
+</li></ul><p>
+返り値の最初の要素は <code>wait</code> によって終了を捕捉された子プロセスのプロセス ID です。2番目の要素は以下に示す <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEprocess_status"><span class="c003">process_status</span></a> 型の値です:
+</p><div class="mltypecases">
+<table class="c000 cellpading0"><tr><td class="c014"><code>WEXITED r</code></td><td class="c013">子プロセスは <code>exit</code> が呼ばれるかプログラムの終端に達することによって通常の方法で終了した。<code>r</code> はリターンコード (<code>exit</code> の引数) を表す。 </td></tr>
+<tr><td class="c014"><code>WSIGNALED s</code></td><td class="c013">子プロセスはシグナル (ctrl+C, <code>kill</code> など。 <a href="signals.html#sec%2Fsignals">4</a> 章参照) によって終了した。<code>s</code> がシグナルの種類を表す。 </td></tr>
+<tr><td class="c014"><code>WSTOPPED s</code></td><td class="c013">子プロセスはシグナル <code>s</code> によって停止された。これが起こるのはあるプロセス (典型的にはデバッガ) が他のプロセスの実行を (<code>ptrace</code> を使って) モニターしているという特殊なケースに限られる。
+</td></tr>
+</table>
+</div><p>
+子プロセスの一つが <code>wait</code> を呼んだ時点ですでに終了していた場合は呼び出しはすぐに返ります。そうでなければ親プロセスは子プロセスのどれかが終了するまでブロックします (“ランデブー” と呼ばれる動作です)。この子プロセスの終了を待つには <code>wait</code> を <span class="c006">n</span> 回呼ぶ必要があります。</p><p><code>waitpid</code> 関数は二つのオプショナルなフラグを第一引数に受け取ります。一つ目の <code>WNOHANG</code> フラグは終了していない子プロセスが無い場合に待たないことを指示します。子プロセスが無かった場合の返り値は第一要素が 0 で第二要素は未定義です。もう一つの <code>WUNTRACED</code> フラグは <code>sigstop</code> シグナルによって停止させられた子プロセスを返すことを指示します。<code>waitpid</code> は <code>p</code> に該当する子プロセスがないとき(あるいは <code>p</code> が <code>-1</code> で現在のプロセスが子プロセスを持たないとき)には例外を出します。
+</p><div class="example">
+<h5 class="paragraph" id="sec70">例</h5>
+<p>
+<a id="ex/forksearch"></a>
+以下の <code>fork_search</code> 関数は二つのプロセスを使って線形探索を行います。線形探索には <code>simple_search</code> 関数を使っています。
+</p><div class="mylisting"><span class="c005">   1</span> <span class="c001">open</span> Unix;;
+<span class="c005">   2</span> <span class="c001">exception</span> Found;;
+<span class="c005">   3</span> 
+<span class="c005">   4</span> <span class="c001">let</span> simple_search cond v =
+<span class="c005">   5</span>  <span class="c001">try</span>
+<span class="c005">   6</span>    <span class="c001">for</span> i = 0 <span class="c001">to</span> Array.length v - 1 <span class="c001">do</span>
+<span class="c005">   7</span>      <span class="c001">if</span> cond v.(i) <span class="c001">then</span> raise Found
+<span class="c005">   8</span>    <span class="c001">done</span>;
+<span class="c005">   9</span>    <span class="c001">false</span>
+<span class="c005">  10</span>  <span class="c001">with</span> Found -&gt; <span class="c001">true</span>;;
+<span class="c005">  11</span> 
+<span class="c005">  12</span> <span class="c001">let</span> fork_search cond v =
+<span class="c005">  13</span>  <span class="c001">let</span> n = Array.length v <span class="c001">in</span>
+<span class="c005">  14</span>  <span class="c001">match</span> fork () <span class="c001">with</span>
+<span class="c005">  15</span>  | 0 -&gt;
+<span class="c005">  16</span>      <span class="c001">let</span> found = simple_search cond (Array.sub v (n/2) (n-n/2)) <span class="c001">in</span> <a id="prog:found"></a>
+<span class="c005">  17</span>      exit (<span class="c001">if</span> found <span class="c001">then</span> 0 <span class="c001">else</span> 1) <a id="prog:searchexit"></a>
+<span class="c005">  18</span>  | _ -&gt;
+<span class="c005">  19</span>      <span class="c001">let</span> found = simple_search cond (Array.sub v 0 (n/2)) <span class="c001">in</span>
+<span class="c005">  20</span>      <span class="c001">match</span> wait () <span class="c001">with</span>
+<span class="c005">  21</span>      | (pid, WEXITED retcode) -&gt; found || (retcode = 0) <a id="prog:wexit"></a>
+<span class="c005">  22</span>      | (pid, _)               -&gt; failwith <span class="c002">"fork_search"</span>;;<a id="prog:wwexit"></a></div><p><code>fork</code> された子プロセスはテーブルの上半分を探索し、 <code>cond</code> を満たす要素を見つけた場合は 1 を、それ以外の場合は 0 をリターンコードとして終了します ( <a href="#prog%3Afound">16</a> 行目と <a href="#prog%3Asearchexit">17</a> 行目)。親プロセスはテーブルの下半分を探索し、 <code>wait</code> を呼んで子プロセスと同期します ( <a href="#prog%3Awexit">21</a> 行目と <a href="#prog%3Awwexit">22</a>行目)。 子プロセスが通常の方法で終了した場合、そのリターンコードとテーブルの下半分の探索結果を組み合わせます。そうでなければエラーが起こっているので、 <code>fork_search</code> 関数は失敗します。
+</p><div class="fancybreak">* * *</div></div><p><code>wait</code> はプロセス間の同期を行いますが、それ以外に子プロセスが持つリソースの完全な開放も行います。終了した子プロセスは “ゾンビ” 状態となり大部分のリソース (メモリなど) が開放されますが、子プロセスは <code>wait</code> を呼んだ親プロセスに返り値を伝える必要があるので、プロセステーブルのスロットには乗ったままです。親プロセスが <code>wait</code> を呼べば、子プロセスはプロセステーブルからも削除されます。このテーブルの大きさは固定なので、リークを防ぐためにもフォークした全てのプロセスを <code>wait</code> することが重要です。</p><p><a id="double-fork"></a>
+親プロセスが子プロセスよりも先に終了した場合、子の親はプロセス ID が 1 のプロセス (通常は <code>init</code>) に移ります。このプロセスは <code>wait</code> の無限ループを含むので、子プロセスは終了するとすぐに回収されます。この仕組みによって “ダブルフォーク” という便利なテクニックが使えるようになります。このテクニックは子プロセスの終了をブロックして待つことができないときなどに使われます。
+</p><div class="mylisting"><span class="c001">match</span> fork () <span class="c001">with</span>
+| 0 -&gt; <span class="c001">if</span> fork () &lt;&gt; 0 <span class="c001">then</span> exit 0;
+      <em>(* 子プロセスの処理を行う *)</em>
+| _ -&gt; wait ();
+      <em>(* 親プロセスの処理を行う *)</em></div><p>子プロセスは二回目のフォークの後すぐに終了します。これによって孫プロセスは親を失うので、<code>init</code> の養子となります。この方法ではゾンビプロセスが生まれることはありません。親はフォーク後すぐに <code>wait</code> を呼んで子を回収します。子はすぐに終了するので、この <code>wait</code> が長い間ブロックすることはありません。</p><p><br>
+</p>
+<h2 class="section" id="sec71">3.4  プログラムの起動</h2>
+<p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/execve.html"><span class="c003">execve</span></a><a id="hevea_default74"></a>、 <a href="http://www.opengroup.org/onlinepubs/009696799/functions/execv.html"><span class="c003">execv</span></a><a id="hevea_default75"></a>、 そして <a href="http://www.opengroup.org/onlinepubs/009696799/functions/execvp.html"><span class="c003">execvp</span></a><a id="hevea_default76"></a> は現在のプロセスでプログラムを起動します。現在のプログラムの実行を止めて新しいプログラムに移るので、エラーの場合を除いてこの呼び出しが返ることはありません。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALexecve">execve</a> : string -&gt; string array -&gt; string array -&gt; unit
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALexecv">execv</a>  : string -&gt; string array -&gt; unit
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALexecvp">execvp</a> : string -&gt; string array -&gt; unit</div><p>第一引数は実行するプログラムを含むファイルの名前です。<code>execvp</code> を使った場合ファイルの名前は (環境変数 <code>PATH</code> で指定される) 探索パスのディレクトリから探索されます。</p><p>第二引数はプログラムを実行するときに渡されるコマンドライン引数の配列です。実行するプログラムの中ではこの配列が <code>Sys.argv</code> となります。</p><p><code>execve</code> を使うと第三引数にプログラムが実行される環境を渡すことができます。<code>execv</code> と <code>execvp</code> では現在の環境がそのまま使われます。</p><p><code>execve</code> と <code>execv</code>、そして <code>execvp</code> が結果を返すことはありません。エラーが起こること無くプロセスが指定されたプログラムを実行するか、実行ファイルが見つからないなどのエラーが起きて呼び出し元のプログラムに <code>Unix_error</code> を出すかのどちらかです。</p><div class="example">
+<h5 class="paragraph" id="sec72">例</h5>
+<p>
+次の三つは同じ動作をします:
+</p><div class="mylisting">execve <span class="c002">"/bin/ls"</span> [|<span class="c002">"ls"</span>; <span class="c002">"-l"</span>; <span class="c002">"/tmp"</span>|] (environment ())
+execv  <span class="c002">"/bin/ls"</span> [|<span class="c002">"ls"</span>; <span class="c002">"-l"</span>; <span class="c002">"/tmp"</span>|]
+execvp <span class="c002">"ls"</span>      [|<span class="c002">"ls"</span>; <span class="c002">"-l"</span>; <span class="c002">"/tmp"</span>|]</div><div class="fancybreak">* * *</div></div><div class="example">
+<h5 class="paragraph" id="sec73">例</h5>
+<p>
+受け取った <code>grep</code> コマンドへの引数に <code>-i</code> オプション (大文字と小文字を区別しない) を追加して起動するための “ラッパー” コマンドは以下のように書けます:
+</p><div class="mylisting"><span class="c001">open</span> Sys;;
+<span class="c001">open</span> Unix;;
+<span class="c001">let</span> grep () =
+ execvp <span class="c002">"grep"</span>
+   (Array.concat
+      [ [|<span class="c002">"grep"</span>; <span class="c002">"-i"</span>|];
+        (Array.sub Sys.argv 1 (Array.length Sys.argv - 1)) ])
+;;
+handle_unix_error grep ();;</div><div class="fancybreak">* * *</div></div><div class="example">
+<h5 class="paragraph" id="sec74">例</h5>
+<p>
+<code>emacs</code> コマンドをターミナルのタイプを変えて起動するための “ラッパー” コマンドは以下のように書けます:
+</p><div class="mylisting"><span class="c001">open</span> Sys;;
+<span class="c001">open</span> Unix;;
+<span class="c001">let</span> emacs () =
+ execve <span class="c002">"/usr/bin/emacs"</span> Sys.argv
+   (Array.concat [ [|<span class="c002">"TERM=hacked-xterm"</span>|]; (environment ()) ]);;
+handle_unix_error emacs ();;</div><div class="fancybreak">* * *</div></div><p><code>exec</code> を呼んだプロセスは新しいプログラムを実行するプロセスと同じです。そのため新しいプログラムは <code>exec</code> を呼んだプログラムの実行環境の一部を引き継ぎ、以下に上げるものは同じになります:
+</p><ul class="itemize"><li class="li-itemize">
+プロセス ID と親プロセス
+</li><li class="li-itemize">標準出力、標準入力、標準エラー出力
+</li><li class="li-itemize">無視されるシグナル (<a href="signals.html#sec%2Fsignals">4</a> 章を参照)
+</li></ul>
+<h2 class="section" id="sec75">3.5  完全な例: ミニシェル</h2>
+<p>次のプログラムは単純なコマンドインタープリターです。標準入力から行入力を読み、単語ごとに区切り、コマンドを起動し、標準入力から EOF を受け取るまでこれを繰り返します。文字列を単語のリストに分割する関数から始めます。このひどい処理についてはどうかノーコメントとさせてください。</p><div class="mylisting"><span class="c001">open</span> Unix;;
+<span class="c001">open</span> Printf;;
+
+<span class="c001">let</span> split_words s =
+ <span class="c001">let rec</span> skip_blanks i =
+   <span class="c001">if</span> i &lt; String.length s &amp; s.[i] = ' '
+   <span class="c001">then</span> skip_blanks (i+1)
+   <span class="c001">else</span> i <span class="c001">in
+ let rec</span> split start i =
+   <span class="c001">if</span> i &gt;= String.length s <span class="c001">then</span>
+     [String.sub s start (i-start)]
+   <span class="c001">else if</span> s.[i] = ' ' <span class="c001">then
+     let</span> j = skip_blanks i <span class="c001">in</span>
+     String.sub s start (i-start) :: split j j
+   <span class="c001">else</span>
+     split start (i+1) <span class="c001">in</span>
+ Array.of_list (split 0 0);;</div><p>次はインタープリターのメイン処理です:
+</p><div class="mylisting"><span class="c001">let</span> exec_command cmd =
+ <span class="c001">try</span> execvp cmd.(0) cmd
+ <span class="c001">with</span> Unix_error(err, _, _) -&gt;
+   printf <span class="c002">"Cannot execute %s : %s\n%!"</span>
+     cmd.(0) (error_message err);
+   exit 255
+
+<span class="c001">let</span> print_status program status =
+ <span class="c001">match</span> status <span class="c001">with</span>
+ | WEXITED 255 -&gt; ()
+ | WEXITED status -&gt;
+     printf <span class="c002">"%s exited with code %d\n%!"</span> program status;
+ | WSIGNALED signal -&gt;
+     printf <span class="c002">"%s killed by signal %d\n%!"</span> program signal;
+ | WSTOPPED signal -&gt;
+     printf <span class="c002">"%s stopped (???)\n%!"</span> program;;</div><p><code>exec_command</code> 関数がコマンドを実行とエラーの対処を行います。リターンコード 255 はコマンドが実行されなかったことを意味します (これは通常の慣習ではありません。リターンコード 255 で終了するプログラムはほとんど無いはずだという想定からこのようにしています)。<code>print_status</code> は終了プロセスが返した状態をデコードして出力します。
+</p><div class="mylisting"><span class="c001">let</span> minishell () =
+ <span class="c001">try
+   while true do
+     let</span> cmd = input_line Pervasives.stdin <span class="c001">in
+     let</span> words = split_words cmd <span class="c001">in
+     match</span> fork () <span class="c001">with</span>
+     | 0 -&gt; exec_command words
+     | pid_son -&gt;
+         <span class="c001">let</span> pid, status = wait () <span class="c001">in</span>
+         print_status <span class="c002">"Program"</span> status
+   <span class="c001">done
+ with</span> End_of_file -&gt; ()
+;;
+
+handle_unix_error minishell ();;</div><p><code>input_line</code> 関数は EOF に達すると <code>End_of_file</code> を出すので、これをもってループの終了とします。その後は行入力を単語に区切ってから <code>fork</code> を呼び出します。子プロセスは <code>exec_command</code> を呼んでコマンドを実行します。親プロセスは <code>wait</code> を使ってコマンドの終了を待った後、<code>wait</code> の返す子プロセスの状態を出力します。</p><div class="exercise">
+<h5 class="paragraph" id="sec76">練習問題 10</h5>
+<p><a id="ex10"></a>
+<a id="shell"></a>
+コマンドの最後に <code>&amp;</code> が付いている場合にコマンドをバックグラウンドで実行する機能を追加してください。
+<a href="exercise10.html#exans10">解答</a></p><div class="fancybreak">* * *</div></div>
+<hr>
+<a href="files.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="signals.html"><img src="next_motif.svg" alt="Next"></a>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>基礎</title>
+</head>
+<body>
+<a href="intro.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="files.html"><img src="next_motif.svg" alt="Next"></a>
+<hr>
+<h1 class="chapter" id="sec3"> 1  基礎</h1>
+
+<h2 class="section" id="sec4">1.1  <span class="c003">Sys</span> モジュールと <span class="c003">Unix</span> モジュール</h2>
+<p>OCamlからシステムにアクセスするときに使われる関数は <code>Sys</code> と <code>Unix</code> の二つのモジュールにまとめられています。一つ目の <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Sys.html"><span class="c003">Sys</span></a> モジュールは OCamlが実行される Unix およびその他のオペレーティングシステムで一般的な関数を含みます。二つ目の <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html"><span class="c003">Unix</span></a> モジュールは Unix に特有なものを全て含みます。</p><p>これ以降 <code>Sys</code> と <code>Unix</code> モジュールにある識別子はどちらのモジュールのものかを示すことなく使うことにします。つまり <code><span class="c001">open</span> Sys</code> および <code><span class="c001">open</span> Unix</code> を実行した状態であるということです。完全な例を示すときには、<code><span class="c001">open</span> Sys</code> と <code><span class="c001">open</span> Unix</code> を明示的に書くことにします。</p><p><code>Sys</code> および <code>Unix</code> モジュールは <code>Pervasives</code> モジュールに定義されている変数を上書きし、元の定義を隠してしまうことがあるので注意してください。例えば、 <code>Pervasives.stdin</code> と <code>Unix.stdin</code> は別物です。隠された定義にはプリフィックスをつけることでアクセスできます。</p><p>Unix ライブラリを使う OCamlのプログラムをコンパイルするには、次のようにします:
+</p><div class="mylisting">ocamlc -o prog unix.cma mod1.ml mod2.ml mod3.ml</div><p>ここで <code>prog</code> というプログラムは <code>mod1</code>, <code>mod2</code> そして <code>mod3</code> という三つのモジュールから成ります。モジュールは別々にコンパイルすることもできます:
+</p><div class="mylisting">ocamlc -c mod1.ml
+ocamlc -c mod2.ml
+ocamlc -c mod3.ml</div><p>この場合、次のようにしてリンクします:
+</p><div class="mylisting">ocamlc -o prog unix.cma mod1.cmo mod2.cmo mod3.cmo</div><p>両方の例において、引数 <code>unix.cma</code> は OCamlで書かれた <code>Unix</code> ライブラリを表します。バイトコードコンパイラではなくネイティブコードコンパイラを使うには、 <code>ocamlc</code> を <code>ocamlopt</code> に、<code>unix.cma</code> を <code>unix.cmxa</code> に置き換えてください。</p><p>コンパイルツール <code>ocamlbuild</code> を使っている場合、次の内容を <code>_tags</code> ファイルに追加してください:
+</p><div class="mylisting">&lt;prog.{native,byte}&gt; : use_unix</div><p>“toplevel” を言われる対話環境から Unix システムにアクセスすることもできます。実行している環境が C ライブラリの動的リンクに対応している場合、OCamlトップレベルを起動して次のディレクティブを入力します:
+</p><div class="mylisting"><span class="c001">#</span>load <span class="c002">"unix.cma"</span>;;</div><p>動的リンクに対応していない場合、システム関数がプリロードされた対話環境を作る必要があります:
+</p><div class="mylisting">ocamlmktop -o ocamlunix unix.cma</div><p>このトップレベルは次のコマンドで起動できます:
+</p><div class="mylisting">./ocamlunix</div>
+<h2 class="section" id="sec5">1.2  プログラムを呼ぶためのインターフェース</h2>
+<p>シェル (コマンドインタープリタ) からプログラムを実行する場合、シェルは <em>引数</em> と <em>環境</em> を実行するプログラムに渡します。引数とはコマンドライン上でプログラムの名前の後ろに続く語です。環境とは <span class="c003">variable=value</span> の形をした文字列の集まりであり、環境変数のバインディングを表します。このバインディングは csh では <span class="c003">setenv var=val</span> で、 <span class="c003">sh</span> では <span class="c003">var=val; export var</span>でセットされます。</p><p>プログラムに渡された引数は文字列の配列 <code>Sys.argv</code> に格納されます:
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Sys.html#VALargv">argv</a><a id="hevea_default0"></a> : string array</div><p>プログラムの環境は <code>Unix.environment</code> 関数で取得できます:
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALenvironment">environment</a><a id="hevea_default1"></a> : unit -&gt; string array</div><p><code>Sys.getenv</code> 関数を使えば環境をより簡単に検索できます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Sys.html#VALgetenv">getenv</a><a id="hevea_default2"></a> : string -&gt; string</div><p><code>Sys.getenv v</code> は <code>v</code> という環境変数に結び付けられた値を返します。環境変数が見つからなかった場合は <code>Not_found</code> 例外を出します。
+</p><div class="example">
+<h5 class="paragraph" id="sec6">例</h5>
+<p>
+最初の例として、引数を出力する <code>echo</code> プログラムを示します。これは同じ名前の Unix コマンドと同じ動作です。
+</p><div class="mylisting"><span class="c001">let</span> echo () =
+  <span class="c001">let</span> len = Array.length Sys.argv <span class="c001">in
+  if</span> len &gt; 1 <span class="c001">then
+    begin</span>
+      print_string Sys.argv.(1);
+      <span class="c001">for</span> i = 2 <span class="c001">to</span> len - 1 <span class="c001">do</span>
+        print_char ' ';
+        print_string Sys.argv.(i);
+      <span class="c001">done</span>;
+      print_newline ();
+    <span class="c001">end</span>;;
+echo ();;</div><div class="fancybreak">* * *</div></div><p>プログラムは <code>exit</code> を呼ぶことで任意の場所で終了させることができます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html#VALexit">exit</a><a id="hevea_default3"></a> : int -&gt; 'a</div><p>引数は呼び出し元のプログラムに送られる返り値です。問題のない場合には 0 を、エラーが起こった場合には0でない値を返すという慣習があります。プログラムの実行結果が条件として使われた場合、<code>sh</code> シェルは返り値 0 をブール値 “true” に、0 でない全ての返り値を “false” として解釈します。</p><p>プログラムが全ての式を実行し終わって終了する場合、そのプログラムは暗黙的に <code>exit 0</code> を呼びます。プログラムが補足されない例外によって途中で実行を終了する場合、そのプログラムは暗黙的に <code>exit 2</code> を呼びます。</p><p><code>exit</code> 関数は呼ばれたときに書き込み用にオープンされている全てのチャンネルのバッファをフラッシュします。<code>at_exit</code> 関数を使うと、プログラムが終了するときにこれ以外の動作をさせることができます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html#VALat_exit">at_exit</a><a id="hevea_default4"></a> : (unit -&gt; unit) -&gt; unit</div><p>最後に登録された関数が最初に実行されます。<code>at_exit</code> 関数を使って登録された関数は登録を解除することができませんが、これが本質的な制限になることはありません。グローバル変数を使って実行を変えることができるからです。</p>
+<h2 class="section" id="sec7">1.3  エラー処理</h2>
+<p>他に明示されていない限り、<code>Unix</code> モジュールの全ての関数はエラーが起きたときに <code>Unix_error</code> 例外を出します。
+
+</p><div class="mylisting"><span class="c001">exception</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#EXCEPTIONUnix_error">Unix_error</a> <span class="c001">of</span> error * string * string</div><p><code>Unix_error</code> 例外の第二引数はエラーが起こったシステムコールの名前です。第三引数はエラーが起こったオブジェクトの名前を(可能な場合には)表します。例えば、ファイルの名前を引数として取るシステムコールの場合には、このファイルの名前が <code>Unix_error</code> の第三引数となります。最後に、第一引数はエラーの種類を表すエラーコードを表します。エラーコードは <code>error</code> というヴァリアント型に属しています。
+</p><div class="mylisting"><span class="c001">type</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEerror">error</a> = E2BIG | EACCES | EAGAIN | ...  | EUNKNOWNERR <span class="c001">of</span> int</div><p>この型のコンストラクタには <span class="c007">posix</span> で定義されるエラーが同じ名前と意味ですべて含まれ、加えて <span class="c007">unix98</span>, <span class="c007">bsd</span> のエラーの一部が含まれます。その他の全てのエラーは <code>EUNKOWNERR</code> というコンストラクタになります。</p><p>例外が発生したとき、 <code><span class="c001">try</span></code> によって補足されないエラーはプログラムの一番上まで上がっていき、プログラムを実行の途中で終了させます。小さいアプリケーションでは予見できないエラーを致命的なものとみなすことは良い習慣です。しかしその場合、エラーを分かりやすく表示することが望ましいです。エラーを分かりやすく表示するために、 <code>Unix</code> モジュールには <code>handle_unix_error</code> 関数があります:
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALhandle_unix_error">handle_unix_error</a><a id="hevea_default5"></a> : ('a -&gt; 'b) -&gt; 'a -&gt; 'b</div><p><code>handle_unix_error f x</code> はまず引数 <code>x</code> を関数 <code>f</code> に適用します。この適用が <code>Unix_error</code> を出した場合、エラーを説明するメッセージが表示され、<code>exit 2</code> によってプログラムは終了します。次のプログラムは典型的な使用例です:
+</p><div class="mylisting">handle_unix_error prog ();;</div><p>ここで関数 <code>prog : unit -&gt; unit</code> がプログラム本体を実行します。参考のために、 <code>handle_unix_error</code> の実装を以下に示します。
+</p><div class="mylisting"><span class="c005">   1</span> <span class="c001">open</span> Unix;;
+<span class="c005">   2</span> <span class="c001">let</span> handle_unix_error f arg =
+<span class="c005">   3</span>   <span class="c001">try</span>
+<span class="c005">   4</span>     f arg
+<span class="c005">   5</span>   <span class="c001">with</span> Unix_error(err, fun_name, arg) -&gt;
+<span class="c005">   6</span>     prerr_string Sys.argv.(0); <a id="prog:argv"></a>
+<span class="c005">   7</span>     prerr_string <span class="c002">": \""</span>;
+<span class="c005">   8</span>     prerr_string fun_name;
+<span class="c005">   9</span>     prerr_string <span class="c002">"\" failed"</span>;
+<span class="c005">  10</span>     <span class="c001">if</span> String.length arg &gt; 0 <span class="c001">then begin</span>
+<span class="c005">  11</span>       prerr_string <span class="c002">" on \""</span>;
+<span class="c005">  12</span>       prerr_string arg;
+<span class="c005">  13</span>       prerr_string <span class="c002">"\""</span>
+<span class="c005">  14</span>     <span class="c001">end</span>;
+<span class="c005">  15</span>     prerr_string <span class="c002">": "</span>;
+<span class="c005">  16</span>     prerr_endline (error_message err); <a id="prog:errmsg"></a>
+<span class="c005">  17</span>     exit 2;;</div><p><code>prerr_xxx</code> の形をした関数は基本的には <code>print_xxx</code> 関数と同じ動作をしますが、書き込み先は <code>stdout</code> ではなく <code>stderr</code> となります。</p><p><code>error -&gt; string</code> 型をもつ <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALerror_message"><span class="c003">error_message</span></a><a id="hevea_default6"></a> は引数の番号が表すエラーを説明するメッセージを返します (第 <a href="#prog%3Aerrmsg">16</a> 行)。プログラムに渡される第 0 引数 <code>Sys.argv.(0)</code> にはプログラムを起動するのに使われたコマンドが格納されます (第 <a href="#prog%3Aargv">6</a> 行)。</p><p><code>handle_unix_error</code> 関数がプログラムの実行を終了させるような致命的なエラーを処理します。OCamlを使うことの利点は全てのエラーを明示的に処理することが求められ、エラーが発生するとプログラムの実行が終了することになるトップレベルでさえこれが求められることです。実際システムコールによるどんなエラーも例外を発生させるので、プログラムの実行は中断され、例外は明示的に補足・処理されるまで上に登る事になります。これによってプログラムが不整合状態で実行が続くことを防ぐことができます。</p><p><code>Unix_error</code> 型のエラーにはもちろんパターンマッチを使うことができます。次の関数はこれからよく目にすることになります:
+</p><div class="mylisting"><span class="c001">let rec</span> restart_on_EINTR f x =
+  <span class="c001">try</span> f x <span class="c001">with</span> Unix_error (EINTR, _, _) -&gt; restart_on_EINTR f x</div><p>このコードは関数を実行してもし中断された場合にはもう一度繰り返すという処理を行います(<a href="signals.html#sec%2Fsigsyscalls">4.5</a> 節を参照)。</p>
+<h2 class="section" id="sec8">1.4  ライブラリ関数</h2>
+<p>これから例を通して見ていくことですが、システムプログラミングでは同じパターンの処理が繰り返し出てきます。アプリケーションのコードが本質的な部分だけを含むように、共通する処理をまとめたライブラリ関数を定義しておくことが望ましいです。</p><p>自分で書いて自分で実行するプログラムではどんなエラーが出て、そのうちどれが実行を終了させるような致命的なエラーかが分かるものですが、ライブラリ関数の場合には実行されるコンテキストが分からないのでどれが致命的なエラーなのかは通常分かりません。かといって全てのエラーが致命的であると仮定することもできません。そのためプログラムを止めるのか、それとも無視するのか呼び出し元に判断させるために、エラーを呼び出し元に伝えることが必要になります。</p><p>しかし、ライブラリ関数を普通に実装すると発生したエラーをそのまま呼び出し元に伝えることができません。システムを整合状態に置くことが求められるためです。例えばファイルを開いてそのファイルディスクリプタを使って操作を行うライブラリ関数は、ファイルへの操作でエラーが生じた場合を含めた全ての場合においてファイルディスクリプタを閉じる処理を行う必要があります。ファイルディスクリプタがリークしてファイルディスクリプタを使いきってしまうことを防ぐためです。</p><p>ファイルに対する操作を引数として受け取る場合もあります。この場合、いつどのように操作が失敗するかを知ることは (呼び出した側でなければ) できません。そのため操作の本体は “最終処理” コードで守ることが必要になります。このコードは関数が例外を出したかどうかにかかわらず、関数が帰る直前に実行されます。</p><p><code><span class="c001">try</span></code> …<code>finalize</code> 構文は OCamlにビルトインでは用意されていませんが、簡単に定義することができます <sup><a id="text1" href="#note1">1</a></sup>。
+</p><div class="mylisting"><span class="c001">let</span> try_finalize f x finally y =
+  <span class="c001">let</span> res = <span class="c001">try</span> f x <span class="c001">with</span> exn -&gt; finally y; raise exn <span class="c001">in</span>
+  finally y;
+  res</div><p>この関数はメインの処理 <code>f</code> と最終処理 <code>finally</code> およびそれらの引数 <code>x</code> と <code>y</code> を受け取ります。最初にプログラムの本体 <code>f x</code> が実行され、その結果は最終処理 <code>finally y</code> が実行されてから返されます。プログラムの実行で例外 <code>exn</code> が起こった場合、最終処理が実行されてからもう一度 <code>exn</code> を出します。メインの処理と最終処理の両方が失敗した場合、最終処理の例外が出されます(メインの処理の例外が出されるようにすることもできます)。</p>
+<h5 class="paragraph" id="sec9">ノート</h5>
+<p>これからこのコースでは例でよく使う <code>try_finalize</code> などの関数をまとめた補助ライブラリ <code>Misc</code> を使います。必要に応じてライブラリの関数を紹介するほか、インターフェースは付録にあります。このコースに出てくる例をコンパイルするには、 <code>Misc</code> モジュールの定義をまとめておく必要があります。</p><p><code>Misc</code> モジュールにはこのコースでは直接使用しない可視化のための関数も含まれています。これらの関数は <code>Unix</code> ライブラリを強化するためのもので、いくつかの関数の振る舞いを上書きします。そのため <code>Misc</code> ライブラリを使う場合は <code>Unix</code> の後に読み込まれる必要があります。</p>
+<h5 class="paragraph" id="sec10">例</h5>
+<p>このコースにはたくさんの例が含まれています。これらはバージョン <span class="c003">4.05.0</span>の OCamlでコンパイルされることを確認しています。古いバージョンではプログラムを若干改変する必要があります。</p><p>例には二つの種類があります: とても一般的で再利用が可能な “ライブラリ関数” と小さなアプリケーションです。これら二つを区別することは重要です。ライブラリ関数の場合には実行時のコンテキストをできるだけ一般的なものと仮定して、インターフェースを熟慮し、全ての特殊ケースを扱うようにします。一方小さなアプリケーションの場合には、多くのエラーは致命的なものであり、プログラムの実行を停止させます。そのためエラーが起きた時にはその原因を伝えるだけで十分であり、システムを整合状態へと戻す処理は必要ありません。
+
+</p>
+<hr class="footnoterule"><dl class="thefootnotes"><dt class="dt-thefootnotes">
+<a id="note1" href="#text1">1</a></dt><dd class="dd-thefootnotes"><div class="footnotetext">構文がビルトインで用意されれば関数を定義して使うよりも便利でしょう。</div></dd></dl>
+<hr>
+<a href="intro.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="files.html"><img src="next_motif.svg" alt="Next"></a>
+</body>
+</html>

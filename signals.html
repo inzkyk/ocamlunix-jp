@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>シグナル</title>
+</head>
+<body>
+<a href="processes.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="pipes.html"><img src="next_motif.svg" alt="Next"></a>
+<hr>
+<h1 class="chapter" id="sec/signals"> 4  シグナル</h1>
+<p>シグナル、あるいはソフトウェア割り込みはプログラムの処理を切り替えるためのプログラム外部からの非同期イベントです。シグナルはプログラムの実行中のどんなときにでも起こりえます。この点において、 <span class="c003">read</span><a id="hevea_default77"></a> 関数やパイプ (<a href="pipes.html#sec%2Fpipes">5</a> 章参照) のような外部からのメッセージを明示的に待つプロセス間通信とは異なっています。</p><p>シグナルによって伝わるのはシグナルの種類という最小限の情報だけです。シグナルはもともとプロセス間通信を目的とするものではありませんでしたが、外部装置 (つまりシステムや他のプロセス) の状態の原始的な情報を送ることでプロセス間通信を可能にしています。</p>
+<h2 class="section" id="sec79">4.1  デフォルトの動作</h2>
+<p>プロセスがシグナルを受け取ったときの動作としてありえるのは次の四つです:
+</p><ul class="itemize"><li class="li-itemize">
+シグナルがプロセスを終了させる。加えてシステムはプロセスの状態のイメージをコアファイルに書き込むことができる (コアダンプと呼ばれ、あとでデバッガを使って調べられる)。
+</li><li class="li-itemize">シグナルはプロセスの実行を停止させるが、メモリー上に保持する。親プロセス (たいていはシェル) は終了しないので、あとで追加のシグナルを送ることでプロセスの実行をフォアグラウンドまたはバックグラウンドで再開させることができる。
+</li><li class="li-itemize">シグナルは完全に無視され、何も起きない。
+</li><li class="li-itemize">シグナルを受け取ったプロセスで関連づいた関数が実行される。それまでのプロセスの実行は関数が返ってから再開される。
+</li></ul><p>シグナルにはいくつか種類があり、それぞれ特定のイベントと結びついています。表 <a href="#tab%2Fsignals">4</a> にシグナル (の一部) とそのデフォルトの動作を示します。
+</p><div class="table">
+<table class="c000 cellpading0"><tr><td class="c011">名前</td><td class="c011">イベント</td><td class="c011">デフォルトの動作 </td></tr>
+<tr><td class="hbar" colspan=3></td></tr>
+<tr><td class="c011"><code>sighup</code></td><td class="c011">ハングアップ (接続の終了)</td><td class="c011">終了 </td></tr>
+<tr><td class="c011"><code>sigint</code></td><td class="c011">割り込み (<code>ctrl-C</code>)</td><td class="c011">終了 </td></tr>
+<tr><td class="c011"><code>sigquit</code></td><td class="c011">終了 (<code>ctrl-\</code>)</td><td class="c011">終了 &amp; コアダンプ </td></tr>
+<tr><td class="c011"><code>sigfpe</code></td><td class="c011">算術エラー (0 による除算)</td><td class="c011">終了 &amp; コアダンプ </td></tr>
+<tr><td class="c011"><code>sigkill</code></td><td class="c011">中止 (無視できない)</td><td class="c011">終了 </td></tr>
+<tr><td class="c011"><code>sigsegv</code></td><td class="c011">不正なメモリ参照</td><td class="c011">終了 &amp; コアダンプ </td></tr>
+<tr><td class="c011"><code>sigpipe</code></td><td class="c011">読み込み先のいないパイプへの書き出し</td><td class="c011">終了 </td></tr>
+<tr><td class="c011"><code>sigalrm</code></td><td class="c011">タイマー割り込み</td><td class="c011">無視 </td></tr>
+<tr><td class="c011"><code>sigtstp</code></td><td class="c011">一時中断 (<code>ctrl-Z</code>)</td><td class="c011">中断 </td></tr>
+<tr><td class="c011"><code>sigcont</code></td><td class="c011">中断したプロセスの再開</td><td class="c011">無視 </td></tr>
+<tr><td class="c011"><code>sigchld</code></td><td class="c011">子プロセスが終了あるいは停止した</td><td class="c011">無視 <br>
+</td></tr>
+<tr><td class="hbar" colspan=3></td></tr>
+</table>
+
+<a id="tab/signals"></a>
+<div class="caption">Table 4 — シグナル (一部) とそのデフォルトの動作</div></div><p>プロセスが受け取るシグナルはいくつかの方法で送られます:
+</p><ul class="itemize"><li class="li-itemize">ユーザがキーボードで送る。コンソールで <code>ctrl-C</code> と打つことで <code>sigint</code> シグナルをターミナルがフォアグラウンドで実行しているプロセスに送ることができる。同様に <code>ctrl-\</code> は <code>sigquit</code> シグナルを送る<sup><a id="text7" href="#note7">1</a></sup>。端末が自分自身を終了するか、ネットワークのリンクが切れることで端末が終了したとき、 <code>sighup</code> シグナル送られる。</li><li class="li-itemize">ユーザがシェルコマンド <code>kill</code> で送る。<code>kill</code> を使うと特定のプロセスに特定のシグナルを送ることができる。例えば <code>kill -KILL 194</code> は <code>sigkill</code> シグナルを ID が 194 のプロセスに送り、プロセスを停止させる</li><li class="li-itemize">他のプログラムがシステムコール <code>kill</code> で送る (一つ前のケースと同じ)。</li><li class="li-itemize">プロセスの誤った動作を受けてシステムが送る。例えばゼロによる除算を行おうとしたプロセスには <code>sigfpe</code> が送られる。</li><li class="li-itemize">システムが実行環境が変化したことを通知するために送る。例えば子プロセスが終了すると、親には <code>sigchld</code> シグナルが送られる。</li></ul>
+<h2 class="section" id="sec/usingsignals">4.2  シグナルの利用</h2>
+<p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/kill.html"><span class="c003">kill</span></a><a id="hevea_default78"></a> を使うとプロセスにシグナルを送ることができます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALkill">kill</a> : int -&gt; int -&gt; unit</div><p>第一引数はシグナルを送るプロセスの ID で、第二引数は送るシグナルの番号です。<code>kill</code> を呼んだユーザによって所有されていないプロセスにシグナルを送ろうとするとエラーとなります。プロセスは自分自身にシグナルを送ることができます。システムコール <code>kill</code> が値を返した場合、シグナルが目的のプロセスに届いたことが保証されます。</p><p>プロセスが同じシグナルを短い間に何度も受け取った場合、そのシグナルに対応するコードは一度しか実行しないことがあります。そのためプロセスは受け取ったシグナルの数を数えることはできず、数えられるのはシグナルに反応した回数となります。</p><p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/alarm.html"><span class="c003">alarm</span></a><a id="hevea_default79"></a> を使うとシステムクロックを使って割り込みを予約することができます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALalarm">alarm</a> : int -&gt; int</div><p><code>alarm s</code> という呼び出しはすぐに返りますが、その後少なくとも <code>s</code> 秒後 (最大で何秒後かについての保証はありません) に <code>sigalrm</code> シグナルが送られます。この呼び出しが返すのはこれまでの <code>alarm</code> によって設定されたアラームまでの残り秒数です。<code>s</code> が <code>0</code> の場合、これまでのアラームをキャンセルします。</p>
+<h2 class="section" id="sec81">4.3  シグナルに対する動作の変更</h2>
+<p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/signal.html"><span class="c003">signal</span></a><a id="hevea_default80"></a> を使うとプロセスが指定した種類のシグナルを受け取ったときの動作を変更できます。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Sys.html#VALsignal">signal</a> : int -&gt; signal_behavior -&gt; signal_behavior</div><p>第一引数は動作を変更するシグナルの番号で、 <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Sys.html#TYPEsignal_behavior"><span class="c003">signal_behavior</span></a> 型の第二引数はそのシグナルに対応する動作を指定します。 <code>signal_behavior</code> には以下の値があります:
+</p><div class="mltypecases">
+<table class="c000 cellpading0"><tr><td class="c011"> <code>Signal_ignore</code></td><td class="c011">シグナルを無視する。 </td></tr>
+<tr><td class="c011"><code>Signal_default</code></td><td class="c011">デフォルトの動作を行う。 </td></tr>
+<tr><td class="c011"><code>Signal_handle f</code></td><td class="c011">シグナルを受け取ると <code>f</code> を実行する。
+</td></tr>
+</table>
+</div><p>システムコール <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALfork"><span class="c003">fork</span></a><a id="hevea_default81"></a> によってプロセスをフォークしてもシグナルに関する動作は引き継がれます。フォーク直後の子プロセスのシグナルへの動作は <code>fork</code> が実行された時点での親プロセスのものと同じです。システムコール <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALexecve"><span class="c003">execve</span></a><a id="hevea_default82"></a> は無視されているシグナルは無視されたままにし、それ以外のシグナルについては <code>Signal_default</code> に動作を変更します。</p><div class="example">
+<h5 class="paragraph" id="sec82">例</h5>
+<p>
+ログオフしたりセッションを終了した後でもバックグラウンドでタスク (大規模な計算、あるいは “スパイウェア” など)を実行したままにしておきたいことがあります。プロセスの <code>sighup</code> シグナル (ユーザが接続を終了すると送られます) に対するデフォルトの動作はプロセスの終了なので、このシグナルを無視するように変更すればプロセスを実行されたままにすることができます。Unix コマンド <code>nohup</code> はまさにこのことを行います:
+</p><div class="mylisting">nohup cmd arg1 ... argn</div><p><code>nohup</code> はコマンド <code>cmd arg1 ... argn</code> を <code>fighup</code> に影響されない状態で実行します (バックグラウンドで起動された全てのプロセスに対して自動的に <code>nohup</code> を実行するシェルもあります)。この <code>nohup</code> は 3 行で実装できます:
+</p><div class="mylisting"><span class="c001">open</span> Sys;;
+signal sighup Signal_ignore;;
+Unix.execvp argv.(1) (Array.sub argv 1 (Array.length argv - 1));;</div><p>システムコール <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALexecvp"><span class="c003">execvp</span></a><a id="hevea_default83"></a> は <code>sighup</code> が無視される状態を引き継ぎます。
+</p><div class="fancybreak">* * *</div></div><div class="example">
+<h5 class="paragraph" id="sec83">例</h5>
+<p>
+異常動作をしたプログラムの注意深い終了処理。例えば <code>tar</code> のようなプログラムは、異常動作によって終了することになっても終了する前にファイルの重要な情報を書き込んだり壊れたファイルを削除することが望ましいです。以下のコードをプログラムの最初に書けばプログラムが終了するときの動作を設定することができます。
+</p><div class="mylisting">signal sigquit (Signal_handle quit);
+signal sigsegv (Signal_handle quit);
+signal sigfpe  (Signal_handle quit);</div><p>ここで <code>quit</code> は以下のような形をしています:
+</p><div class="mylisting"><span class="c001">let</span> quit _ =
+  <em>(* ファイルの重要な情報の書き込みを試みる *)</em>
+  exit 100;;</div><div class="fancybreak">* * *</div></div><div class="example">
+<h5 class="paragraph" id="sec84">例</h5>
+<p>
+ユーザが発した割り込みのキャプチャ。インタラクティブなプログラムではユーザが <code>ctrl-C</code> を押したときにメインループを抜けるようになっていることがあります。<code>sigint</code> シグナルを受け取ったときに例外を出すようにすれば実装できます。
+</p><div class="mylisting"><span class="c001">exception</span> Break;;
+<span class="c001">let</span> break _ = raise Break;;
+...
+<span class="c001">let</span> main_loop () =
+  signal sigint (Signal_handle break);
+  <span class="c001">while true do
+    try</span> <em>(* ユーザのコマンドを読み込んで評価する  *)</em>
+    <span class="c001">with</span> Break -&gt; <em>(* "stopped" と表示する *)</em>
+  <span class="c001">done</span>;;</div><div class="fancybreak">* * *</div></div><div class="example">
+<h5 class="paragraph" id="sec85">例</h5>
+<p>
+<a id="ex/beep"></a>
+アニメーションなどのメインプログラムと切り離された周期的なタスクの実行。例えば次のプログラムメインプログラムの動作 (計算、入出力) に関係なく 30 秒ごとに “ビープ” 音を鳴らします。</p><div class="mylisting"><span class="c001">let</span> beep _ =
+  output_char stdout '\007'; flush stdout;
+  ignore (alarm 30);;
+...
+signal sigalrm (Signal_handle beep); ignore (alarm 30);;</div><div class="fancybreak">* * *</div></div><h3 class="subsection" id="sec86">チェックポイント</h3>
+<p>シグナルは非同期コミュニケーションに便利です — 実際それが存在理由です — が、この非同期であるという特徴のせいでシグナルはシステムプログラミングにおける難しい部分になっています。</p><p>シグナルハンドラは非同期に実行されるので、この関数とプロセスのメインプログラムとは擬似的に並列な状態で実行されます。シグナルハンドラが値を返せないことから、通常この関数は通常グローバル変数を変更します。したがってメインプログラムも同時にその変数を変更しようとした場合、競合状態に陥ること可能性があります。これに対する一つの解決法は次の節で説明するようにシグナルハンドラが変更する変数をメインプログラムが変更するときにはシグナルを一時的にブロックすることです。</p><p>厳密にいうと、 OCamlはシグナルを非同期に扱いません。OCamlは受け取ったシグナルを記録しますが、シグナルハンドラが実行されるのは特定の <em>チェックポイント</em> においてだけです。チェックポイントはハンドラが非同期に実行されると考えても良い程度に頻繁に設けられています。通常アロケーションやループ制御、システムとのやり取り (システムコールを含む) のときにチェックポイントが設けられます。ループが含まれず、アロケーションをせず、システムとのやり取りをしないプログラムについて、OCamlはメインプログラムとシグナルハンドラの実行が互い違いにならないことを保証しています。そのため例えばアロケートされない値 (整数および真偽値など。小数値は含まれません!) の参照セルは上記の状況でも競合状態に陥りません。</p>
+<h2 class="section" id="sec87">4.4  シグナルのマスク</h2>
+<p>シグナルはブロックできます。ブロックされたシグナルは無視されるわけではなく、後で届けられるよう待機状態になります。システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/sigprocmask.html"><span class="c003">sigprocmask</span></a><a id="hevea_default84"></a> を使うとシグナルのマスクすることができます。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALsigprocmask">sigprocmask</a> : sigprocmask_command -&gt; int list -&gt; int list</div><p><code>sigprocmask cmd sigs</code> はブロックするシグナルを変更し、この呼び出しの前にブロックされていたシグナルのリストを返します。返り値によってマスクを元の状態に戻すことが可能になります。引数 <code>sigs</code> はシグナルのリストであり、 <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEsigprocmask_command"><span class="c003">sigprocmask_command</span></a> 型の値 <code>cmd</code> によって呼び出しの効果が異なります:
+</p><div class="mltypecases">
+<table class="c000 cellpading0"><tr><td class="c011"><code>SIG_BLOCK</code></td><td class="c011"><code>sigs</code> 内のシグナルがブロックするシグナルのリストに追加される。 </td></tr>
+<tr><td class="c011"><code>SIG_UNBLOCK</code></td><td class="c011"><code>sigs</code> 内のシグナルがブロックするシグナルのリストから削除される。 </td></tr>
+<tr><td class="c011"><code>SIG_SETMASK</code></td><td class="c011"><code>sigs</code> 内のシグナルがブロックするシグナルとなる。
+</td></tr>
+</table>
+</div><p>
+典型的な <code>sigprocmask</code> の利用法はあるシグナルをマスクすることです。
+</p><div class="mylisting"><span class="c001">let</span> old_mask = sigprocmask cmd sigs <span class="c001">in</span>
+<em>(* 処理を行う *)</em>
+<span class="c001">let</span> _ = sigprocmask SIG_SETMASK old_mask</div><p>次のパターンを使うと起こりがちなエラーを防ぐことができます。
+
+</p><div class="mylisting"><span class="c001">let</span> old_mask = sigprocmask cmd sigs <span class="c001">in
+let</span> treat () = <em>(* 処理を行う *)</em> <span class="c001">in
+let</span> reset () = ignore (sigprocmask SIG_SETMASK old_mask) <span class="c001">in</span>
+Misc.try_finalize treat () reset ()</div>
+<h2 class="section" id="sec/sigsyscalls">4.5  シグナルとシステムコール</h2>
+<p>いくつかのシステムコールは無視されていないシグナルによって中断されます。このようなシステムコールは <em>遅い</em> システムコールと呼ばれる、実行にいくらでも長い時間がかかりうるもの (例えば端末との <span class="c007">i/o</span>や <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALselect"><span class="c003">select</span></a><a id="hevea_default85"></a>、 <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALsystem"><span class="c003">system</span></a><a id="hevea_default86"></a> など) です。割り込みが起こった場合、これらのシステムコールは実行を完了しないまま <code>EINTR</code> 例外を出します。</p><p>一方ファイル <span class="c007">i/o</span>は割り込みされません。ファイル <span class="c007">i/o</span>中に実行中のプロセスを中断して他のプロセスを実行することはありますが、ディスクが正常に機能しているならばこの中断は常に短時間になります。ゆえにデータのスループットはシステムのみに依存し、他のユーザのプロセスから影響を受けることはありません。</p><p>無視されたシグナルは届かず、マスクされたシグナルはマスクを解くまで届きません。しかしそれ以外の場合はシステムコールをマスクしていないシステムコールから守る必要があります。典型的な例は子プロセスの終了を待っている親プロセスです。子のプロセス ID を <code>wait</code> とすると親は <span class="c003">waitpid</span><a id="hevea_default87"></a> <code>[] pid</code> を実行しますが、<code>waitpid</code> はブロックするシステムコールなので <em>遅い</em> システムコールであり、シグナルによって中断される可能性があります。特に子プロセスが終了したときには <code>sigchld</code> シグナルが親に送られます。</p><p><code>Misc</code> モジュールの <code>restart_on_EINTR</code> 関数はシステムコールが中断されたとき、すなわち <code>EINTR</code> 例外が出たときにシステムコールをやり直します。</p><div class="mylisting"><span class="c001">let rec</span> restart_on_EINTR f x =
+  <span class="c001">try</span> f x <span class="c001">with</span> Unix_error (EINTR, _, _) -&gt; restart_on_EINTR f x</div><p>子プロセスの終了をシグナルで中断されないように待つには、<code>restart_on_EINTR (waitpid flags) pid</code> を呼びます。</p><div class="example">
+<h5 class="paragraph" id="sec89">例</h5>
+<p><a id="ex/childs"></a>
+子プロセスの返り値が親プロセスにとって重要でない場合、 <code>sigchld</code> のシグナルハンドラによって子プロセスを非同期に回収することも可能です。ただし短い時間に何度も同じシグナルを受け取った場合シグナルハンドラが一度しか起動しないことがあるので、<code>sigchld</code> を受け取ったときに子プロセスがいくつ終了したかを知ることはできません。このことから、<code>sigchld</code> シグナルを処理するためには以下のライブラリ関数 <code>Misc.free_chidlren</code> が必要になります。
+
+</p><div class="mylisting"><span class="c001">let</span> free_children _ =
+  <span class="c001">try while</span> fst (waitpid [ WNOHANG ] (-1)) &gt; 0 <span class="c001">do</span> () <span class="c001">done
+  with</span> Unix_error (ECHILD, _, _) -&gt; ()</div><p><code>free_children</code> は <code>waitpid</code> をノンブロッキングモード (<code>WNOHANG</code> オプション) で実行して実行を終了した子プロセスを回収する、という処理を子プロセスが全て実行中となる (<code>waitpid</code> が子のプロセス ID ではなく 0 を返す) か子プロセスがなくなる (<code>ECHILD</code> 例外が出される) まで繰り返します。</p><p><code>waitpid</code> が <code>WNOHANG</code> オプションでノンブロッキングとなっているので <code>EINTR</code> に対する処理は必要ありません。
+</p><div class="fancybreak">* * *</div></div><div class="example">
+<h5 class="paragraph" id="sec90">例</h5>
+<p>
+<code>Unix</code> モジュールの <code>system</code> 関数は次のように単純に定義されています:
+</p><div class="mylisting"><span class="c001">let</span> system cmd = <span class="c001">match</span> fork () <span class="c001">with</span>
+  | 0 -&gt; <span class="c001">begin try</span>
+          execv <span class="c002">"/bin/sh"</span> [| <span class="c002">"/bin/sh"</span>; <span class="c002">"-c"</span>; cmd |]
+         <span class="c001">with</span> _ -&gt; exit 127
+         <span class="c001">end</span>
+  | id -&gt; snd (waitpid [] id);;</div><p>C 標準ライブラリの <code>system</code> 関数の規格では、親プロセスは <code>sigint</code> と <code>sigquit</code>を無視しコマンドの実行中は <code>sigchld</code> をマスクするようになっています。これによって親プロセスに影響を与えること無く子プロセスを中断したり終了させることが可能になります。</p><p>ここでは <code>system</code> 関数をより一般的な <code>exec_as_system</code> 関数の特殊化として定義します。この関数ではシェルを必ずしも起動されません。
+
+
+</p><div class="mylisting"><span class="c005">   1</span> <span class="c001">let</span> exec_as_system exec args =
+<span class="c005">   2</span>   <span class="c001">let</span> old_mask = sigprocmask SIG_BLOCK [ sigchld ] <span class="c001">in</span>
+<span class="c005">   3</span>   <span class="c001">let</span> old_int = signal sigint Signal_ignore <span class="c001">in</span>
+<span class="c005">   4</span>   <span class="c001">let</span> old_quit = signal sigquit Signal_ignore <span class="c001">in</span>
+<span class="c005">   5</span>   <span class="c001">let</span> reset () =
+<span class="c005">   6</span>     ignore (signal sigint old_int);
+<span class="c005">   7</span>     ignore (signal sigquit old_quit);
+<span class="c005">   8</span>     ignore (sigprocmask SIG_SETMASK old_mask) <span class="c001">in</span>
+<span class="c005">   9</span>   <span class="c001">let</span> system_call () = <span class="c001">match</span> fork () <span class="c001">with</span>
+<span class="c005">  10</span>     | 0 -&gt;
+<span class="c005">  11</span>         reset (); <a id="prog:sreset"></a>
+<span class="c005">  12</span>         (<span class="c001">try</span> exec args <span class="c001">with</span> _ -&gt; exit 127)
+<span class="c005">  13</span>     | k -&gt;
+<span class="c005">  14</span>         snd (restart_on_EINTR (waitpid []) k) <span class="c001">in</span>
+<span class="c005">  15</span>   try_finalize system_call () reset ();; <a id="prog:stry"></a>
+<span class="c005">  16</span> 
+<span class="c005">  17</span> <span class="c001">let</span> system cmd =
+<span class="c005">  18</span>   exec_as_system (execv <span class="c002">"/bin/sh"</span>) [| <span class="c002">"/bin/sh"</span>; <span class="c002">"-c"</span>; cmd |];;</div><p>シグナルの変更は <code>fork</code> の実行の前に行う必要があることに注意してください。フォークを実行した後にシグナルを変更するようにすると、シグナルが変更しきる前にシグナル (例えばすぐに終了した子プロセスからの <code>sigchld</code>) を受け取ってしまう可能性があるためです。シグナルの変更は子プロセスではコマンドの実行の前に <a href="#prog%3Asreset">11</a> 行目でリセットされます。<code>fork</code> と <code>exec</code> は無視するシグナルを保存し、 <code>fork</code> はシグナルに対する動作を保存します。<code>exec</code> は無視していないシグナルの動作をデフォルトに戻します。</p><p>最後に親プロセスはエラーが起きた場合でもシグナルの変更をリセットする必要があります。このために <a href="#prog%3Astry">15</a> 行目では <code>try_finalize</code> が使われます。
+</p><div class="fancybreak">* * *</div></div>
+<h2 class="section" id="sec91">4.6  時間の経過</h2>
+<h3 class="subsection" id="sec92">時刻に対するレガシーなアプローチ</h3>
+<p>Unix の初期のバージョンから、時間は秒で測られてきました。そのため互換性が重要となるならば、常に秒単位で時間を計測するべきです。現在時刻は 1970 年 1 月 1 日 <code>00:00:00</code> <span class="c007">gmt</span> からの経過秒数と定義されます。次の関数で取得できます:</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALtime">time</a><a id="hevea_default88"></a> : unit -&gt; float</div><p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/sleep.html"><span class="c003">sleep</span></a><a id="hevea_default89"></a> は引数で指定した秒数だけプログラムの実行を止めます:</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALtime">time</a><a id="hevea_default90"></a> : unit -&gt; float</div><p>しかしこの関数は原始的ではありません。さらに基本的なシステムコール <code>alarm</code> (前の節を参照) と <code>sigsuspend</code> を使うことで <code>sleep</code> を実装することができます。</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALsigsuspend">sigsuspend</a> : int list -&gt; unit</div><p><code>sigsuspend l</code> はリスト <code>l</code> 内のシグナルを一時的に差し止め、無視も差し止めもされていないシグナルを受け取るまでプログラムの実行を停止します。値が返るときにシグナルマスクは元の値に戻ります。</p><div class="example">
+<h5 class="paragraph" id="sec93">例</h5>
+<p> <code>sleep</code> は以下のように実装できます:
+
+</p><div class="mylisting"><span class="c005">   1</span> <span class="c001">let</span> sleep s =
+<span class="c005">   2</span>   <span class="c001">let</span> old_alarm = signal sigalrm (Signal_handle (<span class="c001">fun</span> s -&gt; ())) <span class="c001">in</span> <a id="prog:sold"></a>
+<span class="c005">   3</span>   <span class="c001">let</span> old_mask = sigprocmask SIG_UNBLOCK [ sigalrm ] <span class="c001">in</span>
+<span class="c005">   4</span>   <span class="c001">let</span> _ = alarm s <span class="c001">in</span>
+<span class="c005">   5</span>   <span class="c001">let</span> new_mask = List.filter (<span class="c001">fun</span> x -&gt; x &lt;&gt; sigalrm) old_mask <span class="c001">in</span>
+<span class="c005">   6</span>   sigsuspend new_mask;
+<span class="c005">   7</span>   <span class="c001">let</span> _ = alarm 0 <span class="c001">in</span>
+<span class="c005">   8</span>   ignore (signal sigalrm old_alarm);
+<span class="c005">   9</span>   ignore (sigprocmask SIG_SETMASK old_mask)<a id="prog:ssigproc"></a>;;</div><p>初期状態では何もしないことが <code>sigalrm</code> シグナルに対する動作です。“何もしない” とはシグナルを無視することとは異なることに注意してください。<code>sigalrm</code> シグナルを受け取ったときにプロセスが起動することを保証するために、このシグナルは無視されないようにします。そのあと <code>sigalrm</code> 以外のマスクされているシグナルを全て差し止めてからスタンバイ状態に移行します。この変更はアラームのシグナルの後で取り消されます。<code>sigsuspend</code> がシグナルマスクを変更しないことから、<a href="#prog%3Assigproc">9</a> 行目は <a href="#prog%3Asold">2</a> 行目の直後に置くこともできます。
+</p><div class="fancybreak">* * *</div></div><h3 class="subsection" id="sec94">現代的な時刻の取り扱い</h3>
+<p>現代的なバージョンの Unix では時刻をマイクロ秒単位で測定することができます。OCamlではマイクロ秒単位で測定した時刻は浮動小数点型で表されます。システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/gettimeofday.html"><span class="c003">gettimeofday</span></a><a id="hevea_default91"></a> は現代的なシステムにおいて <code>time</code> の代わりとなるものです。</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgettimeofday">gettimeofday</a> : unit -&gt; float</div><h3 class="subsection" id="sec95">タイマー</h3>
+<p>
+現在出回っている Unix では各プロセスはそれぞれ違う時間を測定する 3 つのタイマーを持ちます。タイマーは <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEinterval_timer"><span class="c003">interval_timer</span></a> 型の値として確認できます:
+</p><div class="mltypecases">
+<table class="c000 cellpading0"><tr><td class="c011"><code>ITIMER_REAL</code></td><td class="c011">実時間 (<code>sigalrm</code>). </td></tr>
+<tr><td class="c011"><code>ITIMER_VIRTUAL</code></td><td class="c011">ユーザ時間 (<code>sigvtalrm</code>). </td></tr>
+<tr><td class="c011"><code>ITIMER_PROF</code></td><td class="c011">ユーザ時間とシステム時間 (<code>sigprof</code>).
+</td></tr>
+</table>
+</div><p>
+タイマーの状態は <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEinterval_timer_status"><span class="c003">interval_timer_status</span></a> 型のレコードによって表され、各フィールドは以下の時間を表します (どちらも <code>float</code> です):
+</p><ul class="itemize"><li class="li-itemize">
+<code>it_interval</code> フィールドはタイマーの周期を表す。
+</li><li class="li-itemize"><code>it_value</code> フィールドはタイマーの現在の値を表す。この値が <code>0</code> になった場合 <code>sigvtalrm</code> シグナルが送られ、タイマーの値は <code>it_interval</code> にリセットされる。
+</li></ul><p>
+二つのフィールドが <code>0</code> の場合タイマーはアクティブではありません。タイマーは次の関数で取得および変更できます:
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgetitimer">getitimer</a><a id="hevea_default92"></a> : interval_timer -&gt; interval_timer_status
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALsetitimer">setitimer</a><a id="hevea_default93"></a> :
+    interval_timer -&gt; interval_timer_status -&gt; interval_timer_status</div><p><code>settimer</code> の返り値は変更前の値です。</p><div class="exercise">
+<h5 class="paragraph" id="sec96">練習問題 11</h5>
+<p><a id="ex11"></a>
+複数のタイマーを管理するために、以下のインターフェースを持つモジュールを書いてください:
+</p><div class="mylisting"><span class="c001">module type</span> Timer = <span class="c001">sig
+  open</span> Unix
+  <span class="c001">type</span> t
+  <span class="c001">val</span> new_timer : interval_timer -&gt; (unit -&gt; unit) -&gt; t
+  <span class="c001">val</span> get_timer : t -&gt; interval_timer_status
+  <span class="c001">val</span> set_timer : t -&gt; interval_timer_status -&gt; interval_timer_status
+<span class="c001">end</span></div><p><code>new_timer k f</code> はタイプ <code>k</code> の新しいタイマーを作り <code>f</code> の実行を始めます。タイマー作成時にはアクティブではありません。<code>set_timer t</code> はタイマーの値を <code>t</code> に設定し古い値を返します。</p><div class="fancybreak">* * *</div></div><h3 class="subsection" id="sec97">日付の計算</h3>
+<p>Unix の現代的なバージョンには日付を処理するための関数も含まれています。<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEtm"><span class="c003">tm</span></a> 構造体はカレンダー (年、月など) によって表現でき、<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgmtime"><span class="c003">gmtime</span></a><a id="hevea_default94"></a> や <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALlocaltime"><span class="c003">localtime</span></a><a id="hevea_default95"></a>、 <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALmktime"><span class="c003">mktime</span></a><a id="hevea_default96"></a> などによって他の単位と変換できます。</p>
+<h2 class="section" id="sec98">4.7  シグナルの問題点</h2>
+<p>シグナルは非同期なので、シグナルをプロセス間通信に使うと制限と困難がいくつかあります:
+</p><ul class="itemize"><li class="li-itemize">送られる情報が少なすぎる — シグナルの種類のみ。</li><li class="li-itemize">シグナルプログラムの実行中いつでも起きるので、グローバル変数にアクセスするシグナルハンドラは競合状態を避けるためにメインプログラムと協調しなければならない。</li><li class="li-itemize">シグナルをメインプログラムから使うと、シグナルに対する動作がデフォルトの動作であったとしても、実行に時間のかかるシステムコールが中断される可能性が生まれることになる。</li><li class="li-itemize">ライブラリ関数はシグナルの可能性を常に考慮しシステムコールの割り込みに対する対処をしなければならない。</li></ul><p>シグナルは制限された非同期通信であるにもかからわず、非同期通信にまつわる困難や問題は全て含みます。そのため可能であれば利用を避けるべきです。たとえば短い時間だけ待つためには <span class="c003">select</span><a id="hevea_default97"></a> がアラームの代わりに使えます。ただしコマンドラインのインタープリターなどのシグナルを考えなければいけない状況もあります。</p><p>シグナルはおそらく Unix システムの中で最も有用でない概念です。古いバージョンの Unix (System V など) ではシグナルの動作は受け取った後に自動的に<code>Signal_default</code> にリセットされます。そのためシグナルハンドラは自分自身をもう一度設定し直す必要があり、以下のように書く必要がありました:
+</p><div class="mylisting"><span class="c001">let rec</span> beep _ =
+  set_signal sigalrm (Signal_handle beep);
+  output_char stdout '\007'; flush stdout;
+  ignore (alarm 30);;</div><p>しかし問題はシグナルを受け取ってシグナルの動作が自動的に <code>Signal_default</code> に戻ってから<code>set_signal</code> が実行されるまでの短い間にシグナルを受け取った場合です。この場合シグナルはハンドラを呼びだすことなく、種類に応じて無視されるかプロセスを終了させます。</p><p>その他の Unix (<span class="c007">bsd</span> と Linux) はより良い動作をします。シグナルを受け取ってもその動作を置き換えず、シグナルを処理している間は他のシグナルは保留されます。
+
+</p>
+<hr class="footnoterule"><dl class="thefootnotes"><dt class="dt-thefootnotes">
+<a id="note7" href="#text7">1</a></dt><dd class="dd-thefootnotes"><div class="footnotetext">これらは端末のデフォルトのキーであり、端末の設定を返ることで変更できます。 <a href="files.html#sec%2Ftermio">2.13</a> 節参照。</div></dd></dl>
+<hr>
+<a href="processes.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="pipes.html"><img src="next_motif.svg" alt="Next"></a>
+</body>
+</html>

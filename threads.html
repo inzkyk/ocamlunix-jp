@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>スレッド</title>
+</head>
+<body>
+<a href="sockets.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="more.html"><img src="next_motif.svg" alt="Next"></a>
+<hr>
+<h1 class="chapter" id="sec/coprocessus"> 7  スレッド</h1>
+<p><em>スレッド</em> とは一つのプログラムの中で互いに並列に実行できる制御の流れであり、<em>軽量プロセス</em> とも言われます。</p><p>この章ではスレッドを作成し (<code>Thread</code> モジュール) 同期を行うプログラムを説明します。同期にはロック (<code>Mutex</code> モジュール)、 条件変数 (<code>Condition</code> モジュール)、そして同期イベント (<code>Event</code> モジュール) が使われます。</p>
+<h2 class="section" id="sec150">7.1  イントロダクション</h2>
+<p><span class="c003">fork</span><a id="hevea_default142"></a> は現在のプロセスのコピーを作成します (したがってプログラムのコピーも作成します) が、スレッドの作成はこれとは大きく異なります。フォークを行った場合親プロセスと子プロセスのアドレス空間は完全に分離し、二つのプロセスは (ファイルやパイプに対する入出力といった) システムコールを通じてでしかやり取りをすることができません。</p><p>これに対して、あるプログラム内の全てのスレッドは同じアドレス空間を共有します。スレッド間で共有されず、スレッド同士で異なる唯一の情報はスレッドの ID と実行スタック (シグナルマスクやロックと条件変数の状態などのシステム情報を含む) です。この観点では、スレッドはコルーチンに似ています。プログラム内のスレッドは全て同じ方法で扱われますが、プログラムが始まって最初に作られるスレッドは別です。このスレッドが終了すると、そのプログラムが持つ全てのスレッドが終了ししたがってプログラム全体が終了します(これから複数のスレッドといった場合には考えているプログラム内の複数のスレッドを意味し、別のプログラム内で動いているスレッドのことは意味しないことにします)。</p><p>制御を明示的にに受け渡し並列に実行できないコルーチンと違い、スレッドは並列に実行でき、(他のスレッドやプロセスではなく) システムによってプリエンプティブにスケジュールされます。この観点ではスレッドはプロセスに似ています。</p><p>アドレス空間が共有されることで、スレッド同士は共有メモリを使って直接通信することができます。スレッドは並列に実行されるために、全てのスレッドは共有データに対するアクセスを同期しなければいけません。あるスレッドが書き込み終わってから別のスレッドが読み込むようにするためです。原理上は必要なわけではありませんが、実際にはこれを行うためにオペレーティングシステムを介する必要があります。スレッドの同期はロックや条件変数を使うか、あるいはイベントを使って高レベルに行われます。</p><p>プロセスに対するスレッドの利点は低い作成コストと大きなデータを受け渡すときにデータ全体をコピーするのではなくポインタを渡すだけですむことです。</p><p>一方、スレッドを使うとスレッド同士の同期を管理しなければならず、スレッドが致命的なエラーを出す場合にも対処する必要があります。例えばスレッドは停止する前にロックを開放し不変量が保存されるようにする必要があります。上記の利点による恩恵があまりないのであればスレッドよりもプロセスのほうが望ましいでしょう。</p>
+<h5 class="paragraph" id="sec151">OCaml における実装</h5>
+<p>ネイティブスレッドを使うアプリケーションをコンパイルするには次のようにします:
+</p><div class="mylisting">ocamlc -thread unix.cma threads.cma -o prog mod1.ml mod2.ml mod3.ml
+
+ocamlopt -thread unix.cmxa threads.cmxa -o prog mod1.ml mod2.ml mod3.ml</div><p><code>ocamlbuild</code> ツールを使うのであれば、<code>_tags</code> ファイルに以下の内容を追加するだけですみます:
+</p><div class="mylisting">&lt;<span class="c001">mod</span>{1,2,3}.ml&gt; : thread
+&lt;prog.{native,byte}&gt; : use_unix, thread</div><p>インストールされた OCamlがネイティブスレッドをサポートしない場合、<a href="#sec%2Fthread-implementation">7.8</a> 節およびマニュアルにあるシミュレートされた “<span class="c007">vm</span> レベル” スレッドを使う方法を参照してください。この章のこれ以降の内容はネイティブスレッドを仮定し、<span class="c007">vm</span> レベルスレッドには一般的では成り立ちません。</p>
+<h2 class="section" id="sec152">7.2  スレッドの作成と終了</h2>
+<p>この章で説明される関数は <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Thread.html"><span class="c003">Thread</span></a> モジュールに定義されています。</p><p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/pthread_create.html"><span class="c003">create</span></a><a id="hevea_default143"></a> <code>f v</code> は関数適用 <code>f v</code> を実行する新しいスレッドを作成し、スレッド ID を返します。呼び出し側はこの ID を使って新しく作られたスレッドを制御することができます。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Thread.html#VALcreate">create</a> : ('a -&gt; 'b) -&gt; 'a -&gt; t</div><p>新しいスレッドで実行される <code>f v</code> という関数適用はプログラム内の他のスレッドと並行に実行されます。関数適用が値を返すとスレッドは終了し、返り値は無視されます。スレッドが捕捉されないエラーによって終了したとしても、そのエラーが他のスレッドに及ぶことはありません。そのエラーに関するメッセージが標準エラー出力に出力されるか、エラーは完全に無視されます。他のスレッドは独立して実行されるので、このエラーを受け取ることはできません。</p><p>スレッドはこの他にも <code>Thread</code> モジュールのシステムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/pthread_exit.html"><span class="c003">exit</span></a><a id="hevea_default144"></a> を呼ぶことによってでも終了できます。 <code>Pervasives.</code><a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html#VALexit"><span class="c003">exit</span></a><a id="hevea_default145"></a> と混同しないようにしてください。これはプログラム全体、つまり全てのスレッドを終了します。</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Thread.html#VALexit">exit</a><a id="hevea_default146"></a> : unit -&gt; unit</div><p>プログラムの最初のスレッドは終了するときに暗黙のうちに <code>Pervasives.exit</code> を呼びます。</p><p>最初のスレッドが終了する前にそれ以外のスレッドが終了すると、そのスレッドは OCamlのランタイムライブラリによってすぐに開放されます。<code>fork</code> で作成された Unix プロセスのようにゾンビになることはありません。</p><p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/pthread_self.html"><span class="c003">self</span></a><a id="hevea_default147"></a> は呼び出したスレッドのスレッド ID を返します。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Thread.html#VALself">self</a> : unit -&gt; t</div><p>前の章で作成した “フォーク” と “ダブルフォーク” を使った並行サーバを、子プロセスではなくスレッドを使うように書き換えるための準備が整いました。そのようなサーバを作るためには、<a href="sockets.html#sec%2Fservice">6.7</a> 節で定義した <code>Misc.fork_treatment</code> に似た <code>Misc.co_treatment</code> を作成します。</p><div class="mylisting"><span class="c001">let</span> co_treatment server_sock service (client_descr, _ <span class="c001">as</span> client) =
+  <span class="c001">try</span> ignore (Thread.create service client)
+  <span class="c001">with</span> exn -&gt; close client_descr; raise exn;;</div><p>スレッドの作成に成功した場合、サービスと <code>client_descr</code> を閉じる処理は <code>service</code> 関数によって処理されます。スレッドの作成に失敗した場合、ディスクリプタ <code>client_descr</code> を閉じてクライアントを放棄し、エラーに対する処理をメインプログラムに任せます。</p><p>スレッドを使ったサーバでは難しい部分が <code>service</code> 関数に隠れていることに注意してください。この関数は接続を切断するまでロバストに処理しなければいけません。プロセスを使った並行サーバの例ではサービスが他のプロセスによって実行されており、エラーが起こってサービスが途中で終了したとしても望みどおりの処理 — 接続の処理 — が行われます。これはプロセスが終了するとシステムがファイルディスクリプタを閉じるためです。しかしサービスがスレッドによって実行されている場合、デフォルトの設定ではディスクリプタはスレッド間で共有され、スレッドの終了時に閉じられることがありません。そのためスレッドは終了する前にディスクリプタを閉じる必要があります。加えて、サービスは致命的なエラーのときに <code>Pervasives.exit</code> を呼ぶこともできません。なぜならこの呼び出しはサービスだけではなくサーバ全体を終了させるからです。致命的なエラーのときに <code>Thread.exit</code> を使っても解決にならないことが多いです。なぜならスレッドの持つ開いたままのリソース、つまり接続が閉じられていない可能性があるからです。</p><p>一つの解決法は終了処理を実行するコードがハンドラとして登録されている例外 (例えば <code>Exit</code> 例外) を使うことです。また同様の理由でサービスの実行中に <code>sigpipe</code> シグナルをブロックし、シグナルに対する動作を動作をスレッドの終了から <code>EPIPE</code> 例外に変えておくことが重要です。</p>
+<h2 class="section" id="sec153">7.3  スレッドの終了待ち</h2>
+<p>この節で説明される関数は <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Thread.html"><span class="c003">Thread</span></a> モジュールに定義されています。</p><p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/pthread_join.html"><span class="c003">join</span></a><a id="hevea_default148"></a> を使うとあるスレッドから他のスレッドの終了を待つことができます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Thread.html#VALjoin">join</a> : t -&gt; unit</div><p>この関数を呼んだスレッドの実行は指定された ID のスレッドの実行が終了するまで中断されます。主スレッドがこの関数を使えば終了する前に他の全てのスレッドが終了するのを待つことができます(この関数を使わないと主スレッドが終了した時点で他の全てのスレッドも終了します)。</p><p><code>join</code> はブロックするので “遅い” システムコールですが、この関数はシグナルを受け取ったときに自動的に再開します。正確にはシグナルによって実行が中断され、ハンドラが呼び出されてから、もう一度関数が呼ばれます。そのためこの関数は指定したスレッドが本当に終了するまで返らず、<code>EINTR</code> 例外を出すことはありません。OCamlプログラマの観点からは、<code>join</code> はシグナルは関数から返った瞬間に実行されるように振る舞います。</p><p>スレッドは非同期に実行されるので、値を返すことがありません。しかしその動作は — 幸運にも! — 副作用によって観測することができます。例えばスレッドは計算の結果を参照値に保存し、他のスレッドは計算が終わったことを確認してからその値を読み込むことができます。次の例がこのことを説明します。
+
+</p><div class="mylisting"><span class="c001">exception</span> Exited
+<span class="c001">type</span> 'a result = Value <span class="c001">of</span> 'a | Exception <span class="c001">of</span> exn
+<span class="c001">let</span> eval f x = <span class="c001">try</span> Value (f x) <span class="c001">with</span> z -&gt; Exception z
+<span class="c001">let</span> coexec (f : 'a -&gt; 'b) (x : 'a) : unit -&gt; 'b =
+  <span class="c001">let</span> result = <span class="c001">ref</span> (Exception Exited) <span class="c001">in
+  let</span> p = Thread.create (<span class="c001">fun</span> x -&gt; result := eval f x) x <span class="c001">in
+  function</span> () -&gt; <span class="c001">match</span> (join p; !result) <span class="c001">with</span>
+    | Value v -&gt; v
+    | Exception exn -&gt; raise exn;;
+
+<span class="c001">let</span> v1 = coexec succ 4 <span class="c001">and</span> v2 = coexec succ 5 <span class="c001">in</span> v1 () + v2 ();;</div><p>システムは他のスレッドに制御を移すため、あるいはスレッドが他のスレッドやプロセスが利用中のリソース (例えばロックや条件変数、ファイルディスクリプタ) を待つために、スレッドを停止することができます。<code>yeild</code> 関数を使うとシステムによるプリエンプションを待つことなく明示的に実行を停止することができます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Thread.html#VALyield">yield</a><a id="hevea_default149"></a> : unit -&gt; unit</div><p>この関数はスレッドスケジューラに対してヒントを出しますが、なんの効果も持たない場合もあります。例えば <code>yield</code> が呼ばれた時点で他に実行できるスレッドがない場合は、システムは同じスレッドの実行を続けます。</p><p>また他のスレッドが実行されるためには <code>yeild</code> を呼ばなくてはいけないわけではありません。システムは <code>yield</code> コマンドを任意のタイミングで実行する権限を持っているからです。実際にはシステムはこの権限を頻繁に使って他のスレッドを実行し、プロセスが一つしか無いマシンでもスレッドが並列に実行されているように見せています。</p><div class="example">
+<h5 class="paragraph" id="sec154">例</h5>
+<p>
+<a href="processes.html#ex%2Fforksearch">3.3</a> 節の例をプロセスではなくスレッドを使って書き直します。
+
+</p><div class="mylisting"><span class="c005">   1</span> <span class="c001">let rec</span> psearch k cond v =
+<span class="c005">   2</span>   <span class="c001">let</span> n = Array.length v <span class="c001">in</span>
+<span class="c005">   3</span>   <span class="c001">let</span> slice i = Array.sub v (i * k) (min k (n - i * k)) <span class="c001">in</span>
+<span class="c005">   4</span>   <span class="c001">let</span> slices = Array.init (n/k) slice <span class="c001">in</span>
+<span class="c005">   5</span>   <span class="c001">let</span> found = <span class="c001">ref false in</span>
+<span class="c005">   6</span>   <span class="c001">let</span> pcond v = <span class="c001">if</span> !found <span class="c001">then</span> (Thread.exit (); cond v) <span class="c001">else</span> cond v <span class="c001">in</span>
+<span class="c005">   7</span>   <span class="c001">let</span> search v = <span class="c001">if</span> simple_search pcond v <span class="c001">then</span> found := <span class="c001">true in</span> <a id="prog:search"></a>
+<span class="c005">   8</span>   <span class="c001">let</span> proc_list = Array.map (Thread.create search) slices <span class="c001">in</span>
+<span class="c005">   9</span>   Array.iter Thread.join proc_list;
+<span class="c005">  10</span>   !found;;</div><p>
+<code>psearch k f v</code> は <code>k</code> このスレッドを使って配列の要素のうち <code>f</code> を満たすものを並列に探索します。<code>pcond</code> は探索がすでに成功している場合にスレッドを終了させることで探索を打ち切ります。全てのスレッドは参照 <code>found</code> を共有し、アクセスは並列に起こります。この参照への書き込みは必ず値を <code><span class="c001">true</span></code> にするので、クリティカルセクションは存在しません。探索対象が見つからなかったときに全体の探索結果をセットしてはいけません。例えば <a href="#prog%3Asearch">7</a> 行目を
+</p><div class="mylisting"><span class="c001">let</span> search v = found := !found &amp;&amp; simple_search pcond v</div><p>あるいは:
+</p><div class="mylisting"><span class="c001">let</span> search v = <span class="c001">let</span> r = simple_search pcond v <span class="c001">in</span> found := !found &amp;&amp; r</div><p>に入れ替えると正しく動かなくなります。
+</p><div class="fancybreak">* * *</div></div><p>
+要素の比較が (デイスクアクセスやネットワークへの接続で) 一時的なブロックを引き起こすならば、並列探索はプロセスが一つしか無いマシンでも意味があります。この場合リソースを待っているスレッドが他のスレッドに実行を譲ることで配列の他の部分の計算を続けることができ、ブロックされたスレッドの実行はリソースが利用可能になってから再開されます。</p><p>特定の要素へのアクセスがとても大きなレイテンシを持つという場合があり、とくにネットワーク越しにデータを取得しなければいけない場合にはレイテンシが他の要素に比べて数百倍となります。このようなケースではシーケンシャルな探索と並列な探索の差が明確になります。
+<br>
+</p><div class="exercise">
+<h5 class="paragraph" id="sec155">練習問題 18</h5>
+<p><a id="ex18"></a>
+<a id="ex/qsort"></a>
+配列に対するクイックソートを並列化してください。
+<a href="exercise18.html#exans18">解答</a></p><div class="fancybreak">* * *</div></div><p>これから紹介するスレッドを停止させる別の方法は、オペレーティングシステムのリソースに関係しています。スレッドは <code>delay s</code> を呼ぶことで任意の時間だけ実行を停止することができます。実行は <code>s</code> 秒後に再開されます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Thread.html#VALdelay">delay</a><a id="hevea_default150"></a> : float -&gt; unit</div><p>この関数は <span class="c007">vm</span>-レベルのスレッドでもポータブルに使うことができますが、<code>delay s</code> は <code>ignore (Unix.select [] [] [] s)</code> の省略形に過ぎません。<code>join</code> と違ってこの関数はシグナルで中断されても自動的に再開しません。</p><p>スレッドを外部の操作と同期させるために <span class="c003">select</span><a id="hevea_default151"></a> を使うことができます。この関数がブロックするのはプログラム全体ではなくこの関数を読んだスレッドだけであることに注意してください。シミュレートされたスレッドが <code>Unix</code> モジュールの <code>select</code> を呼ぶとプログラム全体すなわち全てのスレッドをブロックしてしまうために、<code>Thread</code> モジュールはこの関数を再定義しています。ネイティブスレッドを利用するプログラムでは <code>Unix.select</code> と <code>Thread.select</code> の動作に違いはありませんが、この理由からネイティブスレッドを利用するプログラムでも <code>Unix</code> モジュールではなく <code>Thread</code> モジュールの <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Thread.html#VALselect"><span class="c003">select</span></a> 関数を使うことが必要になります。</p><div class="example">
+<h5 class="paragraph" id="sec157">例</h5>
+<p>
+<a id="ex/crible-copro"></a>
+<a href="pipes.html#ex%2Fcrible">5.2</a> 節のエラトステネスのふるいの例を Unix プロセスではなくスレッドを使って動かすためには、 <code>filter</code> 関数の <a href="pipes.html#prog%3Asievefilterfork">5</a>–<a href="pipes.html#prog%3Asievefilterdone">16</a> 行目を
+
+</p><div class="mylisting">    <span class="c001">let</span> p = Thread.create filter (in_channel_of_descr fd_in) <span class="c001">in
+    let</span> output = out_channel_of_descr fd_out <span class="c001">in
+    try
+      while true do
+        let</span> n = input_int input <span class="c001">in
+        if</span> List.exists (<span class="c001">fun</span> m -&gt; n <span class="c001">mod</span> m = 0) first_primes <span class="c001">then</span> ()
+        <span class="c001">else</span> output_int output n
+      <span class="c001">done</span>;
+    <span class="c001">with</span> End_of_file -&gt;
+      close_out output;
+      Thread.join p</div><p>に変え、さらに <code>sieve</code> 関数の <a href="pipes.html#prog%3Asievefork">4</a>–<a href="pipes.html#prog%3Agen">10</a> 行目を
+
+</p><div class="mylisting">  <span class="c001">let</span> k = Thread.create filter (in_channel_of_descr fd_in) <span class="c001">in
+  let</span> output = out_channel_of_descr fd_out <span class="c001">in</span>
+  generate len output;
+  close_out output;
+  Thread.join k;;</div><p>
+に変えれば十分です。ただし、計算時間に比べてプロセスをあまり使わないこの例では実行速度の高速化は望めません。
+</p><div class="fancybreak">* * *</div></div>
+<h2 class="section" id="sec158">7.4  スレッドの同期: ロック</h2>
+<p>
+この節で説明される関数は <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Mutex.html"><span class="c003">Mutex</span></a> (<code>Mut</code>ual <code>ex</code>clusion) モジュールに定義されています。</p><p>前の節で変更可能なリソースに対する並行アクセスの問題に触れました。次のシナリオは共有リソースへのアクセスの問題を説明します。二つのスレッド <span class="c006">p</span> と <span class="c006">q</span> がカウンタ <span class="c006">c</span> の値を進めようとしているとします。</p><p>図<a href="#fig%2Fcompetition">6</a>にあるシナリオを考えます。スレッド <span class="c006">p</span> がカウンタ <span class="c006">c</span> の値を読み、実行が <span class="c006">q</span> へ移ります。この次に <span class="c006">q</span> は <span class="c006">c</span> の値を読み、値 <span class="c006">k</span>+1 を <span class="c006">c</span> に書き込みます。次に実行は <span class="c006">p</span> へと戻りますが、このスレッドは <span class="c006">k</span>+1 を <span class="c006">c</span> に書き込みます。この結果、最小的な <span class="c006">c</span> の値は <span class="c006">k</span>+2 ではなく <span class="c006">k</span>+1 となってしまいます。
+</p><div class="figure">
+<div class="image"><img src="ocamlunix-image23.png" width="100%"></div>
+
+
+
+<a id="fig/competition"></a>
+<div class="caption">Figure 6 — 共有リソースへのアクセスの競合</div></div><p>この古典的な問題はロックを使って <span class="c006">p</span> と <span class="c006">q</span> が交互に実行されることをなくすことで解決できます。</p><p>ロックとは共有オブジェクトであり、プログラムの各時点でロックを所有できるのは多くとも一つのスレッドだけです。ロックは <code>create</code> 関数で作成します。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Mutex.html#VALcreate">create</a> : unit -&gt; t</div><p>この関数はどのスレッドにも所有されていない新しいロックを返します。作成したロックを取得するには、そのロックに対してシステムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/pthread_mutex_lock.html"><span class="c003">lock</span></a><a id="hevea_default152"></a> を呼ぶ必要があります。目的のロックが他のスレッドによって所有されていた場合、 <code>lock</code> を読んだスレッドはロックが開放されるまでブロックします。ロックを所有しているスレッドはシステムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/pthread_mutex_unlock.html"><span class="c003">unlock</span></a><a id="hevea_default153"></a> によってロックを開放しなければいけません。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Mutex.html#VALlock">lock</a> : t -&gt; unit
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Mutex.html#VALunlock">unlock</a> : t -&gt; unit</div><p>シグナルへの動作について、<code>lock</code> は <code>Thread.join</code> に似ています。もし <code>lock</code> の実行中にシグナルを受け取った場合、そのシグナルは記録されOCamlランタイムがシグナルの到着を通知しますが、関数を呼び出したスレッドは <code>lock</code> がロックが取得できるまでブロックされ、<code>lock</code> から <code>ENITR</code> 例外が出ることはありません。OCamlによるシグナルの処理は <code>lock</code> が返るタイミングで行われます。</p><p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/pthread_mutex_trylock.html"><span class="c003">trylock</span></a><a id="hevea_default154"></a> を使うとブロックせずにロックの取得を試みることができます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Mutex.html#VALtry_lock">try_lock</a> : t -&gt; bool</div><p>この関数はロックが取得できた場合に <code><span class="c001">true</span></code> を返し、それ以外のときには <code><span class="c001">false</span></code> を返します。後者の場合、ロックは取得されないのでスレッドの実行が停止することはありません。そのためスレッドは他の処理を行ってからもう一度ロックの取得を試みることができます。</p><div class="example">
+<h5 class="paragraph" id="sec159">例</h5>
+<p>複数のスレッドによって利用されるグローバルなカウンタを進める処理には同期の問題があります。カウンタの値を読んでから新しい値を書き込むまでの間はクリティカルセクション、つまり二つ以上のスレッドが同時に実行してはいけない区間になります。ロックを使えば同期を簡単に管理できます。
+</p><div class="mylisting"><span class="c001">type</span> counter = { lock : Mutex.t; <span class="c001">mutable</span> counter : int }
+<span class="c001">let</span> newcounter () = { lock = Mutex.create (); counter = 0 }
+<span class="c001">let</span> addtocounter c k =
+  Mutex.lock c.lock;
+  c.counter &lt;- c.counter + k;
+  Mutex.unlock c.lock;;</div><p>カウンタの値を読むだけであれば同期の問題は起こりません。カウンタの変更と同時に読み込みが起こることはありえます。しかしその場合書き込みの直前または直後の値を読み込むだけであり、いずれにせよ矛盾が起きることはありません。
+</p><div class="fancybreak">* * *</div></div><p>ある関数を実行する間ロックを保持するというパターンがよく必要になります。このパターンでは関数が成功するか失敗するかにかかわらず最後にロックを開放することが当然必要になります。この処理を次のライブラリ関数にまとめます:
+
+</p><div class="mylisting"><span class="c001">let</span> run_with_lock l f x =
+  Mutex.lock l; try_finalize f x Mutex.unlock l</div><p>一つ前の例は次のように書けます:
+
+</p><div class="mylisting"><span class="c001">let</span> addtocounter c =
+  Misc.run_with_lock c.lock (<span class="c001">fun</span> k -&gt; c.counter &lt;- c.counter + k)</div><div class="example">
+<h5 class="paragraph" id="sec160">例</h5>
+<p>
+スレッドを使ったサーバのモデルの代わりに、リクエストを並列に処理するスレッドをいくつか事前に作っておくことができます。
+
+</p><div class="mylisting"><span class="c001">val</span> tcp_farm_server :
+  int -&gt; (file_descr -&gt; file_descr * sockaddr -&gt; 'a) -&gt; sockaddr -&gt; unit</div><p><code>tcp_farm_server</code> 関数は <code>tcp_server</code> と同じように動作しますが、開始するスレッドの数を表す引数を追加で取ります。スレッドは同じアドレスに対するサーバになります。スレッドプールを使う利点はスレッドを一括して事前に作っておくことで接続を処理するときにスレッドを作る処理の分だけ時間を節約できる点です。
+
+</p><div class="mylisting"><span class="c001">let</span> tcp_farm_server n treat_connection addr =
+  <span class="c001">let</span> server_sock = Misc.install_tcp_server_socket addr <span class="c001">in
+  let</span> mutex = Mutex.create () <span class="c001">in
+  let rec</span> serve () =
+    <span class="c001">let</span> client =
+      Misc.run_with_lock mutex
+        (Misc.restart_on_EINTR accept) server_sock <span class="c001">in</span>
+    treat_connection server_sock client;
+    serve () <span class="c001">in
+  for</span> i = 1 <span class="c001">to</span> n-1 <span class="c001">do</span> ignore (Thread.create serve ()) <span class="c001">done</span>;
+  serve ();;</div><p>唯一注意するべき点は <code>accept</code> 関数を排他的に実行することです。これによって接続を受け付ける関数が常に多くとも一つとなります。ここでは <code>treat_connection</code> 関数がシーケンシャルな処理を行うことを想定していますが、これが必須なわけではありません。スレッドプールとスレッドの作成を同時に行って使用率に応じてスレッドの数を調整することもできます。
+</p><div class="fancybreak">* * *</div></div><p>ロックの取得がブロックせずに成功した場合、処理はすぐに終了します。ロックの取得は全ての現代的なプロセッサで提供される “test-and-set” 命令 (とキャシュの更新などのコストの小さないくつかの処理) で一般的に実装されているためです。一方ロックが利用可能でない場合は、スレッドは実行を停止しもう一度スケジュールされるまで待たなくてはならず、大量のコストがかさみます。そのためこのコストを取るのは他のスレッドに実行を受け渡すために本当に実行を中断するときだけにするべきであり、ロックを取得しようとした結果実行がブロックされたというのはできる限り避けるべきです。したがってほとんど常にロックはなるべく早く開放して必要になったらもう一度取得するようにするべきで、ロックを保持したままでいることは避けるべきです。ロックの開放を行わないとクリティカルセクションが大きくなり、他のスレッドのロックの取得が競合し、実行を停止しなければならなくなる頻度が上がります。</p><p>ロックによってスレッドが交互に実行されなくなりますが、そのかわりデッドロックの危険性があります。例えばスレッド <span class="c006">p</span> がロック <span class="c006">v</span> の開放を待っていて、<span class="c006">v</span> を持っているスレッド <span class="c006">q</span> は <span class="c006">p</span> が持っているロック <span class="c006">u</span> を待っている場合です (最悪な場合には、スレッドが自分が持っているロックを待つこともあります) 。並行プログラミングは難しく、デッドロックの排除は常に簡単なわけではありません。デッドロックを避ける単純で実行可能なことが多い方法は、ロックに階層を定義してロックの取得が階層をたどるようにするというものです。スレッドがあるロックを取得できるのはそのロックよりも下のロックを全て取得しているときだけです。</p>
+<h2 class="section" id="ex/th-relais">7.5  完全な例: <span class="c007">http</span> リレー</h2>
+<p><a href="sockets.html#sec%2Frelay">6.14</a> 節で作成した <span class="c007">http</span>リレーを改変し、リクエストをスレッドを使って処理するようにします。</p><p>直感的には、プロセスのクローンを作成する <code>establish_server</code> 関数をスレッドを作るようにすればすみます。しかし、いくつか注意点があります。複数のスレッドを使用する上での困難はメモリ空間を全て共有することです。そのためあるスレッド行ったことを他のスレッドが打ち消してしまうような、“互いのつま先を踏み合う” ことのないようにしなければなりません。これは二つのスレッドが変更可能な同じ構造体を並列に変更するときによく起こります。</p><p><span class="c007">http</span>サーバにはいくつかの変更が必要になります。まずリソースへのアクセスの問題から始めます。 <a href="sockets.html#page%2Fget_url">6.14</a> 節で説明した <code>proxy_service</code> 関数は接続への対応を処理します。<code>parse_host</code> と <code>parse_url</code> そして <code>parse_request</code> を途中で使って、<code>proxy_service</code> は <code>Str</code> ライブラリの <code>regexp_match</code> 関数を呼びます。しかし、このライブラリは再入可能ではありません (最後の探索の結果がグローバル変数にか格納されます)。一見害の無いように見える関数呼び出しも内部にデータの衝突を隠しているかもしれないので注意しなければいけないことをこの例は示しています。今回は <code>Str</code> ライブラリを書き直すのではなく単純にその利用をシーケンシャルにします。ライブラリ関数の呼び出しをロックで防御するだけで十分です (他の選択肢があるわけでもありません)。例外によって関数が異常終了した場合にもロックを開放するように注意する必要があります。</p><p>現在のコードへの変更を最小限にするために、<code>Url</code> モジュールの<code>regexp_match</code> 関数の名前を <code>unsafe_regexp_match</code> に変更し、新たに <code>regexp_match</code> 関数を防御された <code>unsafe_regexp_match</code> として作成します。
+
+</p><div class="mylisting"><span class="c001">let</span> strlock = Mutex.create ();;
+<span class="c001">let</span> regexp_match r string =
+  Misc.run_with_lock strlock (unsafe_regexp_match r) string;;</div><p>変更は最小限だと言えるでしょう。<code>regexp_match</code> 関数が正規表現に対するマッチングとマッチしてグループの取得を両方を含むことを指摘しておきます。<code>Str.string_match</code> と <code>Str.matched_group</code> を個別にロックで防御するのは完全な間違いです。</p><p>もう一つの解法は <code>Str</code> ライブラリを使わずに解析関数を書き直すことです。しかしライブラリ関数を同期して実行するのは簡単であり、実行を遅くしないことが実行すれば分かるので、この方法を取るべき理由は何もありません。ただ <code>Str</code> が最初から再入可能であればそのほうが良かったでしょう。</p><p>他の関数はすでに再入可能です。例えば <code>Misc.retransmit</code> 関数は呼び出しごとに違うバッファを確保します。</p><p>これ以外にエラー処理に関連して気をつけなければいけないことがあります。前に書いたように、スレッドによる接続の処理はロバストでなければいけません。特にエラーが起こった場合に他のスレッドが影響を受けてはいけません。つまりそのスレッドは受け持った接続を適切に閉じて他の待っている接続を受け付ける状態に戻るという “通常” 終了をする必要があります。</p><p>このためにまず <code>handle_error</code> 関数中の <code>exit</code> の呼び出しを <code>Thread.exit</code> に変更します。これは <code>exit</code> がプロセス全体を終了させるためです。しかしただ <code>Thread.exit</code> を読ぶだけでは正しくなりません。なぜならプロセスの終了と違ってスレッドの終了は (共有された) ディスクリプタを閉じないからです。接続処理中にエラーが起きても接続は開いたままなので、 <code>Exit</code> 例外を出して最終処理を行うようにする必要があります。そして <code>treat_connection</code> 関数は <code>EPIIE</code> だけでなく <code>Exit</code> を含んだ全ての例外を補足しなければいけません。例外を捕捉するように関数を呼び出す関数を使ってこれを行います:</p><div class="mylisting"><span class="c001">let</span> allow_connection_errors f s =
+  <span class="c001">try</span> f s <span class="c001">with</span> Exit | Unix_error(EPIPE,_,_) -&gt; ()</div><div class="mylisting"><span class="c001">let</span> treat_connection s =
+  Misc.co_treatment s (allow_connection_errors proxy_service) <span class="c001">in</span></div><div class="exercise">
+<h5 class="paragraph" id="sec162">練習問題 19</h5>
+<p><a id="ex19"></a>
+<span class="c007">http</span>/1.1 プロトコルのプロキシをスレッドを使って書き直してください。
+</p><div class="fancybreak">* * *</div></div><div class="exercise">
+<h5 class="paragraph" id="sec163">練習問題 20</h5>
+<p><a id="ex20"></a>
+コルーチンは別のスレッドへの実行の受け渡しを常に明示的に行う必要がある非常に特殊なスレッドと見ることができます。スレッドを使ってコルーチンを実装してください。
+</p><div class="fancybreak">* * *</div></div>
+<h2 class="section" id="sec164">7.6  条件変数</h2>
+<p>この節で説明される関数は <code>Condition</code> モジュールに定義されています。</p><p>ロックを使った同期はとてもシンプルですが、機能が十分ではありません。ロックを使うと共有データが開放されるのを待つことができますが、データがある状態になるのを待つことはできません。</p><p>カウンタの例をスレッド感で共有される (先入れ先出しの) キューを使って書き直してみましょう。キューに要素を追加することはこれまで説明してきたロックによって行えます。これはキューの状態にかかわらず要素を追加することは常に可能なためです。</p><p>しかしキューから要素を削除する場合はどうでしょうか? キューが空のときは何をすればいいでしょうか? キューが空の場合にロックを持ちながら新しい要素を待つことはできません。なぜならキューに要素を追加するにはロックが必要なために、ロックを持っている限りキューに新しい要素が足されることはないからです。だとすれば、キューが空でないことをどうやって知ることができるでしょうか?キューの状態を定期的にチェックする方法は “ビジーウェイト” と呼ばれ、望ましい解決法ではありません。(周期が短ければ) 計算機のサイクルを無駄遣いし、 (周期が長ければ) 反応時間が長くなるからです。</p><p><em>条件変数</em> がこの問題を解決します。ロックを持つスレッドは条件変数に対して別のスレッドがシグナルを送るまで待つことができます。ロックと同じように、条件変数は同期関数によって生成される中身の見えないオブジェクトです。<code>create</code> 関数で条件変数を作ることができます。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Condition.html#VALcreate">create</a> : unit -&gt; t</div><p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/pthread_cond_wait.html"><span class="c003">wait</span></a><a id="hevea_default155"></a> を使うと、ロック <span class="c006">v</span> を <em>すでに持つ</em> プロセス <span class="c006">p</span> は条件変数 <code>c</code> とロック <code>v</code>に対して待つことができます。この呼び出しによって プロセス <span class="c006">p</span> はシステムに条件変数 <code>c</code> とロック <code>v</code> に対して待っていると伝え、ロック <code>v</code> を開放して実行を中断します。他のスレッド <span class="c006">q</span> が条件変数 <code>c</code> の変更をシグナルし、かつロック <code>v</code> が利用可能になると <code>v</code> を持った状態で実行が再開されます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Condition.html#VALwait">wait</a> : t -&gt; Mutex.t -&gt; unit</div><p>ロック <code>v</code> を取得していない状態で <code>wait c v</code> を呼ぶとエラーとなります。またシグナルに対する <code>wait c v</code> の動作は <code>Mutex.lock</code> と同じです。</p><p>スレッドが条件変数が変更されたシグナルを送ると、その条件変数に対して待っている全てのスレッドを起動する (システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/pthread_cond_broadcast.html"><span class="c003">broadcast</span></a><a id="hevea_default156"></a>) か、それらのうち一つを起動する (システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/pthread_cond_signal.html"><span class="c003">signal</span></a><a id="hevea_default157"></a>) かのどちらかが行われます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Condition.html#VALsignal">signal</a> : t -&gt; unit
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Condition.html#VALbroadcast">broadcast</a> : t -&gt; unit</div><p>条件変数のシグナルの送信またはブロードキャストは (<code>wait</code> と違って) ロックを必要としません。そのためシステムのエラーは起きませんが、それでもプログラミング上のエラーは起きます。
+</p><p>スレッドを一つだけ起動するのか全て起動するかは問題によります。キューの例をもう一度考えると、スレッドが空のキューに要素を入れたときに待っているスレッドを全て起動する必要はありません。キューから要素を取り出して処理を行えるのは一つのスレッドだけだからです。一方、もしスレッドが複数の要素をキューに入れ、その要素の数が静的にわからない場合には待っている全てのスレッドを起動する必要があります。</p><p>空でないキューに要素を追加するときにシグナルを出さない場合には、空のキューへの要素の追加は常にブロードキャストを行う必要があることに注意してください。空のキューへの要素の追加されてからシグナルが発せられるまでに他の要素が追加されることがあり、このときは要素が複数追加されたとして対処しなければならないためです。</p><p>通常スレッドは他のスレッドが条件変数に対して待っている理由を近似的にしか知りません。そのため他のスレッドが条件変数を待っているかもしれない状況では常にシグナルすることが求められます。また起動されたスレッドは期待した状況が整っていると仮定してはいけません。一般的には、起動されたスレッドは共有状態のデータを読み取って所望の条件が成り立っていることを確認し、必要ならばもう一度待つ必要があります。この処理は他のスレッドがシグナルしたときにだけ起こるのでビジーウェイトとは違います。</p><p>このアプローチを正当化する理由がもう一つあります。スレッドが大量のリソースを生み出して <code>broadcast</code> を使って全てのスレッドを起動したときに、最初に実行されるスレッドは貪欲に全てのリソースを消費することが可能な点です。このとき二番目以降に起動されるスレッドは次回はもっとラッキーになるように願いながらもう一度実行を中断することになります。</p><p>今までの説明でキューに関する完全な回答の準備が整いました。<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Queue.html"><span class="c003">Queue</span></a> に定義されているキューの構造がロックと条件変数 <code>non_empty</code> で拡張されます。
+</p><div class="mylisting"><span class="c005">   1</span> <span class="c001">type</span> 'a t =
+<span class="c005">   2</span>   { queue : 'a Queue.t; lock : Mutex.t; non_empty : Condition.t }
+<span class="c005">   3</span> <span class="c001">let</span> create () =
+<span class="c005">   4</span>   { queue = Queue.create ();
+<span class="c005">   5</span>     lock = Mutex.create (); non_empty = Condition.create () }
+<span class="c005">   6</span> 
+<span class="c005">   7</span> <span class="c001">let</span> add e q =
+<span class="c005">   8</span>   Mutex.lock q.lock;
+<span class="c005">   9</span>   <span class="c001">if</span> Queue.length q.queue = 0 <span class="c001">then</span> Condition.broadcast q.non_empty;<a id="prog:broadcast"></a>
+<span class="c005">  10</span>   Queue.add e q.queue;
+<span class="c005">  11</span>   Mutex.unlock q.lock;;
+<span class="c005">  12</span> 
+<span class="c005">  13</span> <span class="c001">let</span> take q =
+<span class="c005">  14</span>   Mutex.lock q.lock;
+<span class="c005">  15</span>   <span class="c001">while</span> Queue.length q.queue = 0 <a id="prog:lock"></a>
+<span class="c005">  16</span>   <span class="c001">do</span> Condition.wait q.non_empty q.lock <span class="c001">done</span>;  <a id="prog:slock"></a>
+<span class="c005">  17</span>   <span class="c001">let</span> x = Queue.take q.queue <span class="c001">in</span>
+<span class="c005">  18</span>   Mutex.unlock q.lock; x;;</div><p>要素の追加ではスレッドはブロックしませんが、追加の前にキューが空だった場合に条件変数 <code>non_empty</code> をシグナルすることを忘れてはいけません。この条件変数に対して待っているスレッドが存在する可能性があるからです。</p><p>要素の削除はもう少し複雑です。スレッドはロックを取得してから削除を試みますが、キューが空だった場合には条件変数 <code>non_empty</code>に対して待ち起動されたあとにもう一度同じことを行います。同じことができるのは起動されたスレッドがロックを持っているからです。</p><p>上で説明したように、<code>broadcast q.non_empty</code> によるシグナル (<a href="#prog%3Abroadcast">9</a> 行目) はすでにロック <code>q.lock</code> を持っているスレッド <span class="c006">p</span> によって実行されます。これは読み込むを行うために <code>take</code> を実行するスレッド <span class="c006">q</span> が <a href="#prog%3Alock">15</a> 行目と <a href="#prog%3Aslock">16</a> 行目の間の、キューが空であることは確認したがまだ実行を中断していない状態にないことを意味します。もしスレッド <span class="c006">q</span> がこの状態になったとすると、<span class="c006">p</span> によって送られるシグナルは無視され効果を持ちません。その後 <span class="c006">q</span> は実行を中断しますが、 <span class="c006">p</span> がすでにシグナルしているために <span class="c006">q</span> が起動されることはありません。スレッド <span class="c006">p</span> によるロックの取得は <span class="c006">q</span> がすでに実行を中断したかキューの状態を調べていないかのどちらかであり、キューの状態を調べたが実行を中断していないという状況にならないことを保証します。</p><div class="exercise">
+<h5 class="paragraph" id="sec165">練習問題 21</h5>
+<p><a id="ex21"></a>
+有界なキューを実装してください。キューへ追加されるのはキューがある長さに達したときにブロックする機能です (並行プログラミングで限りなく生産する生産者と実行がブロックする消費者が存在する場合にこのキューが必要になります)。
+<a href="exercise21.html#exans21">解答</a></p><div class="fancybreak">* * *</div></div>
+<h2 class="section" id="sec167">7.7  イベントベースの同期通信</h2>
+<p>この節で説明される関数は <code>Event</code> モジュールに定義されています。</p><p>ロックと条件変数を使えばどんな形の同期も行うことができますが、必ずしも簡単に行えるというわけではありません。最初は単純だったキューでも同期のためのコードが緻密になることは前節の例で見ました。</p><p>イベントベースの同期通信は高レベルの通信プリミティブを集めたものであり、並行プログラミングを容易にすることを意図しています。<code>Event</code> モジュールのプリミティブはまず John Reppy によって <em>Standard ML</em> 言語の拡張 <em>Concurrent ML</em> [<a href="references.html#CML">16</a>] として開発されました。OCamlではこれらの通信プリミティブはロックと条件変数などの基本的な同期よりも上のレベルに位置しています。</p><p>通信は <em>イベント</em> を <em>チャンネル</em> を通じて送ることで行います。チャンネルとは “軽量パイプ” のようなものです。これを使うと同じプログラム内のスレッド間で通信を行い、生産者と消費者の間で同期を行うことができます。<code>'a</code> 型の値を運ぶチャンネルは <code>'a channel</code> 型を持ちます。チャンネルは途中で型を変えることなく常に同じ型の値を運びます。チャンネルは <code>new_channel</code> 関数で作成されます。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html#VALnew_channel">new_channel</a><a id="hevea_default158"></a> : unit -&gt; 'a channel</div><p>メッセージの送受信は直接的にではなくイベントという中間体を通して行われます。基本的なイベントは “メッセージの送信” と “メッセージの受信” であり、以下のプリミティブによって作成できます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html#VALsend">send</a><a id="hevea_default159"></a> : 'a channel -&gt; 'a -&gt; unit event
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html#VALreceive">receive</a><a id="hevea_default160"></a> : 'a channel -&gt; 'a event</div><p>メッセージの作成してもすぐに何かが起こるわけではありません。行われるべき動作を示すデータ構造が作られるだけです。イベントを実際に起こすには、スレッドはそのイベントを実行すべきスレッドと同期しなければいけません。<code>sync</code> プリミティブを使うと引数として渡すイベントが実際に実行されるのを待つことができます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html#VALsync">sync</a><a id="hevea_default161"></a> : 'a event -&gt; 'a</div><p>まとめると、値 <code>v</code> をチャンネル <code>c</code> に送るには <code>sync (send c v)</code> を実行します。<code>sync</code> を読んだスレッドはイベントが起こるまで、つまり他のスレッドがチャンネル <code>c</code>から値を受信可能になるまでブロックされます。対称的に、スレッドがチャンネル <code>c</code> に対するメッセージを待つには <code>sync (recieve c)</code> を使います。</p><p>全ての生産者と全ての消費者は競合します。例えばいくつかのスレッドが一つのチャンネルにメッセージを送りメッセージを受信できるスレッドが一つしか無かった場合、自分の送ったイベントが起きる生産者は一つだけなのは明らかです。他の生産者は実行を中断されたままであり、先に他のスレッドがイベントを受け取ったことに気がつくことはありません。</p><p>競合は同じスレッド内でも起こりえます。複数のイベントは <code>choose</code> プリミティブを使うとまとめることができます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html#VALchoose">choose</a><a id="hevea_default162"></a> : 'a event list -&gt; 'a event</div><p>この関数は引数に渡されたイベントを並列にオファーし、これらのイベントのうちちょうど一つが実行されます。ここではオファーと実行を区別していることに注意してください。<code>sync (choose [e1; e2])</code> は二つのイベント <code>e1</code> と <code>e2</code> の選択をオファーし、同期したときには二つのうち一つのイベントしか実行されません (実行と同時に同時にもう一つのイベントはキャンセルされます)。<code>wrap_abort</code> プリミティブを使うとイベントがキャンセルされたときの処理を設定できます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html#VALwrap_abort">wrap_abort</a><a id="hevea_default163"></a> : 'a event -&gt; (unit -&gt; unit) -&gt; 'a event</div><p><code>wrap_abort e f</code> は <code>e</code> と同じイベントを作成しますが、同期したときにこのイベントが実行されなかった場合には <code>f</code> が実行されます (このイベントが複雑なイベントの一部であるときにだけ意味を持ちます)。</p><p><code>poll</code> を使うと (<code>Mutex.try_lock</code> のように) ブロックせずにイベントの同期を試みることができます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Event.html#VALpoll">poll</a><a id="hevea_default164"></a> : 'a event -&gt; 'a option</div><p><code>poll e</code> はイベント <code>e</code> をオファーしますが、このイベントがすぐに実行されない場合にはブロックせずにオファーをキャンセルします。このとき関数呼び出しはなんの効果も持ちません (より正確には、<code>poll e</code> という式が <code>None</code> で置き換えられたかのような動作をします)。これに対して、もしイベントがすぐに実行できるならば <code>sync e</code> が実行されたときの動作をします。ただしその時の返り値は <code>v</code> ではなく <code>Some v</code> となります。</p><div class="example">
+<h5 class="paragraph" id="sec168">例</h5>
+<p>
+<a href="#ex%2Fcrible-copro">7.3</a> 節で示したエラトステネスのふるいの例では、異なるスレッド感の通信には元のプログラムと同じパイプが使われ、システムメモリ (パイプ) が中間体でした。プロセスのメモリを使って直接通信を行ったほうが効率的な可能性もあります。単純な解法はパイプを整数が送られるチャンネルで置き換えることです。</p><p>整数をチャンネルに送るだけでは十分ではなく、ストリームの終端を検出する必要もあります。最も単純な解法は整数を <code>Some n</code> の形で送り、<code>None</code> を送ることで終了することです。変更を最小にするために、<a href="pipes.html#ex%2Fcrible">5.2</a> 節の例で使ったコードを再利用します。パイプとその入出力関数をチャンネルとその入出力関数でシミュレートします。</p><p>前のバージョンのプログラムを取ってきて入出力関数を <code>Pervasives</code> ライブラリの入出力バッファを使ったものからチャンネルを使ったものに入れ替えればすみます。例えば次のコードを <code><span class="c001">open</span> Unix</code> 命令の後に追加します。
+
+</p><div class="mylisting"><span class="c001">let</span> pipe () = <span class="c001">let</span> c = Event.new_channel () <span class="c001">in</span> c, c
+<span class="c001">let</span> out_channel_of_descr x = x
+<span class="c001">let</span> in_channel_of_descr x = x
+
+<span class="c001">let</span> input_int chan =
+  <span class="c001">match</span> Event.sync (Event.receive chan) <span class="c001">with</span>
+  | Some v -&gt; v
+  | None -&gt; raise End_of_file
+<span class="c001">let</span> output_int chan x = Event.sync (Event.send chan (Some x))
+<span class="c001">let</span> close_out chan = Event.sync (Event.send chan None);;</div><p>しかしチャンネルを使ったバージョンの実行速度を前のバージョンと比べると、チャンネルを使うほうが二倍程度遅いことがわかります。整数を通信するときに毎回二つのスレッドの同期が必要となり、ロックの取得と開放に何回かのシステムコールが必要となるためです。一方で、バッファされた <span class="c007">i/o</span>を使うパイプを用いた通信では一回のシステムコールで数千個の整数がまとめて送られます。</p><p>公平な比較のためには、チャンネルを使った通信にバッファを用意していくつかの整数をまとめてチャンネルを利用するようにするべきです。子はプライベートなキューに計算結果を他のスレッドと同期することなく蓄積します。キューが満杯になるか明示的な要求が届くと、チャンネルが同期されてキューが空になります。親は自分用のキューを持ち、このキューはチャンネル同期によって満たされ計算が進むに連れて一つづつ消費されます。</p><p>このときのコードは以下のようになります:
+
+</p><div class="mylisting"><span class="c001">type</span> 'a buffered =
+    { c : 'a Queue.t Event.channel;
+      <span class="c001">mutable</span> q : 'a Queue.t;
+      size : int }
+
+<span class="c001">let</span> pipe () = <span class="c001">let</span> c = Event.new_channel () <span class="c001">in</span> c, c;;
+
+<span class="c001">let</span> size = 1024;;
+<span class="c001">let</span> out_channel_of_descr chan =
+  { c = chan; q = Queue.create (); size = size };;
+<span class="c001">let</span> in_channel_of_descr = out_channel_of_descr;;
+
+<span class="c001">let</span> input_int chan =
+  <span class="c001">if</span> Queue.length chan.q = 0 <span class="c001">then begin
+    let</span> q = Event.sync (Event.receive chan.c) <span class="c001">in
+    if</span> Queue.length q &gt; 0 <span class="c001">then</span> chan.q &lt;- q
+    <span class="c001">else</span> raise End_of_file
+  <span class="c001">end</span>;
+  Queue.take chan.q;;
+
+<span class="c001">let</span> flush_out chan =
+  <span class="c001">if</span> Queue.length chan.q &gt; 0 <span class="c001">then</span> Event.sync (Event.send chan.c chan.q);
+  chan.q &lt;- Queue.create ();;
+
+<span class="c001">let</span> output_int chan x =
+  <span class="c001">if</span> Queue.length chan.q = size <span class="c001">then</span> flush_out chan;
+  Queue.add x chan.q
+
+<span class="c001">let</span> close_out chan =
+  flush_out chan;
+  Event.sync (Event.send chan.c chan.q);;</div><p>
+このバージョンではパイプを使ったバージョンと比較可能な程度の効率を取り戻すことができます。</p><p>プロセスとパイプを使ったオリジナルのバージョンと比べると、チャンネルと使った方法には利点が二つあります。一つ目はスレッドの起動はプロセスのものと比べてコストがかからないことです。二つ目はチャンネルを使った通信がデータ全体のコピーではなくポインタの受け渡しのみを行うことです。今回の例ではスレッドの数とやり取りされるデータのサイズがシステムコールと計算のコストに比べて小さいのでこの利点はわかりにくなっています。</p><p>まとめると、スレッド間の通信は (プロセスが中断される場合) システムコールと同程度のコストがかかりますが、このコストは通信をバッファして大きな構造体をやり取りすることで大きく削減できるということになります。
+</p><div class="fancybreak">* * *</div></div><div class="exercise">
+<h5 class="paragraph" id="sec169">練習問題 22</h5>
+<p><a id="ex22"></a>
+<span class="c007">http</span>サーバには高く激しい負荷がかかることがあります。応答にかかる時間を減らすために、新しい接続を処理するためのスレッドを常に数十個保持するように <span class="c007">http</span>サーバのアーキテクチャを変更することができます。この変更は各スレッドが一つのリクエストを処理するのではなく、キューから読んだリクエストを際限なく処理することを意味します。</p><p>マシンへの負荷を避けるために、スレッドの数をタスクを管理する時間がリクエストに対応する時間 (ディスクのデータ待ちの時間など) よりも小さくなる数に制限する必要があります。さらに接続が増えた場合は接続を処理待ち状態にしておき、それ以上に増えた場合は接続を拒否します。負荷が減りスレッドの数が “理想的な” 数よりも大きくなればスレッドのいくつかを削除します。</p><p><a href="#ex%2Fth-relais">7.5</a> 節の例をこのアーキテクチャに変更してください。
+</p><div class="fancybreak">* * *</div></div>
+<h2 class="section" id="sec170">7.8  実装の詳細</h2>
+<h5 class="paragraph" id="sec171">Unix におけるスレッドの実装</h5>
+<p>もともと Unix システムはスレッドをサポートするようにデザインされていませんでしたが、ほとんどの現代的な Unix 実装はスレッドをサポートします。ただしスレッドが後から追加されたものであるということが明白になることがあります。例えば <code>exec</code> を直後に実行するのでない限り、スレッドを使っているときに <span class="c003">fork</span><a id="hevea_default165"></a> を使うことは強く非推奨とされています。<code>fork</code> は現在のスレッドをコピーし、そのスレッドは他のスレッドが存在すると信じて実行を続けますが、実際には他のスレッドは存在せず、正しく動作することができません。</p><p><code>fork</code> を実行した親は通常通り実行を続けます。また <code>fork</code> の直後に子プロセスが他のプログラムを起動する特殊ケースについては親プロセスに問題は起こりません。この方法で問題が起きないことはラッキーです。なぜならこれが他のプログラムを起動する唯一の方法だからです。</p><p>順番を逆にして、<code>fork</code> の後に親または子プロセスがスレッドを作成することは問題ありません。</p>
+<h5 class="paragraph" id="sec/thread-implementation"> OCaml におけるネイティブおよびシミュレート実装</h5>
+<p>実行されているオペレーティングシステムがスレッドの機能を持つ場合には、OCamlはスレッドのネイティブ実装を使います。このとき OCamlはオペレーティングシステムにスレッドの管理をできるだけ任せます。スレッドは同じアドレス空間を共有する異なる Unix プロセスとなります。</p><p>システムがスレッドをサポートしない場合には、OCamlはスレッドをエミュレートすることができます。全てのスレッドは同じ Unix プロセスで実行されそのスケジューリングを含んだ管理はOCamlのランタイムシステムによって行われます。ただし、この実装はバイトコードにコンパイルするときにのみ利用可能です。</p><p>OCamlシステムはネイティブとシミュレートされたバージョンのスレッドに同じインターフェースを提供しています。そのためスレッドの実装は二つに分かれています。一つはエミュレートされたバージョンのためのもので、タスクコントローラを含みます。もう一つは <span class="c007">posix</span> (1003.1c) に基づくスレッドの実装で、他の言語で書かれたライブラリ関数を OCamlへとつなぐものです。OCamlは単純な管理タスクを行いインターフェースがエミュレートされたバージョンと同じことを確認します。これによってある Unix アーキテクチャでコンパイルできたプログラムがほかの Unix アーキテクチャでもコンパイルできることが保証されます。</p><p>ただしネイティブのスレッドとエミュレートされたスレッドでは同期のための C ライブラリへの呼び出しが異なるために、プログラムの意味全体が異なってしまいます。そのためプログラムが二つのバージョンで同じように動くと信じる前にいくつか対処をしなくてはいけません。この節では主に二つの実装の違いについて議論しますが、通常はネイティブ実装について語ることを覚えておいてください。</p><p>エミュレートされたスレッドを使うには <code>ocamlc</code> コンパイラに <code>-thread</code> ではなく <code>-vmthread</code> オプションを渡します。このオプションを <code>ocamlopt</code> コンパイラに渡すことはできません。</p>
+<h5 class="paragraph" id="sec173">OCaml コードの逐次化</h5>
+<p>OCamlによるスレッドの実装は自動メモリ管理やアロケートされたデータの頻繁な利用といった OCamlの特色を持っている必要があります。採用されている解法は一番シンプルで最も効率的なもので、OCamlの全てのスレッドの実行を逐次化するというものです。つまりランタイムシステムが持つロックによって二つ以上の OCamlコードを同時に実行できなくします。これはスレッドという考え方と矛盾するように聞こえますが、そうではありません。ロックはブロックするシステムコールの直前に開放され、システムコールから返るともう一度取得されるからです。この間に他のスレッドが実行されます。このようなシステムコールの特殊なケースは実行中のスレッドで定期的に実行され、他のスレッドに実行を受け渡す <a href="http://www.opengroup.org/onlinepubs/007908799/xsh/sched_yield.html"><span class="c003">sched_yield</span></a> の呼び出しです。</p><p>マルチプロセッサのマシンでは、本当の並列性は C のコードとシステムコールを実行することでしか得ることができません。プロセッサが一つしか無いマシンでは、 OCamlコードが逐次化されたということに気づくことはできません。</p><p>スレッドの実行はほぼ任意のタイミングで他のスレッドに移るので、プログラマはこの逐次化を頼ることはできません。ただし例外として、逐次化されたコードではメモリの一貫性が保証されます。つまり、C のコードを実行するときなどを除いて二つのスレッドは同じメモリを目にするということです。その結果として、ロックの受け渡しがメモリの同期を意味するようになります。あるスレッドが書き込んだアドレスを別のスレッドが読み込んだ場合常に新しい値が読み込まれ、同期処理は必要ありません。</p>
+<h5 class="paragraph" id="sec174">スレッドとシグナル</h5>
+<p>一般的に言って、非同期という特性を持つシグナルを使うことはシングルスレッドのプログラムでさえ注意を要する難しいものでした。シグナルはマルチスレッドのプログラムではさらに難しくなります。どのスレッドにシグナルが送られるべきでしょうか? 全てのスレッド、主スレッド、それとも現在実行しているスレッド? あるスレッドが別のスレッドにシグナルを送りたい場合どうすればいいでしょうか? 実際のところ、スレッドはこのような問題に答えることなく実装されました。そのため実装によってシグナルへの動作は異なります。</p><p><code>Thread.join</code> と <code>Mutex.lock</code> そして <code>Condition.wait</code> は遅いシステムコールにもかかわらずシグナルによって中断されることがありません (したがって <code>EINTR</code> エラーを出して失敗することもありません)。待っているときにシグナルが送られた場合、そのシグナルはシステムコールから返ってから受け取られて処理されます。</p><p><span class="c007">posix</span> 規格はシグナルハンドラがスレッド間で共有されることとシグナルマスクはスレッドの作成時にもとのスレッドから継承された後はスレッドにプライベートとなることを定めています。しかしシグナルに対するスレッドの動作は主に定められておらず、ポータブルにはなっていません。</p><p>したがってスレッドではできる限り非同期シグナル (<code>sigalrm</code> や <code>sigvtalrm</code>、 <code>sigchld</code> など) を避けることが望ましいです。シグナルは <code>Thread.</code><a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Thread.html#VALwait_signal"><span class="c003">wait_signal</span></a> によってブロックと調査をすることができます。シグナルの処理だけを行うスレッドを作ることもできます。このスレッドはシグナルを待ち、適切な処理を行い、他のスレッドにシグナルの情報を伝えます。</p><p>加えて、(バージョン 3.08 以降の) OCamlのスレッドはスレッドのプリエンプションに内部で <code>sigvtalarm</code> を使います。そのためこのシグナルを使うとシステムと干渉する可能性があるために、<code>sigvtalarm</code> シグナルはプログラムの中で使うことができません。</p><hr>
+<a href="sockets.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="more.html"><img src="next_motif.svg" alt="Next"></a>
+</body>
+</html>

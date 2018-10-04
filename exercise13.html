@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>Answer of exercise 13</title>
+</head>
+<body>
+<div class="answer">
+<h5 class="paragraph" id="sec106">練習問題 <a href="pipes.html#ex13">exercise 13</a> の解答</h5>
+<p>
+<a id="exans13"></a>
+子プロセスは親プロセスの完全なコピーであることから、標準ライブラリの<span class="c007">i/o</span>バッファは <code>fork</code> のときに複製されます。そのため各書き込みごとにバッファを空にしない場合、<code>fork</code> の直前にバッファを空にしておく必要があります。<code>read_first_prime</code> 関数の <a href="pipes.html#prog%3Apprime">14</a> 行目の後に <code>flush Pervasives.stdout</code> を追加すればよいです。
+</p><div class="fancybreak">* * *</div></div></body>
+</html>

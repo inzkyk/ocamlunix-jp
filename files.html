@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>ファイル</title>
+</head>
+<body>
+<a href="generalities.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="processes.html"><img src="next_motif.svg" alt="Next"></a>
+<hr>
+<h1 class="chapter" id="sec/files"> 2  ファイル</h1>
+<p>Unix において “ファイル” という言葉はいくつかのものを表します:
+</p><ul class="itemize"><li class="li-itemize">
+通常のファイル: テキストまたはバイナリ情報を含んだ有限のバイト列。 “通常ファイル” とも呼ばれる。
+</li><li class="li-itemize">ディレクトリ
+</li><li class="li-itemize">シンボリックリンク
+</li><li class="li-itemize">特殊ファイル (<em>デバイス</em>): 主にコンピュータの周辺機器にアクセスするために使われる。
+</li><li class="li-itemize">名前付きパイプ
+</li><li class="li-itemize">名前付き Unix ドメインソケット
+</li></ul><p>
+ファイルという表現にはファイルが保持するデータだけではなく、その種類やアクセス権限、最終更新日時といったファイルそのものに関するデータ (メタ属性と呼ばれます) も含まれます。</p>
+<h2 class="section" id="sec12">2.1  ファイルシステム</h2>
+<p>大ざっぱにいって、ファイルシステムは木と考えることができます。根 (ルート)は <code>/</code> で表され、枝は <code>'\000'</code> と <code>/</code> を除く文字列からなるファイルの名前でラベル付けされます (ただし空白文字と印字できない文字は避けたほうが良いとされます) 。終端でないノードは <em>ディレクトリ</em> です: これらのノードは必ず二つの枝 <code>.</code> と <code>..</code> を含み、それぞれこのディレクトリそのものと親のディレクトリを表します。ディレクトリでないノードのことを <em>ファイル</em> と呼ぶことがありますが、木のどのノードもファイルであることを考えると、これは曖昧です。曖昧さを避けるために、このノートではこれらのことを <em>非ディレクトリファイル</em> と呼ぶことにします。</p><p>木のノードはパスを使って表すことができます。パスの始点がファイル階層の頂上である場合、そのパスは <em>絶対</em> です。一方始点がディレクトリである場合にはパスは <em>相対</em> です。より正確に言うと、 <em>相対パス</em> とはファイルの名前を <code>/</code> で区切った文字列であり、<em>絶対パス</em> とは先頭に <code>/</code> のついた相対パスです。ここでは同じ文字 <code>/</code> が区切り文字と根ノードという二つの意味で使われています。</p><p><a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Filename.html"><span class="c003">Filename</span></a> モジュールを使うとパスをポータブルに扱うことができます。例えば <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Filename.html#VALconcat"><span class="c003">concat</span></a> は <code>/</code> という文字を与えることなく二つのパスを結合するので、他のオペレーティングシステム (windows では区切り文字は <code>\</code> です) でも同じような動作をさせることができます。<code>Filename</code> モジュールには <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Filename.html#VALcurrent_dir_name"><span class="c003">current_dir_name</span></a> と<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Filename.html#VALparent_dir_name"><span class="c003">parent_dir_name</span></a> があり、それぞれ <code>.</code> と <code>..</code> という枝を表します。<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Filename.html#VALbasename"><span class="c003">basename</span></a> 関数と <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Filename.html#VALdirname"><span class="c003">dirname</span></a> 関数はパス <code>p</code> を受け取ってそれぞれディレクトリ名 <code>d</code> と非ディレクトリファイル名 <code>b</code>を返します。このとき <code>p</code> と <code>d/p</code> が表すファイルは同じになります。<code>Filename</code> モジュールの関数はパスの操作だけを行うので、実際にそのパスが存在するかどうかは考慮しません。</p><p>ファイル階層は厳密には木ではありません。<code>.</code> と <code>..</code> というディレクトリが自分自身や上の階層のディレクトリを指しているからです。さらに、非ディレクトリファイルは複数の親を持つことができます (<em>ハードリンク</em> と言います)。また他のファイルへのパスを保持する非ディレクトリファイルとみなすことができる <em>シンボリックリンク</em> もあります。概念上は、シンボリックリンクの保持するパスは通常ファイルと同じようにその内容を読むことで取得できます。パスの途中でシンボリックリンクに当たった場合、そのたびにパスをたどります。<code>s</code> が <code>l</code> へのシンボリックリンクならば、 <code>p/s/q</code> というパスは <code>l</code> が絶対パスのときは <code>l/q</code> を、相対パスのときは <code>p/l/q</code> を表します。</p><p>図 <a href="#fig%2Fhierarchy">1</a> にファイル階層の例を示します。<code>/tmp/bar</code> というパスにあるシンボリックリンク <code>11</code> は <code>../gnu</code> という相対パスを指していますが、このファイルはこの段階では存在していません。</p><div class="figure">
+<div class="image"><img src="ocamlunix-image1.png" width="100%"></div>
+
+
+
+<a id="fig/hierarchy"></a>
+<div class="caption">Figure 1 — ファイル階層の例</div></div><p>一般的に、次の規則に従えばファイル階層の再帰的な探索は終了します:
+</p><ul class="itemize"><li class="li-itemize">
+ディレクトリ <code>.</code> と <code>..</code> を無視する。
+</li><li class="li-itemize">シンボリックリンクをたどらない。
+</li></ul><p>
+シンボリックリンクをたどる場合には木ではなく一般のグラフを走査することになるので、たどったノードを覚えておかないとループを避けることができません。</p><p>それぞれのプロセスはワーキングディレクトリを持ちます。ワーキングディレクトリは <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgetcwd"><span class="c003">getcwd</span></a><a id="hevea_default7"></a> 関数で取得することができ、<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALchdir"><span class="c003">chdir</span></a><a id="hevea_default8"></a> で変えることができます。<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALchroot"><span class="c003">chroot</span></a><a id="hevea_default9"></a> <code>p</code> を使えばファイル階層のビューを制限することができます。これによってディレクトリ <code>p</code> が制限されたビューのルートになります。それ以降は絶対パスが新しいルート <code>p</code> からのものとして解釈されます (新しいルートからの <code>..</code> は <code>p</code> 自身になります)。</p>
+<h2 class="section" id="sec13">2.2  ファイル名とファイルディスクリプタ</h2>
+<p>ファイルにアクセスする方法は二つあります。一つ目はファイルシステム階層の <em>ファイル名</em> (あるいは <em>パス名</em>) を利用する方法です。ハードリンクがあるので、全てのファイルは複数のファイル名を持つことができます。ファイル名は <code>string</code> 型の値です。例えばシステムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/unlink.html"><span class="c003">unlink</span></a><a id="hevea_default10"></a>, <a href="http://www.opengroup.org/onlinepubs/009696799/functions/link.html"><span class="c003">link</span></a><a id="hevea_default11"></a>, <a href="http://www.opengroup.org/onlinepubs/009696799/functions/symlink.html"><span class="c003">symlink</span></a><a id="hevea_default12"></a> そして <a href="http://www.opengroup.org/onlinepubs/009696799/functions/rename.html"><span class="c003">rename</span></a><a id="hevea_default13"></a> はどれもファイル名を使います。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALunlink">unlink</a> : string -&gt; unit
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALlink">link</a> : string -&gt; string -&gt; unit
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALsymlink">symlink</a> : string -&gt; string -&gt; unit
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALrename">rename</a> : string -&gt; string -&gt; unit</div><p>以下のような効果を持ちます:
+</p><ul class="itemize"><li class="li-itemize">
+<code>unlink f</code> はファイル <code>f</code> を削除する。 Unix コマンド <code>rm -f f</code> と同じ。
+</li><li class="li-itemize"><code>link f1 f2</code> は <code>f2</code> という名前で <code>f1</code> というファイルを指すハードリンクを作成する。Unix コマンド <code>ln f1 f2</code> と同じ。
+</li><li class="li-itemize"><code>symlink f1 f2</code> は <code>f2</code> という名前で <code>f1</code> というファイルを指すシンボリックリンクを作成する。Unix コマンド <code>ln -s f1 f2</code> と同じ。
+</li><li class="li-itemize"><code>rename f1 f2</code> はファイル <code>f1</code> をファイル <code>f2</code> にリネームする。Unix コマンド <code>mv f1 f2</code> と同じ。
+</li></ul><p>ファイルにアクセスする二つ目の方法はファイルディスクリプタを使うものです。ファイルディスクリプタはファイルへのポインタであり、ファイルの名前の他にも現在の読み込み/書き込み位置、アクセス権限 (読み込み/書き込みは可能か?)、入出力を管理するためのフラグ (ブロッキング/ノンブロッキングや上書き/追記など)といった情報を含みます。ファイルディスクリプタは抽象型 <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEfile_descr"><span class="c003">file_descr</span></a> の値です。</p><p>ファイルへの名前を使ったアクセスはファイルディスクリプタを使ったアクセスと独立しています。例えばあるファイルのファイルディスクリプタを取得したとき、そのファイルを消去したりリネームしたりすることは可能ですが、そうした場合でもファイルディスクリプタは元のファイルを指したままです。</p><p>プログラムが実行されると 3 つのディスクリプタが確保され、<code>Unix</code> モジュールの<code>stdin</code>, <code>stdout</code>, <code>stderr</code> という変数に割り当てられます。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALstdin">stdin</a><a id="hevea_default14"></a> : file_descr
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALstdout">stdout</a><a id="hevea_default15"></a> : file_descr
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALstderr">stderr</a><a id="hevea_default16"></a> : file_descr</div><p>これらのディスクリプタはそれぞれプロセスの標準入力、標準出力、標準エラー出力に対応します。</p><p>プログラムがコマンドラインから実行されリダイレクトされることがない場合、三つのディスクリプタは端末を表します。しかし例えば入力がシェルの <code>cmd &lt; f</code> を使ってリダイレクトされている場合、<code>cmd</code> を実行している間はディスクリプタ <code>stdin</code> は <code>f</code> というファイルを指します。同様に、 <code>cmd &gt; f</code> と <code>cmd 2&gt; f</code> はコマンドの実行中にそれぞれ <code>stdout</code> と <code>stderr</code> をファイル <code>f</code> に割り当てます。</p>
+<h2 class="section" id="sec14">2.3  ファイルのメタ属性、種類、権限</h2>
+<p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/stat.html"><span class="c003">stat</span></a><a id="hevea_default17"></a>, <a href="http://www.opengroup.org/onlinepubs/009696799/functions/lstat.html"><span class="c003">lstat</span></a><a id="hevea_default18"></a> および <a href="http://www.opengroup.org/onlinepubs/009696799/functions/fstat.html"><span class="c003">fstat</span></a><a id="hevea_default19"></a> はファイルについてのメタ属性、つまりそのファイルの内容についてではなくそのノード自身についての情報を返します。例えばファイルの識別子、ファイルの種類、アクセス権限、最終更新日時といった情報などが含まれます
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALstat">stat</a>  : string -&gt; stats
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALlstat">lstat</a> : string -&gt; stats
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALfstat">fstat</a> : file_descr -&gt; stats</div><p>システムコール <code>stat</code> と <code>lstat</code> はファイル名を引数として受け取りますが、<code>fstat</code> はそれまでに開かれたディスクリプタを受け取りそのディスクリプタが指しているファイルの情報を返します。<code>stat</code> と <code>lstat</code> はシンボリックリンクに対して異なった動作をします。<code>lstat</code> はシンボリックリンクそのものの情報を返しますが、<code>stat</code> はシンボリックリンクが指すファイルに関する情報を返します。これら 3 つのシステムコールの返り値は <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEstats"><span class="c003">stats</span></a> 型のレコードです。そのフィールドは図 <a href="#fig%2Fstats">1</a> に説明されています。
+</p><div class="table">
+<table class="c000 cellpading0"><tr><td class="c014">フィールド名</td><td class="c013">説明 </td></tr>
+<tr><td class="hbar" colspan=2></td></tr>
+<tr><td class="c014"><code>st_dev : int</code></td><td class="c013">ファイルが保存されているデバイスの ID を表す。 </td></tr>
+<tr><td class="c014"><code>st_ino : int</code></td><td class="c013">パーティションにおけるファイルの ID (inode 番号と呼ばれます) を表す。<code>(st_dev, st_ino)</code> の組でファイルシステム内のファイルを識別できる。 </td></tr>
+<tr><td class="c014"><code>st_kind : file_kind</code></td><td class="c013">ファイルの種類を表す。 <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEfile_kind"><span class="c003">file_kind</span></a> 型は列挙型であり、以下のコンストラクタを持つ:
+<div class="mltypecases">
+<table class="c000 cellpading0"><tr><td class="c011"><code>S_REG</code></td><td class="c011">通常ファイル </td></tr>
+<tr><td class="c011"><code>S_DIR</code></td><td class="c011">ディレクトリ </td></tr>
+<tr><td class="c011"><code>S_CHR</code></td><td class="c011">キャラクタデバイス </td></tr>
+<tr><td class="c011"><code>S_BLK</code></td><td class="c011">ブロックデバイス </td></tr>
+<tr><td class="c011"><code>S_LNK</code></td><td class="c011">シンボリックリンク </td></tr>
+<tr><td class="c011"><code>S_FIFO</code></td><td class="c011">名前付きパイプ </td></tr>
+<tr><td class="c011"><code>S_SOCK</code></td><td class="c011">ソケット
+</td></tr>
+</table>
+</div>
+</td></tr>
+<tr><td class="c014"><code>st_perm : int</code></td><td class="c013">ファイルへのアクセス権限を表す。 </td></tr>
+<tr><td class="c014"><code>st_nlink : int</code></td><td class="c013">ファイルがディレクトリの場合はディレクトリ内の要素の数を表す。
+ファイルがディレクトリ出ない場合、このファイルに対するハードリンクの数を表す。 </td></tr>
+<tr><td class="c014"><code>st_uid : int</code></td><td class="c013">ファイルの所有ユーザを表す。 </td></tr>
+<tr><td class="c014"><code>st_gid : int</code></td><td class="c013">ファイルの所有グループを表す。 </td></tr>
+<tr><td class="c014"><code>st_rdev : int</code></td><td class="c013">ファイルが特殊ファイルの場合、ファイルに関連付けられた周辺機器の ID を表す。 </td></tr>
+<tr><td class="c014"><code>st_size : int</code></td><td class="c013">ファイルのサイズ (バイト) を表す。 </td></tr>
+<tr><td class="c014"><code>st_atime : int</code></td><td class="c013">ファイルが最後にアクセスされた時間を、 1970年1月1日深夜0時 <span class="c007">gmt</span> からの経過秒数で表す。</td></tr>
+<tr><td class="c014"><code>st_mtime : int</code></td><td class="c013">ファイルが最後に更新された日時を表す (単位は同上)。</td></tr>
+<tr><td class="c014"><code>st_ctime : int</code></td><td class="c013">ファイルの状態が最後に更新された日時を表す。ファイルへの書き込み、アクセス権限の変更、所有ユーザ/グループの変更、リンク数の変更などがファイルの状態を変化させる。
+<br>
+</td></tr>
+<tr><td class="hbar" colspan=2></td></tr>
+</table>
+
+<a id="fig/stats"></a>
+<div class="caption">Table 1 — <code>stats</code> 構造体のフィールド</div></div><h3 class="subsection" id="sec15">識別子</h3>
+<p>ファイルはデバイス番号 <code>st_dev</code> (大抵の場合はファイルのあるディスクパーティションの番号) とinode 番号 <code>st_ino</code> で一意に識別できます。</p><h3 class="subsection" id="sec16">所有者</h3>
+<p>ファイルは所有者 <code>st_uid</code> と所有グループ <code>st_gid</code> を持ちます。マシン上の全てのユーザとグループは通常 <code>/etc/passwd</code> と <code>/etc/gourps</code> に保存されています。ユーザとグループを文字列からポータブルに検索するには <a href="http://www.opengroup.org/onlinepubs/009696799/functions/getpwnam.html"><span class="c003">getpwnam</span></a><a id="hevea_default20"></a> 関数と <a href="http://www.opengroup.org/onlinepubs/009696799/functions/getgrnam.html"><span class="c003">getgrnam</span></a><a id="hevea_default21"></a> 関数が使えるほか、<a href="http://www.opengroup.org/onlinepubs/009696799/functions/getpwuid.html"><span class="c003">getpwuid</span></a><a id="hevea_default22"></a> 関数と <a href="http://www.opengroup.org/onlinepubs/009696799/functions/getgrgid.html"><span class="c003">getgrgid</span></a><a id="hevea_default23"></a> 関数を使うと id から検索できます。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgetpwnam">getpwnam</a> : string -&gt; passwd_entry
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgetgrnam">getgrnam</a> : string -&gt; group_entry
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgetpwuid">getpwuid</a> : int -&gt; passwd_entry
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgetgrgid">getgrgid</a> : int -&gt; group_entry</div><p>プロセスを実行しているユーザの名前とそのユーザが属している全てのグループ番号はそれぞれ <a href="http://www.opengroup.org/onlinepubs/009696799/functions/getlogin.html"><span class="c003">getlogin</span></a><a id="hevea_default24"></a> と <a href="http://www.opengroup.org/onlinepubs/009696799/functions/getgroups.html"><span class="c003">getgroups</span></a><a id="hevea_default25"></a> 関数で取得できます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgetlogin">getlogin</a> : unit -&gt; string
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgetgroups">getgroups</a> : unit -&gt; int array</div><p><a href="http://www.opengroup.org/onlinepubs/009696799/functions/chown.html"><span class="c003">chown</span></a><a id="hevea_default26"></a> 関数はファイル (第一引数) の所有者 (第二引数) と所有グループ (第三引数) を変えます。ファイルディスクリプタを持っているならば、 代わりに <a href="http://www.opengroup.org/onlinepubs/009696799/functions/fchown.html"><span class="c003">fchown</span></a><a id="hevea_default27"></a> 関数が使えます。任意のファイルの所有者と所有グループを変更できる権限を持つのはスーパーユーザだけです。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALchown">chown</a> : string -&gt; int -&gt; int -&gt; unit
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALfchown">fchown</a> : file_descr -&gt; int -&gt; int -&gt; unit</div><p>プログラムの実効 <code>uid</code> がファイルと等しいとき、あるいは実効 <code>gid</code> または実効ユーザの属する補助グループの一つがファイルの所有グループと等しい場合は、特権無しで所有ユーザ/グループの変更が可能です。</p><h3 class="subsection" id="sec17">アクセス権限</h3>
+<p>アクセス権限は整数の中にビット列として格納されており、<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEfile_perm"><span class="c003">file_perm</span></a> は <code>int</code> の別名に過ぎません。そこには所有ユーザ、所有グループおよびその他のユーザの読み込み、書き込みおよび実行のための権限を表すビットとスペシャルビットが保存されています:
+</p><div class="center">
+<table class="cellpadding1" border=1 style="border-spacing:0;"><tr><td class="c009" colspan=3><span class="c003">S</span>pecial</td><td class="c009" colspan=3><span class="c003">U</span>ser</td><td class="c009" colspan=3><span class="c003">G</span>roup</td><td class="c009" colspan=3><span class="c003">O</span>ther </td></tr>
+<tr><td class="c009">–</td><td class="c009">–</td><td class="c009">–</td><td class="c009">–</td><td class="c009">–</td><td class="c009">–</td><td class="c009">–</td><td class="c009">–</td><td class="c009">–</td><td class="c009">–</td><td class="c009">–</td><td class="c009">–</td></tr>
+<tr><td class="c009" colspan=12><code>OoSUGO</code>
+</td></tr>
+</table>
+</div><p>
+
+ここでユーザ (User) 、グループ (Group)、その他 (Other) というフィールドの中には、読み込み (<code>r</code>)、 書き込み (<code>w</code>) そして実行 (<code>x</code>) の権限がこの順番で保存されています。ファイルの権限はこれらの権限を合わせたものであり、例を表 <a href="#tab%2Fpermbits">2</a> に示します。
+</p><div class="table">
+<table class="c000 cellpading0"><tr><td class="c011">ビット (8進表記)</td><td class="c010"><code>ls -l</code> の表記</td><td class="c011">アクセス権限 </td></tr>
+<tr><td class="hbar" colspan=3></td></tr>
+<tr><td class="c011"><code>0o100</code></td><td class="c010"><code>--x------</code></td><td class="c011">所有ユーザによって実行可能 </td></tr>
+<tr><td class="c011"><code>0o200</code></td><td class="c010"><code>-w-------</code></td><td class="c011">所有ユーザによって書き込み可能 </td></tr>
+<tr><td class="c011"><code>0o400</code></td><td class="c010"><code>r--------</code></td><td class="c011">所有ユーザによって読み込み可能 </td></tr>
+<tr><td class="hbar" colspan=3></td></tr>
+<tr><td class="c011"><code>0o10</code></td><td class="c010"><code>-----x---</code></td><td class="c011"> 所有グループのメンバーによって実行可能 </td></tr>
+<tr><td class="c011"><code>0o20</code></td><td class="c010"><code>----w----</code></td><td class="c011"> 所有グループのメンバーによって書き込み可能 </td></tr>
+<tr><td class="c011"><code>0o40</code></td><td class="c010"><code>---r----</code></td><td class="c011"> 所有グループのメンバーによって読み込み可能 </td></tr>
+<tr><td class="hbar" colspan=3></td></tr>
+<tr><td class="c011"><code>0o1</code></td><td class="c010"><code>--------x</code></td><td class="c011">その他のユーザによって実行可能 </td></tr>
+<tr><td class="c011"><code>0o2</code></td><td class="c010"><code>-------w-</code></td><td class="c011">その他のユーザによって書き込み可能 </td></tr>
+<tr><td class="c011"><code>0o4</code></td><td class="c010"><code>------r--</code></td><td class="c011">その他のユーザによって読み込み可能 </td></tr>
+<tr><td class="hbar" colspan=3></td></tr>
+<tr><td class="c011"><code>0o1000</code></td><td class="c010"><code>--------t</code></td><td class="c011">グループに対する <code>t</code> ビット (スティッキービット) </td></tr>
+<tr><td class="c011"><code>0o2000</code></td><td class="c010"><code>-----s---</code></td><td class="c011">グループに対する <code>s</code> ビット (SGID) </td></tr>
+<tr><td class="c011"><code>0o4000</code></td><td class="c010"><code>--s------</code></td><td class="c011">ユーザに対する <code>s</code> ビット (SUID) </td></tr>
+<tr><td class="hbar" colspan=3></td></tr>
+</table>
+<a id="tab/permbits"></a>
+<div class="caption">Table 2 — 権限ビット</div></div><p>非ディレクトリファイルに対して、読み込み、書き込みおよび実行の権限が意味することは明らかです。ディレクトリに対する実行権限とはそのディレクトリに入る (<code>chdir</code> する) ための権限であり、読み込み権限とはディレクトリの内容を一覧で表示するための権限です。ただしディレクトリ内のファイルやサブディレクトリの名前を知っている場合、それらを読み込むためにはディレクトリの読み込み権限は必要ではありません。</p><p>スペシャルビットは <code>x</code> ビットが立っていない場合には意味を持ちません (<code>x</code> が 立っていないならば、追加の権限を与えません) 。スペシャルビットの場所が <code>x</code> と同じで、<code>x</code> が設定されていないときには <code>s</code>, <code>t</code> の代わりに <code>S</code>, <code>T</code> が使われるのはこのためです。</p><p><code>t</code> フラグはスティッキービットと呼ばれ、このフラグが付いたディレクトリでは全てのユーザがファイルとディレクトリの作成を行えますが、削除が行えるのは所有者とルートだけです。</p><p><code>s</code> ビットが立っている実行可能ファイルを実行すると、ファイルの所有者または所有グループとしてファイルが実行されます。さらにプログラムの実行時にシステムコール <code>setuid</code> と <code>setgid</code> を呼ぶことで、実効ユーザ識別子とグループを本来のユーザ/グループに切り変えることができます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALsetuid">setuid</a> : int -&gt; unit
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALsetgid">setgid</a> : int -&gt; unit</div><p><code>setuid</code> と <code>setgid</code> が呼ばれたとき、プロセスは元のユーザ/グループ識別子を保存します。元の識別子が保存されるのは実効識別子を特別な権限なしに後で戻すことができるようにするためです。システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/getuid.html"><span class="c003">getuid</span></a><a id="hevea_default28"></a> と <a href="http://www.opengroup.org/onlinepubs/009696799/functions/getgid.html"><span class="c003">getgid</span></a><a id="hevea_default29"></a> は元の識別子を返し、<a href="http://www.opengroup.org/onlinepubs/009696799/functions/geteuid.html"><span class="c003">geteuid</span></a><a id="hevea_default30"></a> と <a href="http://www.opengroup.org/onlinepubs/009696799/functions/getegid.html"><span class="c003">getegid</span></a><a id="hevea_default31"></a> は実効識別子を返します。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgetuid">getuid</a> : unit -&gt; int
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgeteuid">geteuid</a> : unit -&gt; int
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgetgid">getgid</a> : unit -&gt; int
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgetegid">getegid</a> : unit -&gt; int</div><p>ただしスーパーユーザが <code>setuid</code> と <code>setgid</code> を実行した場合は別で、この場合は実効ユーザ/グループ識別子と実ユーザ/グループ識別子の両方を変更します。</p><p>プロセスは他にもファイル作成マスクを持ちます。これはファイル権限と同じようにエンコードされ、名前が示すように、禁止する操作を表します。ファイルを作成するとき、ファイル作成マスクで1になっているビットは作成されるファイルの権限では 0 になります。ファイル作成マスクはシステムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/umask.html"><span class="c003">umask</span></a><a id="hevea_default32"></a> で取得および変更できます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALumask">umask</a> : int -&gt; int</div><p>システム変数を変更する多くのシステムコールと同じように、ファイル作成マスクを変更する <a href="http://www.opengroup.org/onlinepubs/009696799/functions/umask.html"><span class="c003">umask</span></a><a id="hevea_default33"></a> は古い値を返します。そのため、この関数を二回呼べば現在の値を確認できます。一回目は適当な値を入力して変数の現在の値を手に入れ、二回目でその値を入力して変数を元の値に戻します。例えば:
+
+</p><div class="mylisting"><span class="c001">let</span> m = umask 0 <span class="c001">in</span> ignore (umask m); m</div><p>ファイルアクセス権限はシステムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/chmod.html"><span class="c003">chmod</span></a><a id="hevea_default34"></a> と <a href="http://www.opengroup.org/onlinepubs/009696799/functions/fchmod.html"><span class="c003">fchmod</span></a><a id="hevea_default35"></a> で変更できます。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALchmod">chmod</a> : string -&gt; file_perm -&gt; unit
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALfchmod">fchmod</a> : file_descr -&gt; file_perm -&gt; unit</div><p>これらの関数が動作していることはシステムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/access.html"><span class="c003">access</span></a><a id="hevea_default36"></a> によって “動的に” 確認できます。
+</p><div class="mylisting"><span class="c001">type</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEaccess_permission">access_permission</a> = R_OK | W_OK | X_OK | F_OK
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALaccess">access</a> : string -&gt; access_permission list -&gt; unit</div><p>ここでアクセスされるファイルへの権限の問い合わせは <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEaccess_permission"><span class="c003">access_permission</span></a> 型の値のリストで表されます。 <code>F_OK</code> はファイルが存在しているかどうかを (他の権限を確認せずに) 確認します。他の値の意味は明らかです。</p><p><code>access</code> によって調べられる情報は <code>lstat</code> で得られる情報よりも制限的なことがあることに注意してください。これはファイルシステムが制限された権限 — 例えば、読み込み専用モード — のもとにマウントされる場合があるためです。<em>動的な</em> 情報 (プロセスが実際にできることへの制限) と <em>静的な</em> 情報 (ファイルシステムが指定する制限) を区別したのはこのためです。</p>
+<h2 class="section" id="sec18">2.4  ディレクトリに対する操作</h2>
+<p>ディレクトリに書き込めるのカーネルだけ (そしてファイルを作成するときだけ) です。そのため、ディレクトリを書き込みモードで開くことは禁止されています。 Unix の特定のバージョンでは、読み込み専用モードでディレクトリを開いて <span class="c003">read</span><a id="hevea_default37"></a>で読むことが許されていますが、別のバージョンでは禁止されています。しかしディレクトリエントリのフォーマットは Unix のバージョンによって異なり、複雑なことが多いので、仮にディレクトリへの書き込みができたとしても行うべきではありません。次の関数を使うとポータブルにディレクトリを走査することができます:
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALopendir">opendir</a>   : string -&gt; dir_handle
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALreaddir">readdir</a>   : dir_handle -&gt; string
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALrewinddir">rewinddir</a> : dir_handle -&gt; unit
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALclosedir">closedir</a>  : dir_handle -&gt; unit</div><p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/opendir.html"><span class="c003">opendir</span></a><a id="hevea_default38"></a> はディレクトリのディレクトリディスクリプタを返します。 <a href="http://www.opengroup.org/onlinepubs/009696799/functions/readdir.html"><span class="c003">readdir</span></a><a id="hevea_default39"></a> はディスクリプタの次のエントリを読んで同じディレクトリ内のファイルの名前を返すか、ディレクトリの終端に到達した場合には <code>End_of_file</code> 例外を出します。<a href="http://www.opengroup.org/onlinepubs/009696799/functions/rewinddir.html"><span class="c003">rewinddir</span></a><a id="hevea_default40"></a> はディスクリプタをディレクトリの最初に移動し、<a href="http://www.opengroup.org/onlinepubs/009696799/functions/closedir.html"><span class="c003">closedir</span></a><a id="hevea_default41"></a> はディレクトリディスクリプタを閉じます。
+</p><div class="example">
+<h5 class="paragraph" id="sec19">例</h5>
+<p>
+<code>Misc</code> モジュールに含まれる次のライブラリ関数はディレクトリ <code>dirname</code> 内のエントリーについて、関数 <code>f</code> を繰り返し適用します。
+
+
+</p><div class="mylisting"><span class="c001">let</span> iter_dir f dirname =
+  <span class="c001">let</span> d = opendir dirname <span class="c001">in
+  try while true do</span> f (readdir d) <span class="c001">done
+  with</span> End_of_file -&gt; closedir d</div><div class="fancybreak">* * *</div></div><p>ディレクトリの作成と空ディレクトリの削除には <a href="http://www.opengroup.org/onlinepubs/009696799/functions/mkdir.html"><span class="c003">mkdir</span></a><a id="hevea_default42"></a> と <a href="http://www.opengroup.org/onlinepubs/009696799/functions/rmdir.html"><span class="c003">rmdir</span></a><a id="hevea_default43"></a> を使います。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALmkdir">mkdir</a> : string -&gt; file_perm -&gt; unit
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALrmdir">rmdir</a> : string -&gt; unit</div><p><code>mkdir</code> の第二引数には新しく作られるディレクトリのアクセス権限を指定します。すでに空であるディレクトリしか削除することはできません。そのためディレクトリとその要素を削除するにはまず再帰的にディレクリの要素を削除してからディレクトリを削除することが必要になります。</p>
+<h2 class="section" id="ex/find">2.5  完全な例: ファイル階層の検索</h2>
+<p>Unix コマンド <code>find</code> はファイル階層にあるファイルで一定の条件 (ファイル名、タイプ、権限など) に合致するものを一覧で表示します。このセクションではこの探索を実装したライブラリ関数 <code>Findlib.find</code> と、<code>-follow</code> そして <code>-maxdepth</code> オプションに対応した <code>find</code> コマンドを作成します。</p><p><code>Findlib.find</code> に対するインターフェースを以下のように定めます:
+</p><div class="mylisting"><span class="c001">val</span> find :
+  (Unix.error * string * string -&gt; unit) -&gt;
+  (string -&gt; Unix.stats -&gt; bool) -&gt; bool -&gt; int -&gt; string list -&gt;
+  unit</div><p>関数呼び出し
+</p><div class="mylisting">find handler action follow depth roots</div><p>はリスト <code>roots</code> で指定されるファイル (絶対パスまたは関数が呼ばれたときのプロセスのカレントディレクトリからの相対パス) をルートとするファイル階層を最大 <code>depth</code> の深さまで、 フラグ <code>follow</code> がセットされているならばシンボリックリンクをたどって探索します。 探索を開始したパスを <code>r</code> とすると、探索結果のパスは <code>r</code> を先頭に持ちます。探索で見つかったパス <code>p</code> は <code>Unix.lstat p</code> (<code>follow</code> が <code><span class="c001">true</span></code> の場合は <code>Unix.stat p</code>) の結果とともに <code>action</code> 関数に渡されます。ディレクトリに対しては、<code>action</code> 関数は探索をそのディレクトリの探索を続けるべきか (<code><span class="c001">true</span></code>) かやめるべきか (<code><span class="c001">false</span></code>) を返します。</p><p><code>handler</code> 関数は探索中に起こった <code>Unix_error</code> 型のエラーを報告します。エラーが起こった場合は、例外の引数が <code>handler</code> 関数に渡され探索は続行されます。例外が <code>action</code> 関数または <code>handler</code> 関数の内部で起こった場合にはその時点で探索は終了し、例外は呼び出し側に伝わります。<code>action</code> と <code>handler</code> の中で出される <code>Unix_error</code> 例外を探索中に起こったエラーと区別するために、<code>Hidden</code> 例外でラップします (<code>hide_exn</code> と <code>reveal_exn</code> 参照)。
+</p><div class="mylisting"><span class="c005">   1</span> <span class="c001">open</span> Unix;;
+<span class="c005">   2</span> 
+<span class="c005">   3</span> <span class="c001">exception</span> Hidden <span class="c001">of</span> exn
+<span class="c005">   4</span> <span class="c001">let</span> hide_exn f x = <span class="c001">try</span> f x <span class="c001">with</span> exn -&gt; raise (Hidden exn);;
+<span class="c005">   5</span> <span class="c001">let</span> reveal_exn f x = <span class="c001">try</span> f x <span class="c001">with</span> Hidden exn -&gt; raise exn;;
+<span class="c005">   6</span> 
+<span class="c005">   7</span> <span class="c001">let</span> find on_error on_path follow depth roots =
+<span class="c005">   8</span>   <span class="c001">let rec</span> find_rec depth visiting filename =
+<span class="c005">   9</span>     <span class="c001">try</span>
+<span class="c005">  10</span>       <span class="c001">let</span> infos = (<span class="c001">if</span> follow <span class="c001">then</span> stat <span class="c001">else</span> lstat) filename <span class="c001">in</span>
+<span class="c005">  11</span>       <span class="c001">let</span> continue = hide_exn (on_path filename) infos <span class="c001">in</span>
+<span class="c005">  12</span>       <span class="c001">let</span> id = infos.st_dev, infos.st_ino <span class="c001">in</span> <a id="prog:did"></a>
+<span class="c005">  13</span>       <span class="c001">if</span> infos.st_kind = S_DIR &amp;&amp; depth &gt; 0 &amp;&amp; continue &amp;&amp;
+<span class="c005">  14</span>         (not follow || not (List.mem id visiting))
+<span class="c005">  15</span>       <span class="c001">then</span>
+<span class="c005">  16</span>         <span class="c001">let</span> process_child child =
+<span class="c005">  17</span>           <span class="c001">if</span> (child &lt;&gt; Filename.current_dir_name &amp;&amp;
+<span class="c005">  18</span>               child &lt;&gt; Filename.parent_dir_name) <span class="c001">then</span>
+<span class="c005">  19</span>             <span class="c001">let</span> child_name = Filename.concat filename child <span class="c001">in</span>
+<span class="c005">  20</span>             <span class="c001">let</span> visiting =
+<span class="c005">  21</span>               <span class="c001">if</span> follow <span class="c001">then</span> id :: visiting <span class="c001">else</span> visiting <span class="c001">in</span> <a id="prog:follow"></a>
+<span class="c005">  22</span>             find_rec (depth-1) visiting child_name <span class="c001">in</span>
+<span class="c005">  23</span>         Misc.iter_dir process_child filename
+<span class="c005">  24</span>     <span class="c001">with</span> Unix_error (e, b, c) -&gt; hide_exn on_error (e, b, c) <span class="c001">in</span>
+<span class="c005">  25</span>   reveal_exn (List.iter (find_rec depth [])) roots;;</div><p>ディレクトリはデバイス番号と inode 番号の組 <code>id</code> によって識別されます ( <a href="#prog%3Adid">12</a> 行目)。リスト <code>visiting</code> がそれまでに訪問したディレクトリを記録します。この情報が必要になるのはシンボリックリンクをたどる時だけです ( <a href="#prog%3Afollow">21</a> 行目)。</p><p>ここまでくれば、 <code>find</code> コマンドを作るのは簡単です。このコードの主な処理は <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Arg.html"><span class="c003">Arg</span></a> モジュールを使ってコマンドライン引数をパースすることです。
+</p><div class="mylisting"><span class="c001">let</span> find () =
+  <span class="c001">let</span> follow = <span class="c001">ref false in
+  let</span> maxdepth = <span class="c001">ref</span> max_int <span class="c001">in
+  let</span> roots = <span class="c001">ref</span> [] <span class="c001">in
+  let</span> usage_string  =
+    (<span class="c002">"Usage: "</span> ^ Sys.argv.(0) ^ <span class="c002">" [files...] [options...]"</span>) <span class="c001">in
+  let</span> opt_list =  [
+    <span class="c002">"-maxdepth"</span>, Arg.Int ((:=) maxdepth), <span class="c002">"max depth search"</span>;
+    <span class="c002">"-follow"</span>, Arg.Set follow, <span class="c002">"follow symbolic links"</span>;
+  ] <span class="c001">in</span>
+  Arg.parse opt_list (<span class="c001">fun</span> f -&gt; roots := f :: !roots) usage_string;
+  <span class="c001">let</span> action p infos = print_endline p; <span class="c001">true in
+  let</span> errors = <span class="c001">ref false in
+  let</span> on_error (e, b, c) =
+    errors := <span class="c001">true</span>; prerr_endline (c ^ <span class="c002">": "</span> ^ Unix.error_message e) <span class="c001">in</span>
+  Findlib.find on_error action !follow !maxdepth
+    (<span class="c001">if</span> !roots = [] <span class="c001">then</span> [ Filename.current_dir_name ]
+     <span class="c001">else</span> List.rev !roots);
+  <span class="c001">if</span> !errors <span class="c001">then</span> exit 1;;
+
+Unix.handle_unix_error find ();;</div><p>
+この <code>find</code> の機能は少ないですが、これからの練習問題で示されるように、ライブラリ関数 <code>FindLib.find</code> ははるかに多機能です。</p><div class="exercise">
+<h5 class="paragraph" id="sec21">練習問題 1</h5>
+<p><a id="ex1"></a>
+<code>Findlib.find</code> を使って、以下の Unix コマンドと同じコマンド <code>find_out_CVS</code> を書いてください。
+</p><div class="mylisting">find . -<span class="c001">type</span> d -name CVS -prune -o -print</div><p>このコマンドはカレントディレクトリから始まりファイルの名前を再帰的に表示しますが、<code>CVS</code> という名前のディレクトリについては表示することもディレクトリに入ることもしません。
+<a href="exercise1.html#exans1">解答</a></p><div class="fancybreak">* * *</div></div><div class="exercise">
+<h5 class="paragraph" id="sec23">練習問題 2</h5>
+<p><a id="ex2"></a>
+<code>getcwd</code> 関数はシステムコールではありませんが、 <code>Unix</code> モジュールで定義されています。<code>getcwd</code> の “原始的な” 実装を与えてください。まずアルゴリズムの原理を言葉で説明してから実装するようにしてください (同じシステムコールを何度も呼ぶのは避けたほうが良いでしょう)。
+<a href="exercise2.html#exans2">解答</a></p><div class="fancybreak">* * *</div></div>
+<h2 class="section" id="sec25">2.6  ファイルのオープン</h2>
+<p><code>openfile</code> 関数を使うと指定した名前のファイルに対するディスクリプタを得ることができます (対応するシステムコールは <code><span class="c001">open</span></code> ですが、これは <code>ocaml</code> の予約語なので使うことができません) 。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALopenfile">openfile</a> :
+ string -&gt; open_flag list -&gt; file_perm -&gt; file_descr</div><p>第一引数は開くファイルの名前です。第二引数は <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEopen_flag"><span class="c003">open_flag</span></a> 列挙型のフラグのリストであり、ファイルが開かれるモードおよびファイルが存在しなかったときの動作を指定します。<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEfile_perm"><span class="c003">file_perm</span></a> 型の第三引数はファイルが作られるときのファイルのアクセス権限を指定します。返り値はファイルへのディスクリプタであり、入出力位置は最初ファイルの先頭にあります。</p><p>第二引数のフラグのリストは以下のうちちょうど一つだけを含む必要があります。
+</p><div class="mltypecases">
+<table class="c000 cellpading0"><tr><td class="c011"><code>O_RDONLY</code></td><td class="c011">読み込み専用モードで開く。 </td></tr>
+<tr><td class="c011"><code>O_WRONLY</code></td><td class="c011">書き込み専用モードで開く。 </td></tr>
+<tr><td class="c011"><code>O_RDWR</code></td><td class="c011">読み込み/書き込みモードで開く。
+</td></tr>
+</table>
+</div><p>
+これらのフラグは読み込みと書き込み命令がディスクリプタに対して行えるかどうかを指定します。読み込み/書き込み権限のないファイルを読み込み/書き込みモードで開こうとした場合、<code>openfile</code> は失敗します。このため、全てのファイルを <code>O_RDWR</code> を使って開こうとするのは避けるべきです。</p><p><code>openfile</code> の第二引数のフラグには以下の値を一つ以上含むことができます。
+</p><div class="mltypecases">
+<table class="c000 cellpading0"><tr><td class="c011"><code>O_APPEND</code></td><td class="c011">追記モードで開く。 </td></tr>
+<tr><td class="c011"><code>O_CREAT</code></td><td class="c011">ファイルが存在しない場合作成する。 </td></tr>
+<tr><td class="c011"><code>O_TRUNC</code></td><td class="c011">ファイルが存在する場合、内容を切り捨てる。 </td></tr>
+<tr><td class="c011"><code>O_EXCL</code></td><td class="c011">ファイルがすでに存在しているなら失敗する。
+</td></tr>
+</table>
+</div><div class="mltypecases">
+<table class="c000 cellpading0"><tr><td class="c011"><code>O_NONBLOCK</code></td><td class="c011">ノンブロッキングモードで開く。 </td></tr>
+<tr><td class="c011"><code>O_NOCTTY</code></td><td class="c011">端末モードでは機能しない。
+</td></tr>
+</table>
+</div><div class="mltypecases">
+<table class="c000 cellpading0"><tr><td class="c011"><code>O_SYNC</code></td><td class="c011">ファイルに関する同期モードで書き込みを行う。 </td></tr>
+<tr><td class="c011"><code>O_DSYNC</code></td><td class="c011">データに関する同期モードで書き込みを行う。 </td></tr>
+<tr><td class="c011"><code>O_RSYN</code></td><td class="c011">同期モードで読み込みを行う。
+</td></tr>
+</table>
+</div><p>
+最初のグループはファイルが存在に関連した動作を決めます:
+</p><ul class="itemize"><li class="li-itemize">
+<code>O_APPEND</code> が指定された場合、全ての書き込み処理の前に入出力位置がファイルの末尾にセットされる。これによって書き込まれたデータはファイルの末尾に付け足されるようになる。<code>O_APPEND</code> が無い場合、書き込みは入出力位置 (初期位置はファイルの先頭) で行われる。</li><li class="li-itemize"><code>O_TRUNC</code> が指定された場合、ファイルは開かれたときに切り捨てられる。ファイルの内容は失われてファイルの長さは 0 になり、最初の書き込みは空ファイルに行われる。<code>O_TRUNC</code> が無い場合、書き込みはファイルの先頭からそこにあるデータを上書きしながら行われる。</li><li class="li-itemize"><code>O_CREAT</code> が指定された場合、ファイルが存在しなければ作成される。作成されるファイルは空で、その権限は <code>openfile</code> の第三引数とプロセスの作成マスクによって決まる (作成マスクは <code>umask</code> によって取得および確認できる) 。</li><li class="li-itemize"><code>O_EXCL</code> が指定された場合、ファイルがすでに存在しているなら <code>openfile</code> は失敗する。このフラグと <code>O_CREATE</code> を併せると、ファイルを <a id="page/lock"></a><em>ロック</em><sup><a id="text2" href="#note2">1</a></sup> として使うことができる。ロックを取得したいプロセスは <code>O_EXCL</code> と <code>O_CREAT</code> を指定して <code>openfile</code> を呼ぶ。ファイルが存在していた場合、これは他のプロセスがロックを取得済みであることを意味し、<code>openfile</code> はエラーを出す。ファイルが存在せず <code>openfile</code> がエラーを出さずに値を返しファイルが作られた場合、他のプロセスはロックを取得することができなくなる。ロックを開放するにはプロセスはロックファイルに <code>unlink</code> を行う。ファイルの作成はアトミックな演算である: もし二つのプロセスが <code>O_EXCL</code> と <code>O_CREAT</code> を指定して同時に同じファイルを作成しようとした場合、多くとも一つのプロセスしか成功しない。この手法の欠点はプロセスが現在使用中のロックを得るためにビジーウェイトする必要があることと、プロセスの異常終了がロックを開放しない場合があることである。
+</li></ul><div class="example">
+<h5 class="paragraph" id="sec26">例</h5>
+<p>
+たいていのプログラムは <code>openfile</code> の第三引数として <code>0o666</code> を使います。これは文字列でいうと <code>rw-rw-rw-</code> を意味します。デフォルトファイル作成マスクが <code>0o022</code> の場合、ファイルは <code>rw-r--r--</code> の権限で作成されます。マスクがより寛大で <code>0o002</code> の場合には、ファイルは <code>rw-rw-r--</code> の権限で作成されます。
+  </p><div class="fancybreak">* * *</div></div><div class="example">
+<h5 class="paragraph" id="sec27">例</h5>
+<p>
+ファイルから読み込むには以下のようにします:
+</p><div class="mylisting">openfile filename [O_RDONLY] 0</div><p><code>O_CREAT</code> が指定されていないならば、第三引数は何でも構いません。 0 がよく使われます。</p><p>それまでの内容にかかわらず空ファイルに書き込むには以下のようにします:
+</p><div class="mylisting">openfile filename [O_WRONLY; O_TRUNC; O_CREAT] 0o666</div><p>ファイルが実行可能なコード (例えば <code>ld</code> によって作られるファイルやスクリプトなど) を含む場合、ファイルを実行権限付きで作成します:
+</p><div class="mylisting">openfile filename [O_WRONLY; O_TRUNC; O_CREAT] 0o777</div><p>ファイルが機密情報 (例えば <code>mail</code> が既読メールを保存する “メールボックス”) である場合、書き込み権限を所有ユーザのみとして作成します:
+</p><div class="mylisting">openfile filename [O_WRONLY; O_TRUNC; O_CREAT] 0o600</div><p>存在するファイルの末尾にデータを付け足すか、ファイルが存在しない場合には作成するには以下のようにします:
+</p><div class="mylisting">openfile filename [O_WRONLY; O_APPEND; O_CREAT] 0o666</div><div class="fancybreak">* * *</div></div><p><code>O_NONBLOCK</code> フラグはファイルが名前付きパイプまたはスペシャルファイルの場合に、ファイルのオープンとその後の読み込みがノンブロッキングであることを保証します。</p><p><code>O_NOCTYY</code> フラグはファイルが制御端末 (キーボードやウィンドウなど) の場合に、そのファイルが呼び出しプロセスの制御端末にならないことを保証します。</p><p>フラグの最後のグループは読み込みと書き込み処理をどのように同期するかを指定します。デフォルトでは処理は同期しません。
+</p><ul class="itemize"><li class="li-itemize">
+<code>O_DSYNC</code> が指定された場合、データの書き込みは同期されプロセスは全ての書き込みが物理的にメディア (通常はディスク) に行われるまでブロックされる。
+</li><li class="li-itemize"><code>O_SYNC</code> が指定された場合、ファイルのデータとメタ属性の書き込みが同期される。
+</li><li class="li-itemize"><code>O_RSYNC</code> が <code>O_DSYNC</code> と共に指定された場合データの読み込みも同期される: 読み込みが起こる前にそれまでの全ての書き込み (要求されたが実行されていないものを含む) が本当にメディアに書き込まれることが保証される。<code>O_RSYNC</code> が <code>O_SYNC</code> と共に指定された場合上記のことがメタ情報にも適用される。
+</li></ul>
+<h2 class="section" id="sec28">2.7  読み込みと書き込み</h2>
+<p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/read.html"><span class="c003">read</span></a><a id="hevea_default44"></a> と <a href="http://www.opengroup.org/onlinepubs/009696799/functions/write.html"><span class="c003">write</span></a><a id="hevea_default45"></a> はバイト列をファイルに書き込みます。歴史的な理由から、システムコール <code>write</code> は OCamlでは <code>single_write</code> という名前です。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALread">read</a> : file_descr -&gt; bytes -&gt; int -&gt; int -&gt; int
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALsingle_write">single_write</a> : file_descr -&gt; bytes -&gt; int -&gt; int -&gt; int</div><p>二つの関数 <code>read</code> と <code>single_write</code> は同じインターフェースを持ちます。第一引数は操作を行うファイルディスクリプタです。第二引数<sup><a id="text3" href="#note3">2</a></sup>は <code>read</code> の場合は読み込んだバイト列を収める文字列で、<code>single_write</code> の場合は書き込むバイト列です。第三引数は文字列の中で入出力を行う最初のバイトの位置で、第四引数は入出力を行うバイト数です。第三、四引数は第二引数の部分文字列を定めています (この部分文字列はもちろん有効なものである必要がありますが、<code>read</code> と <code>single_write</code> はこのことをチェックしません) 。
+</p><div class="image"><img src="ocamlunix-image2.png" width="85%"></div><p>
+
+
+<code>read</code> と <code>single_write</code> は実際に読み込んだ/書き込んだバイト数を返します。</p><p>入出力の命令はファイルディスクリプタの現在の入出力位置から行われます (ファイルが <code>O_APPEND</code> モードで開かれた場合、この位置は書き込み命令の前にファイルの末尾にセットされます)。システムコールの後、現在位置は読み込み/書き込みを行ったバイト数だけ進みます。</p><p>書き込みでは実際に書き込むバイト数は要求されたバイト数と普通一致しますが、いくつか例外があります:
+(i) バイト列を書き込めなかった場合 (例えばディスクが満杯なとき)
+(ii) ディスクリプタがノンブロッキングモードで開かれたパイプまたはソケットな場合
+(iii) 書き込む文字列が OCamlの持つバッファより大きい場合</p><p>(iii) の理由は OCamlが最大値の制限された補助バッファを使っているためです。バッファの最大値よりも書き込みが大きかった場合、書き込みは部分的になります。この問題を解決するために、 OCamlには エラーが出るか全てのデータが書き込まれるまで書き込みを繰り返す <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALwrite"><span class="c003">write</span></a> があります。しかしこの関数を使うとエラーが起こった場合に書き込まれたバイト数を知ることができません。<code>single_write</code>を使うと書き込みの原始的になり(何が書き込まれたかが分かる)、オリジナルの Unix システムコールにより忠実になるので <code>single_write</code> を使うべきです。<code>single_write</code> の実装はセクション <a href="pipes.html#single_write">5.7</a> で説明されています。</p><div class="example">
+<h5 class="paragraph" id="sec29">例</h5>
+<p>
+<code>fd</code> が書き込み専用モードで開かれたディスクリプタだとします。
+</p><div class="mylisting">write fd <span class="c002">"Hello world!"</span> 3 7</div><p>は <span class="c002"><code>"lo worl"</code></span> という文字列を対応するファイルに書き込み、 7 を返します。
+</p><div class="fancybreak">* * *</div></div><p>読み込みでは実際に読み込んだバイト数が読むように要求されたバイト数よりも小さいことがありえます。例えばファイルの終端が近いときは現在位置からファイルの終端までのバイト数が要求されたバイト数よりも小さくなります。特に現在位置がファイルの終端なとき <code>read</code> は 0 を返します。“ゼロはファイルの終端と等しい” という慣習はスペシャルファイルやパイプ、ソケットに対しても成り立ちます。例えば <code>ctrl-D</code> を端末に入力すると <code>read</code> は 0 を返します。</p><p><code>read</code> が要求した値よりも小さい値を返すもうひとつの例は端末から読み込む場合です。この場合 <code>read</code> はまず行の入力が利用可能になるまでブロックします。行が入力され、その長さが要求されたバイト数よりも短い場合、<code>read</code> は要求されたバイト数に達しようと次のデータを待つことをせずに行の入力が利用可能になった時点で値を返します(これは端末のデフォルトの動作ですが、文字ごとに読み込むように変えることもできます。セクション section <a href="#sec%2Fspeciaux">2.13</a> と <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEterminal_io"><span class="c003">terminal_io</span></a> 型を参考にしてください)。</p><div class="example">
+<h5 class="paragraph" id="sec30">例</h5>
+<p>
+次のプログラムは標準入力から最大 100 文字を読み込み、文字列として返します。
+</p><div class="mylisting"><span class="c001">let</span> buffer = Bytes.create 100 <span class="c001">in
+let</span> n = read stdin buffer 0 100 <span class="c001">in</span>
+  Bytes.sub buffer 0 n</div><div class="fancybreak">* * *</div></div><div class="example">
+<h5 class="paragraph" id="sec31">例</h5>
+<p>
+以下の関数 <code>really_read</code> は <code>read</code> と同じインターフェースを持ちますが、要求されたバイト数を取得するために追加の読み込みを行います。読み込み中にファイルの終端に達した場合には <code>End_of_file</code> 例外が出ます。
+</p><div class="mylisting"><span class="c001">let rec</span> really_read fd buffer start length =
+  <span class="c001">if</span> length &lt;= 0 <span class="c001">then</span> () <span class="c001">else
+  match</span> read fd buffer start length <span class="c001">with</span>
+  | 0 -&gt; raise End_of_file
+  | r -&gt; really_read fd buffer (start + r) (length - r);;</div><div class="fancybreak">* * *</div></div>
+<h2 class="section" id="sec32">2.8  ディスクリプタのクローズ</h2>
+<p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/close.html"><span class="c003">close</span></a><a id="hevea_default46"></a> はファイルディスクリプタを閉じます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALclose">close</a> : file_descr -&gt; unit</div><p>ディスクリプタが閉じられると読み込みや書き込みなどのディスクリプタに関する操作は全て失敗します。ディスクリプタは必要なくなった時点で閉じられるべきですが、閉じることは必須ではありません。<code>write</code> 関数による書き込みの要求が即時にカーネルに伝わるために、<code>Pervasives</code> モジュールのチャンネルとは違って全ての書き込みが実行されたことを保証するためにチャンネルを閉じる必要はありません。一方プロセスが確保できるディスクリプタの数はカーネルによって (数百から数千に) 制限されていることから、使わないディスクリプタを <code>close</code> で開放しないとディスクリプタが枯渇します。</p>
+<h2 class="section" id="ex/filecopy">2.9  完全な例: ファイルのコピー</h2>
+<p>引数として与えられる <code>f1</code> と <code>f2</code> について、<code>f1</code> のバイト列を <code>f2</code> にコピーするコマンド <code>file_copy</code> を作ります。
+</p><div class="mylisting"><span class="c001">open</span> Unix;;
+
+<span class="c001">let</span> buffer_size = 8192;;
+<span class="c001">let</span> buffer = Bytes.create buffer_size;;
+
+<span class="c001">let</span> file_copy input_name output_name =
+  <span class="c001">let</span> fd_in = openfile input_name [O_RDONLY] 0 <span class="c001">in
+  let</span> fd_out = openfile output_name [O_WRONLY; O_CREAT; O_TRUNC] 0o666 <span class="c001">in
+  let rec</span> copy_loop () = <span class="c001">match</span> read fd_in buffer 0 buffer_size <span class="c001">with</span>
+    |  0 -&gt; ()
+    | r -&gt; ignore (write fd_out buffer 0 r); copy_loop ()
+  <span class="c001">in</span>
+  copy_loop ();
+  close fd_in;
+  close fd_out;;</div><div class="mylisting"><span class="c001">let</span> copy () =
+  <span class="c001">if</span> Array.length Sys.argv = 3 <span class="c001">then begin</span>
+    file_copy Sys.argv.(1) Sys.argv.(2);
+    exit 0
+  <span class="c001">end else begin</span>
+    prerr_endline
+      (<span class="c002">"Usage: "</span> ^ Sys.argv.(0) ^ <span class="c002">" &lt;input_file&gt; &lt;output_file&gt;"</span>);
+    exit 1
+  <span class="c001">end</span>;;
+
+handle_unix_error copy ();;</div><p>作業の多くは <code>file_copy</code> 関数によって実行されます。最初に入力ファイルのディスクリプタを読み込み専用で開き、次に出力ファイルのディスクリプタを書き込み専用モードで開きます。</p><p>出力ファイルがすでに存在している場合ファイルは切り捨てられ (<code>O_TRUNC</code> オプション)、存在しない場合には作成されます (<code>O_CREAT</code> オプション)。作成されるファイルの権限は <code>rw-rw-rw-</code> をファイル作成マスクで改変したものですが、これは十分ではありません。実行可能ファイルをコピーする場合は、コピー先も実行可能であるべきだからです。コピー先のファイルと元のファイルの権限を同じにする方法は後述します。</p><p><code>copy_loop</code> 関数の中で <code>buffer_size</code> バイトのコピーを行います。まず<code>buffer_size</code> の読み込みを行い、これが 0 を返した場合はファイルの終端に到達しているのでコピーを終了します。そうでなければ読み込んだ <code>r</code> バイトを出力ファイルに書き込んで同じことを繰り返します。</p><p>最後に二つのディスクリプタを閉めます。プログラム本体となる <code>copy</code> はコマンドが二つの引数を受け取ったことを確認し、その引数を <code>file_copy</code> 関数に渡します。</p><p>コピー中に起きた <code>Unix_error</code> は<code>handle_unix_error</code> によって補足され、エラーの内容が表示されます。ここで起こるエラーの例としては入力ファイルが存在しないために開くことができない、権限が足りなくてファイルを開くことができない、ディスクに容量がなくて書き込むことができない、などがあります。</p><div class="exercise">
+<h5 class="paragraph" id="sec34">練習問題 3</h5>
+<p><a id="ex3"></a>
+<code>file_copy -a f1 f2</code> が <code>f1</code> の内容を <code>f2</code> の末尾に付け足すように、<code>-a</code> オプションを追加してください。
+<a href="exercise3.html#exans3">解答</a></p><div class="fancybreak">* * *</div></div>
+<h2 class="section" id="sec36">2.10  システムコールのコストとバッファ</h2>
+<p><code>file_copy</code> の例では読み込みを 8192 バイトごとに行ないました。どうして 1 バイトごとや 1 メガバイトごとに読み込みをしないのでしょうか? 理由は効率です。
+図 <a href="#fig%2Fcopy-speed">2</a> に <code>file_copy</code> の速度を示します。一秒間にコピーできるバイト数を縦軸に、ブロックサイズ (<code>buffer_size</code> の値) を横軸に示しています。
+</p><div class="figure">
+<div class="image"><img src="ocamlunix-image3.png" width="100%"></div>
+
+
+
+<a id="fig/copy-speed"></a>
+<div class="caption">Figure 2 — ブロックサイズの関数としてのコピー速度</div></div><p>
+転送されるデータの総量はブロックサイズに関わらず一定です。ブロックサイズが小さい時は、コピー速度はブロックサイズにほぼ比例しています。実行時間の多くがはデータの転送ではなく、<code>copy_loop</code> のループと <code>read</code> と <code>write</code> の呼び出しに使われているということがわかります。更に詳細に実行時間を計測すると、ほとんどが <code>read</code> と <code>write</code> の呼び出しに使われていることがわかります。システムコールは処理が大きくない場合でも (テストに使われた PC — 2.8 GHz Pentium 4 —  では) 最低 4 マイクロ秒、一般的には 1 から 10 マイクロ秒程度かかります。そのため入出力のブロックサイズが小さい場合にはシステムコールの時間が支配的になります。</p><p>ブロックが大きくて 4KB から 1MB の場合、コピー速度は最大値で一定です。ここではシステムコールとループにかかる時間がデータ転送にかかる時間に比べて小さくなっているということです。加えてバッファのサイズがシステムのキャッシュよりも大きくなるためにデータの転送がシステムコールのコストを上回るようになります<sup><a id="text4" href="#note4">3</a></sup>。</p><p>最後に、ブロックがとても大きい (8 MB 以上) ときにはコピー速度は最大値よりも少しだけ小さくなります。ここで影響するのはブロックを確保してメモリのページを割り当てるのを書き込み中に行う時間です。</p><p>以上のことから学べることは、システムコールはほとんど何も処理をしていない場合でも大きな — 通常の関数呼び出しよりもはるかに大きな — コストがかかるということです。アーキテクチャによって違いますが、だいたい 2 から 20 マイクロ秒が呼び出しごとにかかります。そのためシステムコールの数を減らすことが重要になります。読み込みと書き込みに関して言えば、一文字ごとではなくある程度のサイズのブロックごとに行われるべきです。</p><p><code>file_copy</code> の例では大きなブロックで入出力を行うのは難しくありません。しかしある種のプログラムでは一文字ごとに入出力を行うことが自然なことがあります(例えばファイルから一行ずつ読む処理、字句解析、数字の印字など)。このようなプログラムのために、ほとんどのシステムにはアプリケーションとオペレーティングシステムの間にソフトウェアのレイヤーを追加する入出力ライブラリがあります。例えば OCamlには <code>Pervasives</code> モジュールにファイルディスクリプタと似た抽象型<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html#TYPEin_channel"><span class="c003">in_channel</span></a> と <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html#TYPEout_channel"><span class="c003">out_channel</span></a> が定義されていて、この型に関する関数 <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html#VALinput_char"><span class="c003">input_char</span></a>,<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html#VALinput_line"><span class="c003">input_line</span></a>、<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html#VALoutput_char"><span class="c003">output_char</span></a> あるいは <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html#VALoutput_string"><span class="c003">output_string</span></a> があります。このレイヤーはバッファを使って複数回の一文字ごとの読み込みと書き込みを一回のシステムコールにまとめます。これによって一文字ごとに処理をするプログラムの効率が良くなります。さらにこのレイヤーによってプログラムがよりポータブルになります。<code>Pervasives</code> モジュールを使うプログラムを新しいオペレーティングシステムに移植するには、このライブラリをそのシステム上で使えるシステムコールを使って実装すれば良いからです。</p>
+<h2 class="section" id="sec37">2.11  完全な例: 簡単な入出力ライブラリ</h2>
+<p>バッファを使った入出力のテクニックの例として、OCamlの <code>Pervasives</code> ライブラリの一部を実装します。 次のようなインタフェースを持ちます:
+</p><div class="mylisting"><span class="c001">exception</span> End_of_file
+
+<span class="c001">type</span> in_channel
+<span class="c001">val</span> open_in : string -&gt; in_channel
+<span class="c001">val</span> input_char : in_channel -&gt; char
+<span class="c001">val</span> close_in : in_channel -&gt; unit
+
+<span class="c001">type</span> out_channel
+<span class="c001">val</span> open_out : string -&gt; out_channel
+<span class="c001">val</span> output_char : out_channel -&gt; char -&gt; unit
+<span class="c001">val</span> close_out : out_channel -&gt; unit</div><p>“読み込み” の部分から始めます。
+抽象型 <code>in_channel</code> は次のように定義します:
+</p><div class="mylisting"><span class="c001">open</span> Unix;;
+
+<span class="c001">type</span> in_channel =
+  { in_buffer: bytes;
+    in_fd: file_descr;
+    <span class="c001">mutable</span> in_pos: int;
+    <span class="c001">mutable</span> in_end: int };;
+<span class="c001">exception</span> End_of_file</div><p>文字列 <code>in_buffer</code> は文字通りのバッファです。フィールド <code>in_fd</code> は読み込むファイルに開かれた (Unix の) ファイルディスクリプタです。フィールド <code>in_pos</code> は読み込みの現在位置を示します。フィールド <code>in_end</code> は事前にバッファへ読み込まれた文字列のうち有効な部分長さです。
+</p><div class="image"><img src="ocamlunix-image4.png" width="85%"></div><p>
+
+
+<code>in_pos</code> と <code>in_end</code> のフィールドは読み込み処理中に更新されるので <code><span class="c001">mutable</span></code> として宣言します。
+</p><div class="mylisting"><span class="c001">let</span> buffer_size = 8192;;
+<span class="c001">let</span> open_in filename =
+  { in_buffer = Bytes.create buffer_size;
+    in_fd = openfile filename [O_RDONLY] 0;
+    in_pos = 0;
+    in_end = 0 };;</div><p>読み込みのためにファイルを開いたとき、同時に合理的なサイズの (システムコールが多くなりすぎない程度に大きく、メモリを無駄遣いしない程度に小さい) バッファを作ります。その後 <code>in_fd</code> フィールドを読み込み専用で開いたファイルに対する Unix のファイルディスクリプタで初期化します。バッファは最初空です (ファイルからのどんな文字列も含んでいません) 。そのため <code>in_end</code> フィールドは 0 で初期化します。
+</p><div class="mylisting"><span class="c001">let</span> input_char chan =
+  <span class="c001">if</span> chan.in_pos &lt; chan.in_end <span class="c001">then begin
+    let</span> c =  chan.in_buffer.[chan.in_pos] <span class="c001">in</span>
+      chan.in_pos &lt;- chan.in_pos + 1;
+      c
+  <span class="c001">end else begin
+    match</span> read chan.in_fd chan.in_buffer 0 buffer_size
+    <span class="c001">with</span> 0 -&gt; raise End_of_file
+       | r -&gt; chan.in_end &lt;- r;
+              chan.in_pos &lt;- 1;
+              chan.in_buffer.[0]
+  <span class="c001">end</span>;;</div><p><code>in_channel</code> から文字を読むとき、次の二つのうち一つを行います。一つ目はバッファに一つ以上まだ読んでいない文字がある、つまり <code>in_pos</code> フィールドの値が <code>in_end</code> フィールドの値よりも小さい場合です。このときはバッファの <code>in_pos</code> にある文字を返し、 <code>in_pos</code> をインクリメントします。もう一つはバッファが空の場合で、このときは <code>read</code> を呼んでバッファにもう一度文字列を読み込みます。<code>read</code> が 0 を返したならファイルの終端に達したということなので <code>End_of_file</code> 例外を出します。そうでなければ <code>in_end</code> に呼んだ文字の数を代入します。
+</p><div class="mylisting"><span class="c001">let</span> close_in chan =
+  close chan.in_fd;;</div><p><code>in_channel</code> を閉じる処理は対応する Unix のファイルディスクリプタを閉じるだけです。</p><p>“書き込み” の部分は “読み込み” の部分にとても良く似ています。唯一異なるのはバッファがまだ読んでいない読み込み (バッファされたが読み込まれていない文字列) を保持するのではなくて、まだ完了していない書き込み (バッファされたがファイルディスクリプタに書き込まれていない文字列) を保持する点です。</p><div class="image"><img src="ocamlunix-image5.png" width="85%"></div><div class="mylisting"><span class="c001">type</span> out_channel =
+  { out_buffer: bytes;
+    out_fd: file_descr;
+    <span class="c001">mutable</span> out_pos: int };;
+
+<span class="c001">let</span> open_out filename =
+  { out_buffer = Bytes.create 8192;
+    out_fd = openfile filename [O_WRONLY; O_TRUNC; O_CREAT] 0o666;
+    out_pos = 0 };;
+
+<span class="c001">let</span> output_char chan c =
+  <span class="c001">if</span> chan.out_pos &lt; Bytes.length chan.out_buffer <span class="c001">then begin</span>
+    chan.out_buffer.[chan.out_pos] &lt;- c;
+    chan.out_pos &lt;- chan.out_pos + 1
+  <span class="c001">end else begin</span>
+    ignore (write chan.out_fd chan.out_buffer 0 chan.out_pos);
+    chan.out_buffer.[0] &lt;- c;
+    chan.out_pos &lt;- 1
+  <span class="c001">end</span>;;
+
+<span class="c001">let</span> close_out chan =
+  ignore (write chan.out_fd chan.out_buffer 0 chan.out_pos);
+  close chan.out_fd;;</div><p><code>out_channel</code> に文字を書き込むには次の二つのうち一つを行います。一つ目はバッファが満杯ではない場合で、このときは文字をバッファを <code>out_pos</code> の位置に保存して <code>out_pos</code> をインクリメントします。もう一つはバッファが満杯の場合で、このときは <code>write</code> を呼んでバッファを空にしてからバッファの先頭に文字を読み込みます。</p><p><code>out_channel</code> を閉めるときにはバッファの内容 (位置 0 から <code>out_pos - 1</code> までの文字列) を書き込むことを忘れないでください。これを忘れると最後にバッファが空になってからチャンネルに書き込まれた内容が失われます。</p><div class="exercise">
+<h5 class="paragraph" id="sec38">練習問題 4</h5>
+<p><a id="ex4"></a>
+次の関数を実装してください:
+</p><div class="mylisting"><span class="c001">val</span> output_string : out_channel -&gt; string -&gt; unit</div><p>この関数は <code>output_char</code> をそれぞれの文字に対して複数回呼んだときと同じ動作をしますが、より効率的です。
+ <a href="exercise4.html#exans4">解答</a></p><div class="fancybreak">* * *</div></div>
+<h2 class="section" id="sec40">2.12  入出力の位置</h2>
+<p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/seek.html"><span class="c003">seek</span></a><a id="hevea_default47"></a> はファイルディスクリプタの現在の入出力位置を変更します。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALlseek">lseek</a> : file_descr -&gt; int -&gt; seek_command -&gt; int</div><p>第一引数はファイルディスクリプタで第二引数は移動させる位置です。第二引数は <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEseek_command"><span class="c003">seek_command</span></a> 型の第三引数に基づいて解釈されます。この列挙型は位置の種類を指定します:
+</p><div class="mltypecases">
+<table class="c000 cellpading0"><tr><td class="c014"><code>SEEK_SET</code></td><td class="c013">第二引数は関数を呼び出した後の入出力位置を表す。ファイルの最初の文字は位置 0 である。 </td></tr>
+<tr><td class="c014"><code>SEEK_CUR</code></td><td class="c013">第二引数は現在の入出力位置からの相対的なオフセットを表す。正の値のとき前に、負の値のとき後ろに動く。 </td></tr>
+<tr><td class="c014"><code>SEEK_END</code></td><td class="c013">第二引数はファイルの終端からの相対的なオフセットを表す。<code>SEEK_CUR</code> と同様にオフセットは正負どちらにもなれる。
+</td></tr>
+</table>
+</div><p>
+<code>lseek</code> の返り値は関数を実行した後の入出力位置 (絶対位置) です。</p><p>負の絶対位置が指定された場合はエラーとなります。ファイルの終端よりも後ろの位置を指定することは可能です。このとき <code>read</code> は (ファイルの末尾に達しているので) 0 を返し、<code>write</code> はまずファイルの終端から入出力位置まで 0 を書き込んでからデータを書き込みます。</p><div class="example">
+<h5 class="paragraph" id="sec41">例</h5>
+<p>
+カーソルを 1000 番目の文字に移動させるには以下のようにします:
+</p><div class="mylisting">lseek fd 1000 SEEK_SET</div><p>一文字巻き戻すには以下のようにします:
+</p><div class="mylisting">lseek fd (-1) SEEK_CUR</div><p>ファイルのサイズを求めるには以下のようにします:
+</p><div class="mylisting"><span class="c001">let</span> file_size = lseek fd 0 SEEK_END <span class="c001">in</span> ...</div><div class="fancybreak">* * *</div></div><p>ファイルディスクリプタが <code>O_APPEND</code> モードで開かれている場合、入出力位置は毎回の書き込みの前にファイルの終端にセットされます。そのため書き込み位置を指定するために <code>lseek</code> を読んでも意味がありません。一方読み込みを指定することには使えます。</p><p>コミュニケーションデバイス (パイプ、ソケット) や端末を始めとする多くのスペシャルファイルなどの、入出力の絶対位置が意味を持たないタイプのファイルについては <code>lseek</code> の動作は未定義です。Unix のほとんどの実装ではこれらのファイルに対する <code>lseek</code> は無視されます (入出力位置はセットされますが、入出力処理は入出力位置を無視します)。いくつかの実装ではパイプとソケットに対する <code>lseek</code> はエラーを出します。</p><div class="exercise">
+<h5 class="paragraph" id="sec42">練習問題 5</h5>
+<p><a id="ex5"></a>
+<code>tail</code> コマンドはファイルの末尾 <span class="c006">n</span> 行を表示します。<code>tail</code> を通常ファイルに対して効率よく実装するにはどうすればよいでしょうか ? <code>-f</code> オプションはどのすれば実装できるでしょうか (参考: <code>man tail</code>) ?
+ <a href="exercise5.html#exans5">解答</a></p><div class="fancybreak">* * *</div></div>
+<h2 class="section" id="sec44">2.13  ファイルの種類に特有の操作</h2>
+<p>Unix ではデータのやり取りはディスクリプタを通して行われ、ディスクリプタは永続性のファイル (通常ファイル、周辺機器) または揮発性のファイル (パイプとソケット、  <a href="pipes.html#sec%2Fpipes">5</a> 章と <a href="sockets.html#sec%2Fsockets">6</a> 章参照) を表します。ファイルディスクリプタはデータのやり取りのための統一されたメディアによらないインタフェースを提供します。もちろんファイルディスクリプタに対する操作の実際の実装は背後にあるメディアによって異なります。</p><p>しかしあるメディアの全ての機能を使う必要がある場合は他のファイルと同じように扱うことはできません。ファイルのオープンや読み込み、書き込みなどの一般的な操作はほとんどのディスクリプタで同じ動作をします。しかしこのような一般的な操作であっても、周辺機器とパラメータで決まるアドホックな動作をするスペシャルファイルが存在します。またあるメディアに対してだけ可能な操作もあります。</p><h3 class="subsection" id="sec45">通常ファイル</h3>
+<p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/truncate.html"><span class="c003">truncate</span></a><a id="hevea_default48"></a> と <a href="http://www.opengroup.org/onlinepubs/009696799/functions/ftruncate.html"><span class="c003">ftruncate</span></a><a id="hevea_default49"></a> を使うと通常ファイルを短くすることができます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALtruncate">truncate</a>  : string -&gt; int -&gt; unit
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALftruncate">ftruncate</a> : file_descr -&gt; int -&gt; unit</div><p>第一引数は切り捨てるファイルで第二引数は切り捨てた後のサイズです。これより後ろの位置にある全てのデータは失われます。</p><h3 class="subsection" id="sec46">シンボリックリンク</h3>
+<p>シンボリックリンクに対するほとんどの操作はリンクを “たどり” ます。つまり、操作はリンクそのものではなくリンクが指すファイルに適用されます (例えば <span class="c003">openfile</span><a id="hevea_default50"></a>, <span class="c003">stat</span><a id="hevea_default51"></a>, <span class="c003">truncate</span><a id="hevea_default52"></a>, <span class="c003">opendir</span><a id="hevea_default53"></a> などはこのような動作をします) 。</p><p>二つのシステムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/symlink.html"><span class="c003">symlink</span></a><a id="hevea_default54"></a> と <a href="http://www.opengroup.org/onlinepubs/009696799/functions/readlink.html"><span class="c003">readlink</span></a><a id="hevea_default55"></a> はシンボリックリンクそのものを操作します。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALsymlink">symlink</a>  : string -&gt; string -&gt; unit
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALreadlink">readlink</a> : string -&gt; string</div><p><code>symlink f1 f2</code> は <code>f1</code> へのシンボリックリンク <code>f2</code> を作成します (Unix コマンド <code>ln -s f1 f2</code> と同様です) 。<code>readlink</code> はシンボリックリンクの内容、つまりリンクが指すファイルの名前を返します。</p><h3 class="subsection" id="sec/speciaux">スペシャルファイル</h3>
+<p>スペシャルファイルは “キャラクタ” または “ブロック” に分類されます。前者は文字のストリームです。つまり文字の入出力は逐次的にしか行うことができません。例として端末やサウンドデバイス、プリンターなどがあります。後者は永続的な媒体を持つものであり、ディスクが典型です。文字はブロック単位で読み込むことができ、現在位置からの相対位置にシークすることができます。</p><p>スペシャルファイルは以下のように分類できます:
+</p><div class="mltypecases">
+<table class="c000 cellpading0"><tr><td class="c014"><code>/dev/null</code></td><td class="c013">あらゆるものを飲み込み何も出てこないブラックホール。 プロセスの出力を <code>/dev/null</code> にリダイレクトすることでプロセスの出力を無視できる。 </td></tr>
+<tr><td class="c014"><code>/dev/tty*</code></td><td class="c013">制御端末。 </td></tr>
+<tr><td class="c014"><code>/dev/pty*</code></td><td class="c013">本物の端末ではないが端末をシミュレートし同じインターフェースを持つ擬似端末。 </td></tr>
+<tr><td class="c014"><code>/dev/hd*</code></td><td class="c013">ディスク。 </td></tr>
+<tr><td class="c014"><code>/proc</code></td><td class="c013">システム変数。 Linux ではシステム変数はファイルシステムで管理され、入出力が許されている。
+</td></tr>
+</table>
+</div><p>多くのファイルに対するシステムコールはスペシャルファイルに対して違った動作をします。しかし <code>read</code> と <code>write</code> に関しては、ほとんどのスペシャルファイル (端末、テープドライバ、ディスクなど) が通常ファイルと同じ動作をします (読み書きするバイト数に制限があることがあります)。ただしそのようなスペシャルファイルの多くが <span class="c003">lseek</span><a id="hevea_default56"></a> を無視します。</p><p>通常のファイルシステムに加えて、周辺機器を表すスペシャルファイルは動的に制御また設定される必要があります。例えばテープドライブには巻き戻しや早送りが、端末には行の編集モードや特殊文字による制御、シリアル通信用変数 (スピード、パリティなど) があります。Unix ではこれらデバイスのパラメータの設定は全てシステムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/ioctl.html"><span class="c003">ioctl</span></a><a id="hevea_default57"></a> を通して行います。しかし OCamlにはこのシステムコールが提供されていません。<a href="http://www.opengroup.org/onlinepubs/009696799/functions/ioctl.html"><span class="c003">ioctl</span></a><a id="hevea_default58"></a> は引数の形が特殊なので統一的に扱うことができないためです。</p><h3 class="subsection" id="sec/termio">端末</h3>
+<p>端末と擬似端末はキャラクタタイプのスペシャルファイルで、 OCamlから設定を変更することができます。システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/tcgetattr.html"><span class="c003">tcgetattr</span></a><a id="hevea_default59"></a> はオープンされたスペシャルファイルのファイルディスクリプタを受け取り <span class="c007">posix</span> 規格に基づいて端末の状態を表す <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEterminal_io"><span class="c003">terminal_io</span></a> 型の構造体を返します。
+
+</p><div class="mylisting"><span class="c001">type</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEterminal_io">terminal_io</a> =
+  { c_ignbrk : bool; c_brk_int : bool; ...;  c_vstop : char }</div><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALtcgetattr">tcgetattr</a> : file_descr -&gt; terminal_io</div><p>この構造体を変更してシステムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/tcsetattr.html"><span class="c003">tcsetattr</span></a><a id="hevea_default60"></a> を呼ぶことで周辺機器の設定を変更できます。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALtcsetattr">tcsetattr</a> : file_descr -&gt; setattr_when -&gt; terminal_io -&gt; unit</div><p>第一引数は操作する周辺機器のファイルディスクリプタです。最後の引数は <code>terminal_io</code> 型の構造体で、周辺機器への引数となります。第二引数は変更がいつ起きるべきかを指定する <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEsetattr_when"><span class="c003">setattr_when</span></a> 列挙型の値です。即時 (<code>TCSANOW</code>)、 データを全て送ってから (<code>TCSADRAIN</code>)、 データを全て受け取ってから (<code>TCAFLUSH</code>) の三つを指定できます。書き込みに関するパラメータを変更するときには <code>TCSADRAIN</code> が、読み込みに関するパラメータを変更するときには <code>TCSAFLUSH</code> が推奨されます。</p><div class="example">
+<h5 class="paragraph" id="sec49">例</h5>
+<p>
+標準入力が端末または擬似端末の場合、パスワードを読む処理を行っている間はユーザが打ち込んだ文字列を表示するべきではありません。この処理は以下のように実装できます:
+
+</p><div class="mylisting"><span class="c001">let</span> read_passwd message =
+  <span class="c001">match
+    try
+      let</span> default = tcgetattr stdin <span class="c001">in
+      let</span> silent =
+        { default <span class="c001">with</span>
+          c_echo = <span class="c001">false</span>;
+          c_echoe = <span class="c001">false</span>;
+          c_echok = <span class="c001">false</span>;
+          c_echonl = <span class="c001">false</span>;
+        } <span class="c001">in</span>
+      Some (default, silent)
+    <span class="c001">with</span> _ -&gt; None
+  <span class="c001">with</span>
+  | None -&gt; input_line Pervasives.stdin
+  | Some (default, silent) -&gt;
+      print_string message;
+      flush Pervasives.stdout;
+      tcsetattr stdin TCSANOW silent;
+      <span class="c001">try
+        let</span> s = input_line Pervasives.stdin <span class="c001">in</span>
+        tcsetattr stdin TCSANOW default; s
+      <span class="c001">with</span> x -&gt;
+        tcsetattr stdin TCSANOW default; raise x;;</div><p><code>read_passwd</code> 関数は <code>stdin</code> につながっている端末の現在の設定を取得するところから始まります。その後文字を表示しないように変更した設定を定義します。もしこの処理が失敗した場合標準入力は制御端末ではないので普通に一行の入力を受け取ります。そうでなければメッセージを表示し、端末の設定を変え、パスワードを読み込み、端末の設定を元に戻します。読み込みが失敗した後でも端末の設定が元に戻るように注意が必要です。
+</p><div class="fancybreak">* * *</div></div><p>プログラムが別のプログラムを起動しその標準入力を端末 (もしくは擬似端末) につなげる必要がある場合があります。OCamlはこれをサポートしていません<sup><a id="text5" href="#note5">4</a></sup>。そのため擬似端末 (一般に <code>/dev/tty[a-z][a-f0-9]</code> という名前のついたファイル) の中からすでに開いているものを手動で探す必要があります。そしてその擬似端末のファイルをオープンすれば、新しいプログラムを標準入力がこのファイルになった状態で始めることができます。</p><p>端末のデータの流れを制御する関数が 4 つあります (割り込みを送る、送信の終了を待つ、待っているデータをフラッシュする、やり取りを再開する)。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALtcsendbreak">tcsendbreak</a> : file_descr -&gt; int -&gt; unit</div><p><a href="http://www.opengroup.org/onlinepubs/009696799/functions/tcsendbreak.html"><span class="c003">tcsendbreak</span></a><a id="hevea_default61"></a> 関数は周辺機器に割り込みを送ります。第二引数は割り込みの長さです (0 は周辺機器のデフォルト値と解釈されます)。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALtcdrain">tcdrain</a> : file_descr -&gt; unit</div><p><a href="http://www.opengroup.org/onlinepubs/009696799/functions/tcdrain.html"><span class="c003">tcdrain</span></a><a id="hevea_default62"></a> 関数は全ての書き込みデータが送信されるのを待ちます。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALtcflush">tcflush</a> : file_descr -&gt; flush_queue -&gt; unit</div><p>第二引数の値にもとづいて、 <a href="http://www.opengroup.org/onlinepubs/009696799/functions/tcflush.html"><span class="c003">tcflush</span></a><a id="hevea_default63"></a> 関数は書き込まれたが送信されていないデータ (<code>TCIFLUSH</code>) か受け取ったが読み込まれていないデータ (<code>TCOFLUSH</code>) 、あるいはその両方 (<code>TCIOFLUSH</code>) を捨てます。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALtcflow">tcflow</a> : file_descr -&gt; flow_action -&gt; unit</div><p>第二引数の値にもとづいて、 <a href="http://www.opengroup.org/onlinepubs/009696799/functions/tcflow.html"><span class="c003">tcflow</span></a><a id="hevea_default64"></a> 関数はデータの送信を止める (<code>TCOOFF</code>) か、データの送信を再開する (<code>TCOON</code>) か、制御文字 <span class="c007">stop</span> あるいは <span class="c007">start</span> を送って送信を止める (<code>TCIOFF</code>) かをします。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALsetsid">setsid</a> : unit -&gt; int</div><p><a href="http://www.opengroup.org/onlinepubs/009696799/functions/setsid.html"><span class="c003">setsid</span></a><a id="hevea_default65"></a> 関数はプロセスを新しいセッションに移し端末から切り離します。</p>
+<h2 class="section" id="sec50">2.14  ファイルのロック</h2>
+<p>二つのプロセスは同じファイルに同時に書き込むことができますが、書き込みが衝突した場合データの一貫性が失われることがあります。<code>O_APPEND</code> を使って常にファイルの末尾に書き込むようにしてこれを回避できることがあります。<code>log</code> ファイルにはこの方法で良いですが、データベースのように任意の場所に書き込みが起こるときは上手くいきません。そのような場合にはファイルを使うプロセスは他人のつま先を踏まないように協調する必要があります。ファイル全体に対するロックは補助ファイルを使うことで実装できます (<a href="#page%2Flock">??</a> ページ参照) が、システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/lockf.html"><span class="c003">lockf</span></a><a id="hevea_default66"></a> を使うとファイルの一部分をロックするより良い同期パターンを利用できます。
+
+</p><div class="mylisting"> <span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALlockf">lockf</a> : file_descr -&gt; lock_command -&gt; int -&gt; unit</div>
+<h2 class="section" id="sec/copyrec">2.15  完全な例: 再帰的なファイルのコピー</h2>
+<p><code>file_copy</code> (セクション <a href="#ex%2Ffilecopy">2.9</a>) を拡張して通常ファイルだけではなくシンボリックリンクとディレクトリにも対応させます。ディレクトリについてはその中身も再帰的にコピーすることにします。</p><p>通常ファイルのコピーにはすでに定義した <a href="#ex%2Ffilecopy">2.9</a> 関数を再利用します。
+</p><div class="mylisting"><span class="c001">open</span> Unix
+...
+<span class="c001">let</span> file_copy input_name output_name =
+...</div><p>次の <code>set_infos</code> 関数はファイルの所有者とアクセス権限、最終アクセス/変更日時を変更します。コピー先のファイルの情報をコピー元と同じにするためにこの関数を使います。
+
+</p><div class="mylisting"><span class="c001">let</span> set_infos filename infos =
+  utimes filename infos.st_atime infos.st_mtime;
+  chmod filename infos.st_perm;
+  <span class="c001">try</span>
+    chown filename infos.st_uid infos.st_gid
+  <span class="c001">with</span> Unix_error(EPERM,_,_) -&gt; ()</div><p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/utime.html"><span class="c003">utime</span></a><a id="hevea_default67"></a> は最終アクセス/更新日時を、<code>chmod</code> と <code>chown</code>がアクセス権限と所有者を変更します。通常ユーザが <code>chown</code> を実行すると “permission denied” エラーが出て失敗することがありますが、このエラーは捕捉した上で無視します。</p><p>処理の本体である再帰関数は以下のようになります:
+</p><div class="mylisting"><span class="c001">let rec</span> copy_rec source dest =
+  <span class="c001">let</span> infos = lstat source <span class="c001">in
+  match</span> infos.st_kind <span class="c001">with</span>
+  | S_REG -&gt;
+      file_copy source dest;
+      set_infos dest infos
+  | S_LNK -&gt;
+      <span class="c001">let</span> link = readlink source <span class="c001">in</span>
+      symlink link dest
+  | S_DIR -&gt;
+      mkdir dest 0o200;
+      Misc.iter_dir
+        (<span class="c001">fun</span> file -&gt;
+          <span class="c001">if</span> file &lt;&gt; Filename.current_dir_name
+              &amp;&amp; file &lt;&gt; Filename.parent_dir_name
+          <span class="c001">then</span>
+            copy_rec
+              (Filename.concat source file)
+              (Filename.concat dest file))
+        source;
+      set_infos dest infos
+  | _ -&gt;
+      prerr_endline (<span class="c002">"Can't cope with special file "</span> ^ source)</div><p><code>source</code> ファイルの情報を読むところから処理が始まります。ファイルが通常ファイルの場合、 <code>file_copy</code> によってデータを、 <code>set_infos</code> によって情報をコピーします。ファイルがシンボリックリンクの場合、リンクがどこを指しているを読み取りそのファイルを指すリンクを作成します。ファイルがディレクトリの場合、目的となるディレクトリを作成しディレクトリのエントリを読み、各エントリに対して再帰的に <code>copy\_rec</code> を呼び出します。このときディレクトリそのものと親ディレクトリのエントリは無視します。これ以外のファイルについては警告を出して無視します。</p><p>メインプログラムは単純です:
+
+</p><div class="mylisting"><span class="c001">let</span> copyrec () =
+  <span class="c001">if</span> Array.length Sys.argv &lt;&gt; 3 <span class="c001">then begin</span>
+    prerr_endline (<span class="c002">"Usage: "</span> ^Sys.argv.(0)^ <span class="c002">" &lt;source&gt; &lt;destination&gt;"</span>);
+    exit 2
+  <span class="c001">end else begin</span>
+    copy_rec Sys.argv.(1) Sys.argv.(2);
+    exit 0
+  <span class="c001">end</span>
+;;
+handle_unix_error copyrec ();;</div><div class="exercise">
+<h5 class="paragraph" id="sec52">練習問題 6</h5>
+<p><a id="ex6"></a>
+<a id="ex/copyrec"></a>
+ハードリンクを賢くコピーしてください。同じファイルが <span class="c006">n</span> 個の異なる場所に存在する場合、上記のプログラムでは<code>copy_rec</code> は同じファイルを <span class="c006">n</span> 個作成します。このような状況を検出し、コピーを一度だけして他の場所にはハードリンクを作るようにしてください。
+<a href="exercise6.html#exans6">解答</a></p><div class="fancybreak">* * *</div></div>
+<h2 class="section" id="sec54">2.16  完全な例: TAR</h2>
+<p><code>tar</code> ファイルフォーマット (<code>t</code>ape <code>ar</code>chive の略です) はファイル階層を一つのファイルに保存します。<code>tar</code> ファイルは小さなファイルシステムと見ることができます。</p><p>このセクションでは <code>tar</code> ファイルを読み書きする関数を定義します。そのほかに <code>readtar</code> という、 <code>readtar a</code> でアーカイブ <code>a</code> に含まれるファイルを表示し、<code>readtar a f</code> でアーカイブ <code>a</code> に含まれるファイル <code>f</code> を取り出すコマンドも作ります。ファイル階層全体を取り出すこととファイル階層からアーカイブを作ることは練習問題として読者に残します。</p>
+<h5 class="paragraph" id="sec55">ファイルフォーマットの仕様</h5>
+<p><code>tar</code> アーカイブは複数のレコードから成ります。それぞれのレコードがファイルを表します。レコードはファイルについての情報 (名前、種類、サイズ、所有者など) をエンコードするヘッダから始まり、ファイルの内容がその後に続きます。ヘッダは 512 バイトのブロックで、表 <a href="#fig%2Ftar">3</a> のような構造をしています。</p><div class="table">
+<table class="c000 cellpading0"><tr><td class="c012">オフセット</td><td class="c012">長さ</td><td class="c011">コードの種類</td><td class="c011">名前</td><td class="c011">説明 </td></tr>
+<tr><td class="hbar" colspan=5></td></tr>
+<tr><td class="c012"> 0</td><td class="c012">100</td><td class="c011">文字列</td><td class="c011"><code>name</code></td><td class="c011">ファイルの名前 </td></tr>
+<tr><td class="c012">100</td><td class="c012">8</td><td class="c011">8進</td><td class="c011"><code>perm</code></td><td class="c011">ファイルの権限 </td></tr>
+<tr><td class="c012">108</td><td class="c012">8</td><td class="c011">8進</td><td class="c011"><code>uid</code></td><td class="c011">所有ユーザの ID </td></tr>
+<tr><td class="c012">116</td><td class="c012">8</td><td class="c011">8進</td><td class="c011"><code>gid</code></td><td class="c011">所有グループの ID </td></tr>
+<tr><td class="c012">124</td><td class="c012">12</td><td class="c011">8進</td><td class="c011"><code>size</code></td><td class="c011">ファイルのサイズ (単位はバイト) </td></tr>
+<tr><td class="c012">136</td><td class="c012">12</td><td class="c011">8進</td><td class="c011"><code>mtime</code></td><td class="c011">最終更新日</td></tr>
+<tr><td class="c012">148</td><td class="c012">8</td><td class="c011">8進</td><td class="c011"><code>checksum</code></td><td class="c011">ヘッダのチェックサム </td></tr>
+<tr><td class="c012">156</td><td class="c012">1</td><td class="c011">文字</td><td class="c011"><code>kind</code></td><td class="c011">ファイルの種類 </td></tr>
+<tr><td class="c012">157</td><td class="c012">100</td><td class="c011">8進</td><td class="c011"><code>link</code></td><td class="c011">リンク </td></tr>
+<tr><td class="c012">257</td><td class="c012">8</td><td class="c011">文字列</td><td class="c011"><code>magic</code></td><td class="c011">シグネチャ (<span class="c002"><code>"ustar\032\032\0"</code></span>)</td></tr>
+<tr><td class="c012">265</td><td class="c012">32</td><td class="c011">文字列</td><td class="c011"><code>user</code></td><td class="c011">所有ユーザの名前 </td></tr>
+<tr><td class="c012">297</td><td class="c012">32</td><td class="c011">文字列</td><td class="c011"><code>group</code></td><td class="c011">所有グループの名前 </td></tr>
+<tr><td class="c012">329</td><td class="c012">8</td><td class="c011">8進</td><td class="c011"><code>major</code></td><td class="c011">周辺機器のメジャー番号 </td></tr>
+<tr><td class="c012">337</td><td class="c012">8</td><td class="c011">8進</td><td class="c011"><code>minor</code></td><td class="c011">周辺機器のマイナー番号</td></tr>
+<tr><td class="c012">345</td><td class="c012">167</td><td class="c011">&nbsp;</td><td class="c011">&nbsp;</td><td class="c011">パディング <br>
+</td></tr>
+<tr><td class="hbar" colspan=5></td></tr>
+</table>
+<div class="flushleft">
+<span class="c004"><span style="font-weight:bold">注意</span>  フィールドの長さの単位はバイト。全てのフィールドはヌル文字 <code>'\000'</code> で終わる文字列でエンコードされるが、フィールド <code>kind</code> と <code>size</code> については終端の <code>'\000'</code> は無くても良い。
+</span></div>
+
+
+<a id="fig/tar"></a>
+<div class="caption">Table 3 — ヘッダの構造</div></div><p>
+ファイルの内容はヘッダのすぐ後ろに保存され、サイズは 512 バイトの倍数まで 0 で拡張されます。レコードの後には別のレコードが続きます。ファイルは最低 20 ブロック (1 ブロックは 512 バイト) を持つように空のブロックでパディングされます。</p><p><code>tar</code> アーカイブは脆い媒体に保存されて何年もしてから読み込まれることを想定しているので、ヘッダが傷ついたことを検出するための <code>checksum</code> フィールドがあります。その値はヘッダ内の全てのバイトの和です (チェックサムを計算するときには <code>checksum</code> フィールド自身は 0 として計算します)。</p><p>ヘッダの <code>kind</code> フィールドはファイルの種類を以下のように 1 バイトにエンコードします<sup><a id="text6" href="#note6">5</a></sup>:
+</p><div class="center">
+<table class="c000 cellpading0"><tr><td class="c010"><code>'\0'</code> or <code>'0'</code></td><td class="c010"><code>'1'</code></td><td class="c010"><code>'2'</code></td><td class="c010"><code>'3'</code></td><td class="c010"><code>'4'</code></td><td class="c010"><code>'5'</code></td><td class="c010"><code>'6'</code></td><td class="c010"><code>'7'</code></td></tr>
+<tr><td class="hbar" colspan=8></td></tr>
+<tr><td class="c010"><code>REG</code></td><td class="c010"><code>LINK</code></td><td class="c010"><code>LNK</code></td><td class="c010"><code>CHR</code></td><td class="c010"><code>BLK</code></td><td class="c010"><code>DIR</code></td><td class="c010"><code>FIFO</code></td><td class="c010"><code>CONT</code>
+</td></tr>
+</table>
+</div><p>
+ほとんどの場合 <code>kind</code> フィールドの値は <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEstats"><span class="c003">stats</span></a> 構造体の <code>st_kind</code> フィールドに保存されているUnix のファイルの種類 <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEfile_kind"><span class="c003">file_kind</span></a> に対応します。<code>LINK</code> はアーカイブに保存されたファイルに対するハードリンクを表します。<code>CONT</code> はメモリの連続した領域に保存された通常ファイルを表します (これはいくつかのファイルシステムが持つ機能であり、通常ファイルと同じように扱うことができます)。</p><p>ヘッダの <code>kind</code> フィールドが <code>LINK</code> または <code>LNK</code> のとき、 <code>link</code> フィールドにはリンクの指す先のファイル名が保存されます。<code>kind</code> フィールドが <code>CHR</code> または <code>BLK</code> のとき、<code>major</code> と <code>minor</code> フィールドには周辺機器のメジャー番号とマイナー番号が保存されます。これらのフィールドはそれ以外のとき使用されません。</p><p><code>kind</code> フィールドの値はヴァリアント型によって、 ヘッダはレコードによって自然に表現されます。
+
+</p><div class="mylisting"><span class="c001">type</span> kind =
+  | REG | LNK <span class="c001">of</span> string | LINK <span class="c001">of</span> string | CHR <span class="c001">of</span> int * int
+  | BLK <span class="c001">of</span> int * int | DIR | FIFO | CONT
+
+<span class="c001">type</span> header =
+    { name : string; perm : int; uid : int; gid : int; size : int;
+      mtime : int; kind : kind; user : string; group : string }</div>
+<h5 class="paragraph" id="sec56">ヘッダの読み込み</h5>
+<p>
+ヘッダの読み込みはあまり面白い処理ではありませんが、無視することもできません。
+</p><div class="mylisting"><span class="c001">exception</span> Error <span class="c001">of</span> string * string
+<span class="c001">let</span> error err mes = raise (Error (err, mes));;
+<span class="c001">let</span> handle_error f s =
+  <span class="c001">try</span> f s <span class="c001">with</span>
+  | Error (err, mes) -&gt;
+      Printf.eprintf <span class="c002">"Error: %s: %s"</span> err mes;
+      exit 2
+
+<span class="c001">let</span> substring s offset len =
+  <span class="c001">let</span> max_length = min (offset + len + 1) (Bytes.length s) <span class="c001">in
+  let rec</span> real_length j =
+    <span class="c001">if</span> j &lt; max_length &amp;&amp; s.[j] &lt;&gt; '\000' <span class="c001">then</span> real_length (succ j)
+    <span class="c001">else</span> j - offset <span class="c001">in</span>
+  Bytes.sub s offset (real_length offset);;
+
+<span class="c001">let</span> integer_of_octal nbytes s offset =
+  <span class="c001">let</span> i = int_of_string (<span class="c002">"0o"</span> ^ substring s offset nbytes) <span class="c001">in
+  if</span> i &lt; 0 <span class="c001">then</span> error <span class="c002">"Corrupted archive" "integer too large"</span> <span class="c001">else</span> i;;
+
+<span class="c001">let</span> kind s i = <span class="c001">match</span> s.[i] <span class="c001">with</span>
+  | '\000' | '0' -&gt; REG
+  | '1' -&gt; LINK (substring s (succ i) 99)
+  | '2' -&gt; LNK (substring s (succ i) 99)
+  | '3' -&gt; CHR (integer_of_octal 8 s 329, integer_of_octal 8 s 329)
+  | '4' -&gt; BLK (integer_of_octal 8 s 329, integer_of_octal 8 s 337)
+  | '5' -&gt; DIR | '6' -&gt; FIFO | '7' -&gt; CONT
+  | _ -&gt; error <span class="c002">"Corrupted archive" "kind"</span>
+
+<span class="c001">let</span> header_of_string s =
+  { name = substring s 0 99;
+    perm = integer_of_octal 8 s 100;
+    uid = integer_of_octal 8 s 108;
+    gid = integer_of_octal 8 s 116;
+    size = integer_of_octal 12 s 124;
+    mtime = integer_of_octal 12 s 136;
+    kind = kind s 156;
+    user = substring s 265 32;
+    group = substring s 297 32; }
+
+<span class="c001">let</span> block_size = 512;;
+<span class="c001">let</span> total_size size =
+  block_size + ((block_size -1 + size) / block_size) * block_size;;</div><p>アーカイブの終端は本来なら新しいレコードが始まるべき場所にあるファイルの終端か、完全で空のブロックです。そのためヘッダを読み込むときに読むブロックは空なものか完全なものです。そこで <code>really_read</code> を再利用します。アーカイブが壊れていない限り、1 ブロックを読み込もうとしたときにファイルの終端を読むことはありません。
+
+</p><div class="mylisting"><span class="c001">let</span> buffer_size = block_size;;
+<span class="c001">let</span> buffer = Bytes.create buffer_size;;
+
+<span class="c001">let</span> end_of_file_error () =
+  error <span class="c002">"Corrupted archive" "unexpected end of file"</span>
+<span class="c001">let</span> without_end_of_file f x =
+  <span class="c001">try</span> f x <span class="c001">with</span> End_of_file -&gt; end_of_file_error ()
+
+<span class="c001">let</span> read_header fd =
+  <span class="c001">let</span> len = read fd buffer 0 buffer_size <span class="c001">in
+  if</span> len = 0 ||  buffer.[0] = '\000' <span class="c001">then</span> None
+  <span class="c001">else begin
+    if</span> len &lt; buffer_size <span class="c001">then</span>
+      without_end_of_file (really_read fd buffer len) (buffer_size - len);
+    Some (header_of_string buffer)
+  <span class="c001">end</span>;;</div>
+<h5 class="paragraph" id="sec57">アーカイブの読み込み</h5>
+<p>
+アーカイブに操作を行うには、操作の対象を見つけるまでレコードを順に読んでいく必要があります。通常はそれぞれのレコードのヘッダだけを読みこむだけですみますが、前に読み込んだアーカイブに戻ってその内容を読む必要があることもあります。そのような場合のためにそれぞれのレコードごとにそのヘッダとアーカイブ内の位置を記録しておきます。
+</p><div class="mylisting"><span class="c001">type</span> record = { header : header; offset : int; descr : file_descr };;</div><p>アーカイブのレコード (ファイルの内容は除く) を読み込んで記録する一般的なイテレータを定義します。イテレータを一般的にするために、蓄積のための関数 <code>f</code> は抽象的なものにしておきます。こうすることでレコードの表示や破壊などの処理にも同じイテレータ関数を使うことができます。
+</p><div class="mylisting"><span class="c001">let</span> fold f initial fd  =
+  <span class="c001">let rec</span> fold_aux offset accu =
+    ignore (without_end_of_file (lseek fd offset) SEEK_SET);
+    <span class="c001">match</span> without_end_of_file read_header fd <span class="c001">with</span>
+      Some h -&gt;
+        <span class="c001">let</span> r =
+          { header = h; offset = offset + block_size; descr = fd } <span class="c001">in</span>
+        fold_aux (offset + total_size h.size) (f r accu)
+    | None -&gt; accu <span class="c001">in</span>
+  fold_aux 0 initial;;</div><p><code>fold_aux</code> 関数は処理を <code>offset</code> の位置から開始し、 <code>accu</code> の中に途中経過が含まれています。レコードが始まる位置 <code>offset</code> まで移動し、ヘッダを読み、レコード <code>r</code> を構築し、同じ処理を新しい (より処理の進んだ) 途中結果 <code>f r accu</code> とともにレコードの末尾から行います。この処理はヘッダが無くなるまで、つまりアーカイブの終端に達するまで繰り返されます。</p>
+<h5 class="paragraph" id="sec58">レコードの名前の表示</h5>
+<p>
+<code>fold</code> 関数の使用例として、レコードの名前を保存すること無く表示する処理を示します:
+</p><div class="mylisting"><span class="c001">let</span> list tarfile =
+  <span class="c001">let</span> fd = openfile tarfile [ O_RDONLY ] 0o0 <span class="c001">in
+  let</span> add r () = print_string r.header.name; print_newline () <span class="c001">in</span>
+  fold add () fd;
+  close fd</div>
+<h5 class="paragraph" id="sec59">レコードの内容を表示する</h5>
+<p>
+コマンド <code>readtar a f</code> はアーカイブの中のファイル <code>f</code> を探索し、もしそれが通常ファイルならばその内容を表示します。<code>f</code> がアーカイブ内のファイル <code>g</code> に対するハードリンクであれば、アーカイブの中では別になっていたとしても本当は二つのファイルは同一なので、そのリンクをたどって <code>g</code> の内容を表示します。<code>g</code> と <code>f</code> のどちらがリンクでどちらがリンク先であるかはアーカイブが作られるときにどちらが先に探索されたかのみに依存します。ここではシンボリックリンクを追うことはしません。</p><p>ハードリンクの解決は以下の相互再帰関数によって行われます:
+</p><div class="mylisting"><span class="c001">let rec</span> find_regular r list = <span class="c001">match</span> r.header.kind <span class="c001">with</span>
+  | REG | CONT -&gt; r
+  | LINK name -&gt; find_file name list
+  | _ -&gt; error r.header.name <span class="c002">"Not a regular file"</span>
+
+<span class="c001">and</span> find_file name list = <span class="c001">match</span> list <span class="c001">with</span>
+  | r :: rest -&gt;
+      <span class="c001">if</span> r.header.name = name <span class="c001">then</span> find_regular r rest
+      <span class="c001">else</span> find_file name rest
+  | [] -&gt; error name <span class="c002">"Link not found (corrupted archive)"</span>;;</div><p><code>find_regular</code> 関数はレコード <code>r</code> に対応する通常ファイルを探します。<code>r</code> が通常ファイルならば <code>r</code> を返します。<code>r</code> がハードリンクならば <code>find_file</code> 関数を使ってリンクの指すファイルをアーカイブにすでに保存されているレコード <code>list</code> の中から探します。それ以外の場合は関数は失敗します。</p><p>レコードが見つかった場合はその内容を表示します。ディスクリプタをレコードの開始地点に移動させた後は <code>file_copy</code> とよく似た処理になります。
+</p><div class="mylisting"><span class="c001">let</span> copy_file file output =
+  ignore (lseek file.descr file.offset SEEK_SET);
+  <span class="c001">let rec</span> copy_loop len =
+    <span class="c001">if</span> len &gt; 0 <span class="c001">then
+      match</span> read file.descr buffer 0 (min buffer_size len) <span class="c001">with</span>
+      | 0 -&gt; end_of_file_error ()
+      | r -&gt; ignore (write output buffer 0 r); copy_loop (len-r) <span class="c001">in</span>
+  copy_loop file.header.size</div><p>これらの関数を組み合わせれば完成です:
+</p><div class="mylisting"><span class="c001">exception</span> Done
+<span class="c001">let</span> find_and_copy tarfile filename =
+  <span class="c001">let</span> fd = openfile tarfile [ O_RDONLY ] 0o0 <span class="c001">in
+  let</span> found_or_collect r accu =
+    <span class="c001">if</span> r.header.name = filename <span class="c001">then begin</span>
+      copy_file (find_regular r accu) stdout;
+      raise Done
+    <span class="c001">end else</span> r :: accu <span class="c001">in
+  try</span>
+     ignore (fold found_or_collect [] fd);
+     error <span class="c002">"File not found"</span> filename
+  <span class="c001">with</span>
+  | Done -&gt; close fd</div><p>まずターゲットのファイル名が見つかるまでアーカイブのレコード (内容は除く) を読みます。その後 <code>find_regular</code> 関数で実際にそのファイルの内容を含んでいるレコードを探します。この二回目の逆順の探索はアーカイブが矛盾なく作られている限り成功します。しかし一回目の探索はファイルがアーカイブに存在しない場合に失敗するので、処理が失敗した場合でも二つのエラーを区別するようになっています。</p><p><code>readtar</code> コマンドを実装したメイン関数は以下のようになります:
+
+</p><div class="mylisting"><span class="c001">let</span> readtar () =
+  <span class="c001">let</span> nargs = Array.length Sys.argv <span class="c001">in
+  if</span> nargs = 2 <span class="c001">then</span> list Sys.argv.(1)
+  <span class="c001">else if</span> nargs = 3 <span class="c001">then</span> find_and_copy Sys.argv.(1) Sys.argv.(2)
+  <span class="c001">else</span>
+    prerr_endline (<span class="c002">"Usage: "</span> ^Sys.argv.(0)^ <span class="c002">" &lt;tarfile&gt; [ &lt;source&gt; ]"</span>);;
+
+handle_unix_error (handle_error readtar) ();;</div><div class="exercise">
+<h5 class="paragraph" id="sec60">練習問題 7</h5>
+<p><a id="ex7"></a><a id="ex/readtar"></a>
+<code>readtar</code> コマンドを拡張して、シンボリックリンクが指しているファイルがアーカイブ内に存在する場合はそのファイルの内容を表示するようにしてください。
+<a href="exercise7.html#exans7">解答</a></p><div class="fancybreak">* * *</div></div><div class="exercise">
+<h5 class="paragraph" id="sec62">練習問題 8</h5>
+<p><a id="ex8"></a><a id="ex/untar"></a>
+<code>untar a</code> がアーカイブ <code>a</code> の全てのファイル (スペシャルファイルを除く) を抽出し新しいディレクトリとして作成するようなコマンド <code>untar</code> を作成してください。ファイルについての情報 (所有者、権限) は可能ならばアーカイブのものを復元してください。</p><p>ファイル階層は <code>untar</code> コマンドが実行されたディレクトリに再構築されるべきです。コマンドが現在のワーキングディレクトリのサブディレクトリではない場所に書き込むことは許されません。アーカイブにレコードが無いディレクトリはユーザのデフォルト権限で作られるようにしてください。
+<a href="exercise8.html#exans8">解答</a></p><div class="fancybreak">* * *</div></div><div class="exercise">
+<h5 class="paragraph" id="sec64">練習問題 9</h5>
+<p><a id="ex9"></a>
+<a id="ex/maketar"></a>
+<code>tar -xvf a f1 f2 ...</code> が <code>f1</code>, <code>f2</code> ... とそのサブディレクトリを含むアーカイブ <code>a</code> を作成するようなコマンド <code>tar</code> を書いてください。
+<a href="exercise9.html#exans9">解答</a></p><div class="fancybreak">* * *</div></div>
+<hr class="footnoterule"><dl class="thefootnotes"><dt class="dt-thefootnotes">
+<a id="note2" href="#text2">1</a></dt><dd class="dd-thefootnotes"><div class="footnotetext">ロックファイルが NFS パーティションに存在している場合はこれは不可能です。 NFS が <code><span class="c001">open</span></code> に対する <code>O_CREAT</code> を実装していないためです。</div></dd><dt class="dt-thefootnotes"><a id="note3" href="#text3">2</a></dt><dd class="dd-thefootnotes"><div class="footnotetext">訳注: バージョン4.02 以降の OCamlでは、変更可能なバッファとして使われる文字列の型は <code>string</code> ではなく <code>bytes</code> となります。</div></dd><dt class="dt-thefootnotes"><a id="note4" href="#text4">3</a></dt><dd class="dd-thefootnotes"><div class="footnotetext">実際には OCamlはデータ転送を (現在のバージョンでは) 16KB に制限し全体の転送が終わるまで <code>write</code> システムコールを繰り返します — セクション <a href="pipes.html#single_write">5.7</a> 参照。しかしこの制限はシステムのキャッシュサイズよりも大きいので無視できます。</div></dd><dt class="dt-thefootnotes"><a id="note5" href="#text5">4</a></dt><dd class="dd-thefootnotes"><div class="footnotetext">Case ライブラリ [<a href="references.html#Cash">3</a>] にはこのような関数が含まれます。</div></dd><dt class="dt-thefootnotes"><a id="note6" href="#text6">5</a></dt><dd class="dd-thefootnotes"><div class="footnotetext">このフィールドは他のフィールドの値が大きすぎて予約されたサイズより大きくなった場合や、 <code>tar</code> フォーマットの拡張などの例外的なケースをエンコードするための値も取ります。</div></dd></dl>
+<hr>
+<a href="generalities.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="processes.html"><img src="next_motif.svg" alt="Next"></a>
+</body>
+</html>

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>Answer of exercise 5</title>
+</head>
+<body>
+<div class="answer">
+<h5 class="paragraph" id="sec43">練習問題 <a href="files.html#ex5">exercise 5</a> の解答</h5>
+<p>
+<a id="exans5"></a>
+<code>tail</code> のナイーブな実装は最後に呼んだ <span class="c006">n</span> 行を巡回バッファに記録しながらファイルを最初から読み、ファイルの末尾に達したところでバッファを表示するというものです。<code>lseek</code> の実装されないパイプやスペシャルファイルからデータが来るならば、これが最善の方法になります。</p><p>もしデータが通常ファイルから来るならば、ファイルの末尾から読み込むほうが効率が良くなります。まず <code>lseek</code> を使って最後の 4096 文字を読み込み、その中に改行がないか調べます。<span class="c006">n</span> 個以上の改行があるなら対応する行を出力しそうでなければ次の 4096 バイトを読み、同じことをします。</p><p><code>-f</code> オプションを追加するにはまずオプション無しの場合の動作を行い、そのあとファイルの末尾に移動してから <code>read</code> します。<code>read</code> が返ったときはその内容をすぐに画面に表示しもう一度 <code>read</code> します。もし <code>read</code> が <code>0</code> を返したならプログラムは一定時間待ってから (<code>sleep 1</code>) もう一度試します。
+</p><div class="fancybreak">* * *</div></div></body>
+</html>

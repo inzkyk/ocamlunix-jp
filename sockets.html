@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>モダンなプロセス間通信: ソケット</title>
+</head>
+<body>
+<a href="pipes.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="threads.html"><img src="next_motif.svg" alt="Next"></a>
+<hr>
+<h1 class="chapter" id="sec/sockets"> 6  モダンなプロセス間通信: ソケット</h1>
+<p>パイプを使った通信にはいくつか制限があります。まず、パイプを使うとローカルのマシンとしか通信できません。名前付きパイプではやり取りをするプロセスが同じマシンで実行される必要があり、名前無しパイプでは二つのプロセスは親子関係になくてはいけません。次に、パイプでは <em>クライアント-サーバ</em> モデルという便利な通信モデルを使うことが難しいです。このモデルではちょうど一つの <em>サーバ</em> プログラムだけが共有リソースにアクセスできます。そして他の <em>クライアント</em> はサーバにアクセスすることで共有リソースにアクセスします。サーバが共有リソースへのアクセスの制御と管理を行うということです。例えば <span class="c007">x</span>-window システムでは共有リソースとはスクリーンとキーボード、そしてマウスです。</p><p>クライアント-サーバモデルをパイプで実装するのは難しいです。一番の困難はクライアントとサーバの間の接続を確立する部分です。名前無しパイプではこれは不可能です。サーバとクライアントに共通の親が必要であり、その親は任意の数のパイプを前もって保持する必要があるからです。名前付きパイプを使えばサーバがクライアントからの接続を読むことは不可能ではありません。しかしこの場合サーバが受け取るリクエストにはクライアントがサーバとやり取りするのに使う他の名前付きパイプの名前も含まれるので、複数のクライアントからの接続リクエストをどう排他制御するかが問題となります。</p><p>ソケットはこれらの問題を解決するために一般化されたパイプです。ソケットの説明のために、まずクライアント-サーバモデルを図 <a href="#fig%2Fclient-server">3</a> に示します。</p><div class="figure">
+<div class="image"><img src="ocamlunix-image20.png" width="70%"></div>
+
+
+
+<a id="fig/client-server"></a>
+<div class="caption">Figure 3 — クライアント-サーバモデル</div></div><ol class="enumerate" type=1><li class="li-enumerate">
+サーバ <span class="c006">U</span> がソケット <span class="c006">s</span> をポート <span class="c006">p</span> に作成し、接続を待つ (1)。クライアントはポート番号 <span class="c006">p</span> を知っている。
+</li><li class="li-enumerate">クライアント <span class="c006">A</span> がソケットを作成し、ポート <span class="c006">p</span> に接続する (2)。サーバ上では、システムがクライアント <span class="c006">A</span> とプライベートにやり取りするための新しいソケットを確保する (3)。この例ではサーバは補助サーバ <span class="c006">V</span> をフォークし、<span class="c006">A</span> との接続を閉じる (4)。 閉じられた接続は破線で示されている。以降はこの子プロセス <span class="c006">V</span> が <span class="c006">A</span> との通信を行う (5)。
+</li><li class="li-enumerate">サーバは新しいクライアント <span class="c006">B</span> を受け付けることができる。新しい接続が作成され、クローンしたプロセス <span class="c006">W</span> によって通信が行われる (6)。以降も同様となる。
+</li><li class="li-enumerate">サーバはソケット <span class="c006">s</span> に結び付けられたファイルディスクリプタを閉じることでサービスを終了できる。システムはポート <span class="c006">p</span> を開放して再利用する。このポートは例えば他のサービスをインストールするのに使われる。</li></ol><p>上記のモデルでは、サーバ <span class="c006">U</span> とクライアント <span class="c006">A</span> はプライベートな接続 (3) を確立することで他のクライアントの影響を受けずにやり取りを行います。このことから、この通信方式は <em>コネクション型通信</em> と呼ばれます。通信が短ければサーバが (フォークせずに) 直接リクエストを処理することもできます。しかしこうするとサーバが接続 (3) を処理するのを待つため、あるいは複数の接続が多重化によって管理されているために、クライアントはサーバが利用可能になるまで待たなければいけません。</p><p>ソケットを使うと <em>コネクションレス型通信</em> を利用することもできます。この方式ではサーバはクライアントとプライベートな接続を確立することなく直接通信します。コネクション型通信と比べるとこの方式が使われることは少ないです。 <a href="#sec%2Fmode-deconnecte">6.10</a> 節で少しコメントしますが、この章では主にコネクション型通信を扱います。</p>
+<h2 class="section" id="sec120">6.1  ソケット</h2>
+<p>ソケットはパイプの拡張であり、<span class="c007">bsd</span> 4.2 で初めて実装されました。現在ではネットワークに接続するすべての Unix がソケットの機能を持ちます。クライアント-サーバモデルに沿った通信を行うための専用のシステムコールが存在します。このシステムコールによって、プロセス間のローカル通信およびリモート通信を (ほぼ) 透過的に行うことができます。</p><p>ソケットの <em>通信ドメイン</em> は通信できるプロセス (およびそのアドレスのフォーマット) を制限します。異なる通信ドメインが利用可能です。例えば:</p><ul class="itemize"><li class="li-itemize">
+Unix ドメイン:
+アドレスはマシンのファイルシステム上の名前。通信は同じマシンで実行されるプロセス間に限られる (パイプを使った通信など)。
+</li><li class="li-itemize">インターネットドメイン: アドレスはインターネットネットワークにおけるマシンのアドレス (例えば <code>129.199.129.1</code> のような形をしたもの) とマシンのポート番号。通信はインターネットに接続している任意の二つのマシンで実行されるプロセス間で可能<sup><a id="text9" href="#note9">1</a></sup>。
+</li></ul><p>ソケットの <em>通信方式</em> は通信が信頼できるか (データの消失や重複があるか)、そしてデータの送受信の方法 (バイトストリーム、パケット列 — バイトの小さなブロック) を示します。通信方式はデータの送受信に使われるプロトコルを規定します。いくつかの通信方式が利用可能です。三つの通信方式をその特徴と共に示します:
+</p><div class="center">
+<table class="c000 cellpading0"><tr><td class="c011"> 方式</td><td class="c011">信頼性</td><td class="c011">データ表現 </td></tr>
+<tr><td class="hbar" colspan=3></td></tr>
+<tr><td class="c011"> ストリーム</td><td class="c011">信頼できる</td><td class="c011">バイトストリーム </td></tr>
+<tr><td class="c011"> データグラム</td><td class="c011">信頼できない</td><td class="c011">パケット </td></tr>
+<tr><td class="c011"> セグメント化されたパケット</td><td class="c011">信頼できる</td><td class="c011">パケット </td></tr>
+<tr><td class="hbar" colspan=3></td></tr>
+</table>
+</div><p>
+“ストリーム” 方式はパイプを使った通信にとても良く似ており、一番良く使われます。例えば構造化されていないバイトシーケンスの転送 (例えば <code>rsh</code>) などに使われます。“セグメント化されたパケット” 方式はデータをパケットとして転送します。すべての書き込みはパケットごとに区切られ、すべての読み込みは多くとも一つのパケットしか読み込めません。この方式はメッセージ指向の通信に適しています。“データグラム” 方式はイーサネットネットワークのハードウェアの特徴に一番近いです。データはパケットで転送されますが、それぞれのパッケットが目的地に届く保証はありません。ネットワークのリソースという観点では、この方式が一番無駄が少ないです。この方式は致命的な重要性を持たないデータの転送を行うプログラム (例えば <code>biff</code>) によって使われます。またデータの消失を手動で管理することでネットワークのパフォーマンスを向上させることもできます。
+</p>
+<h2 class="section" id="sec121">6.2  ソケットの作成</h2>
+<p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/socket.html"><span class="c003">socket</span></a><a id="hevea_default108"></a> は新しいソケットを作成します:
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALsocket">socket</a> : socket_domain -&gt; socket_type -&gt; int -&gt; file_descr</div><p>返り値は新しいソケットを表すファイルディスクリプタです。初期状態ではこのディスクリプタは “切断” 状態であり、 <code>read</code> や <code>write</code> を受け付ける準備が整っていません。</p><p>第一引数は <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEsocket_domain"><span class="c003">socket_domain</span></a> 型の値で、通信ドメインを指定します:
+</p><div class="mltypecases">
+<table class="c000 cellpading0"><tr><td class="c011"><code>PF_UNIX</code></td><td class="c011">ユニックスドメイン </td></tr>
+<tr><td class="c011"><code>PF_INET</code></td><td class="c011">インターネットドメイン
+</td></tr>
+</table>
+</div><p>
+第二引数は <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEsocket_type"><span class="c003">socket_type</span></a> 型の値で、通信方式を指定します:
+</p><div class="mltypecases">
+<table class="c000 cellpading0"><tr><td class="c011"><code>SOCK_STREAM</code></td><td class="c011">信頼できるバイトストリーム </td></tr>
+<tr><td class="c011"><code>SOCK_DGRAM</code></td><td class="c011">信頼できないパケット </td></tr>
+<tr><td class="c011"><code>SOCK_RAW</code></td><td class="c011">ネットワークの下層への直接のアクセス </td></tr>
+<tr><td class="c011"><code>SOCK_SEQPACKET</code></td><td class="c011">信頼できるパケット
+</td></tr>
+</table>
+</div><p>
+第三引数は通信で使うプロトコルです。通信ドメインに対するデフォルトのプロトコル (例えば <code>SOCK_DGRAM</code> に対しては <span class="c007">udp</span>、<code>SOCK_STREAM</code> に対しては <span class="c007">tcp</span> など) を選択する <code>0</code> が通常使われます。第三引数に他の値を設定すると特殊なプロトコルを使うことができます。例えば <code>ping</code> コマンドは <span class="c007">icmp</span> (<em>Internet Control Message Protocol</em>) を使って、自動的に送信者に送り返すパケットを送ります。特殊なプロトコルに対する引数の値は <code>/etc/protocols</code> ファイルまたは <span class="c007">nis</span> (<em>Network Information Service</em>) データベース の <code>protocols</code> テーブルが存在すればそこにあります。システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/getprotobyname.html"><span class="c003">getprotobyname</span></a><a id="hevea_default109"></a> はプロトコルに関する情報をポータブルな形で返します。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgetprotobyname">getprotobyname</a> : string -&gt; protocol_entry</div><p>引数はプロトコルの名前で、返り値は <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEprotocol_entry"><span class="c003">protocol_entry</span></a> 型のレコードです。このレコードの <code>p_proto</code> フィールドがプロトコルの番号を表します。</p>
+<h2 class="section" id="sec122">6.3  アドレス</h2>
+<p>ソケットに関する操作はソケットアドレスを利用するものがあります。ソケットアドレスはヴァリアント型 <code>sockaddr</code> によって表されます:
+</p><div class="mylisting"><span class="c001">type</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEsockaddr">sockaddr</a> =
+  | ADDR_UNIX <span class="c001">of</span> string
+  | ADDR_INET <span class="c001">of</span> inet_addr * int</div><p><code>ADDR_UNIX f</code> は Unix ドメインにおけるアドレスです。 <code>f</code> は対応するファイルのマシンのファイルシステムにおける名前です。 <code>ADDR_INET (a,p)</code> はインターネットドメインにおけるアドレスです。 <code>a</code> がマシンのインターネットアドレスで、<code>p</code> がそのマシンのポート番号です。</p><p>インターネットアドレスは抽象型 <code>inet_addr</code> を表します。次の二つの関数は <code>128.93.8.2</code> のような形をした文字列と <code>inet_addr</code> 型の値の間の変換を行います。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALinet_addr_of_string">inet_addr_of_string</a><a id="hevea_default110"></a> : string -&gt; inet_addr
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALstring_of_inet_addr">string_of_inet_addr</a><a id="hevea_default111"></a> : inet_addr -&gt; string</div><p>インターネットアドレスを調べるもう一つの方法はホストの名前を使って <code>/etc/hosts</code> にあるテーブル、<span class="c007">nis</span> データベース、あるいはドメインネームサーバから引くことです。システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/gethostbyname.html"><span class="c003">gethostbyname</span></a><a id="hevea_default112"></a> がこれを行います。現代的なマシンではドメインネームサーバへの問い合わせが最初に行われ、<code>/etc/hosts</code> はフォールバックとしてしか使われませんが、一般的にはこの順番はマシンの設定によります。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgethostbyname">gethostbyname</a> : string -&gt; host_entry</div><p>引数はホストの名前で、返り値は <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEhost_entry"><span class="c003">host_entry</span></a> 型のレコードです。このレコードの <code>h_addr_list</code> フィールドが目的のマシンのインターネットアドレスを表します (同じマシンが複数のネットワークに違うアドレスで接続することは可能です)。</p><p>最もよく使われるサービスが使うポート番号は <code>/etc/services</code> のテーブルにリストされており、<a href="http://www.opengroup.org/onlinepubs/009696799/functions/getservbyname.html"><span class="c003">getservbyname</span></a><a id="hevea_default113"></a> 関数でポ−タブルに取得できます。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgetservbyname">getservbyname</a> : string -&gt; string -&gt; service_entry</div><p>第一引数はサービスの名前 (<span class="c007">ftp</span> サーバには <span class="c002"><code>"ftp"</code></span>、E メールには <span class="c002"><code>"smtp"</code></span>、ニュースサーバには <span class="c002"><code>"nntp"</code></span>、<code>talk</code> と <code>ntalk</code> にはコマンドと同じ文字列、など) です。第二引数はプロトコルの名前です。プロトコルの名前にはサービスの通信方式がストリーム方式の場合は <span class="c002"><code>"tcp"</code></span> が、データグラム方式の場合は<span class="c002"><code>"udp"</code></span> が通常使われます。<code>getservbyname</code> の返り値は <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEservice_entry"><span class="c003">service_entry</span></a> 型の値で、<code>s_port</code> フィールドがサービスが用いるポート番号を表します。</p><div class="example">
+<h5 class="paragraph" id="sec123">例</h5>
+<p> <code>pauillac.inria.fr</code> の <span class="c007">ftp</span> サーバのアドレスを入手するには以下のようにします:
+</p><div class="mylisting">ADDR_INET((gethostbyname <span class="c002">"pauillac.inria.fr"</span>).h_addr_list.(0),
+          (getservbyname <span class="c002">"ftp" "tcp"</span>).s_port)</div><div class="fancybreak">* * *</div></div>
+<h2 class="section" id="sec124">6.4  サーバへの接続</h2>
+<p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/connect.html"><span class="c003">connect</span></a><a id="hevea_default114"></a> はソケットに関連づいたサーバとの通信を確立します。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALconnect">connect</a> : file_descr -&gt; sockaddr -&gt; unit</div><p>第一引数はソケットのディスクリプタで、第二引数はサーバのアドレスです。</p><p>接続が確立されると、ソケットのディスクリプタに対する <span class="c003">write</span><a id="hevea_default115"></a> はサーバにデータを送信し、<span class="c003">read</span><a id="hevea_default116"></a> はサーバからのデータを受信します。ソケットは入出力の操作に対してパイプのように振る舞います。まず、 <code>read</code> はデータが利用可能でない場合にはブロックし、要求よりも少ないバイト数を返すことがあります。次に、サーバが接続を閉じると <code>read</code> は <code>0</code> を返し、 <code>write</code> は読んだプロセスに <code>sigpipe</code> シグナルを送ります。</p><p><code>connect</code> 関数はソケットをシステムによって選ばれたローカルアドレスにバインドします。このアドレスを手動で選んだほうが良い場合もあります。そのような場合は <code>connect</code> 関数を呼ぶ前に <code>bind</code> 関数 (<a href="#sec%2Fservice">6.7</a> 節を参照) を呼ぶことでアドレスを選ぶことができます。</p><p>Unix コマンド <code>netstat</code> は現在のマシン上の接続と状況をリストします。</p>
+<h2 class="section" id="sec125">6.5  ソケットの切断</h2>
+<p>ソケットを切断する方法は二つあります。最初の方法はソケット <span class="c003">close</span><a id="hevea_default117"></a> を呼んで入出力用の接続が閉じることです。しかしこれでは大雑把すぎることがあります。例えばファイルの終端を伝えるためにクライアントからサーバの接続を閉じつつもサーバからのデータを受け取るために反対側の接続は保ちたい場合があります。システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/shutdown.html"><span class="c003">shutdown</span></a><a id="hevea_default118"></a> を使うと接続の一部を切断できます。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALshutdown">shutdown</a> : file_descr -&gt; shutdown_command -&gt; unit</div><p>第一引数は閉じるソケットのディスクリプタで、第二引数は <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEshutdown_command"><span class="c003">shutdown_command</span></a> 型の値で、どちらの方向の節毒を閉じるのかを指定します。
+</p><div class="mltypecases">
+<table class="c000 cellpading0"><tr><td class="c014"><code>SHUTDOWN_RECEIVE</code></td><td class="c013">読み込み用のソケットを閉じる。接続のもう一端における <code>write</code> は <code>sigpipe</code> シグナルを呼び出しプロセスに送るようになる。 </td></tr>
+<tr><td class="c014"><code>SHUTDOWN_SEND</code></td><td class="c013">書き込み用のソケットを閉じる。接続のもう一端における <code>read</code> はEOF を返すようになる。 </td></tr>
+<tr><td class="c014"><code>SHUTDOWN_ALL</code></td><td class="c013">読み込みと書き込み用のソケットを両方閉じる。<code>close</code> と違い、閉じられたソケットのディスクリプタは開放されない。
+</td></tr>
+</table>
+</div><p>
+ソケットの切断には <code>close</code> と <code>shutdown</code> のどちらを使っても多少の時間がかかることがあることに注意してください。</p>
+<h2 class="section" id="sec/univclient">6.6  完全な例: ユニバーサルクライアント</h2>
+<p><code>client host port</code> が <code>host</code> マシンの <code>port</code> ポートへの接続を確立するような <code>client</code>コマンドを作成します。さらにこのコマンドは標準入力からのデータを作成したソケットから送信し、受信したデータを標準出力へ書き込みます。例えば、以下のコマンド
+</p><div class="mylisting">echo -e 'GET /~remy/ HTTP/1.0\r\n\r\n' | ./client pauillac.inria.fr 80</div><p>は <code>pauillac.inria.fr</code> の <code>80</code> 版ポートに接続し、ウェブページ <code>/~remy/</code> に対する <span class="c007">http</span> リクエストを送ります。</p><p><code>client</code> が行うのはクライアントとの接続を確立する部分だけであり、特定のプロトコルの実装は <code>client</code> を呼んだプログラムに任されます。この意味で、 <code>client</code> コマンドは “ユニバーサルな” クライアントアプリケーションです。</p><p>ライブラリ関数 <code>Misc.retransmit fdin fdout</code> はディスクリプタ <code>fdin</code> から読んだデータを <code>fdout</code> に書き込みます。入力ディスクリプタの終端に達するとディスクリプタを閉じずに関数は終了します。<code>retransmit</code> はシグナルで中断されることがあることに注意してください。
+
+</p><div class="mylisting"><span class="c001">let</span> retransmit fdin fdout =
+  <span class="c001">let</span> buffer_size = 4096 <span class="c001">in
+  let</span> buffer = String.create buffer_size <span class="c001">in
+  let rec</span> copy () = <span class="c001">match</span> read fdin buffer 0 buffer_size <span class="c001">with</span>
+    | 0 -&gt; ()
+    | n -&gt; ignore (write fdout buffer 0 n); copy ()
+  <span class="c001">in</span>
+  copy ();;</div><p>本当の問題はここからです。
+</p><div class="mylisting"><span class="c005">   1</span> <span class="c001">open</span> Sys;;
+<span class="c005">   2</span> <span class="c001">open</span> Unix;;
+<span class="c005">   3</span> 
+<span class="c005">   4</span> <span class="c001">let</span> client () =
+<span class="c005">   5</span>   <span class="c001">if</span> Array.length Sys.argv &lt; 3 <span class="c001">then begin</span>
+<span class="c005">   6</span>     prerr_endline <span class="c002">"Usage: client &lt;host&gt; &lt;port&gt;"</span>;
+<span class="c005">   7</span>     exit 2;
+<span class="c005">   8</span>   <span class="c001">end</span>;
+<span class="c005">   9</span>   <span class="c001">let</span> server_name = Sys.argv.(1)
+<span class="c005">  10</span>   <span class="c001">and</span> port_number = int_of_string Sys.argv.(2) <span class="c001">in</span>
+<span class="c005">  11</span>   <span class="c001">let</span> server_addr =
+<span class="c005">  12</span>     <span class="c001">try</span> (gethostbyname server_name).h_addr_list.(0)
+<span class="c005">  13</span>     <span class="c001">with</span> Not_found -&gt;
+<span class="c005">  14</span>       prerr_endline (server_name ^ <span class="c002">": Host not found"</span>);
+<span class="c005">  15</span>       exit 2 <span class="c001">in</span>
+<span class="c005">  16</span>   <span class="c001">let</span> sock = socket PF_INET SOCK_STREAM 0 <span class="c001">in</span>
+<span class="c005">  17</span>   connect sock (ADDR_INET(server_addr, port_number));
+<span class="c005">  18</span>   <span class="c001">match</span> fork () <span class="c001">with</span>
+<span class="c005">  19</span>   | 0 -&gt; <a id="prog:add_signal_ignore"></a>
+<span class="c005">  20</span>       Misc.retransmit stdin sock;
+<span class="c005">  21</span>       shutdown sock SHUTDOWN_SEND;
+<span class="c005">  22</span>       exit 0
+<span class="c005">  23</span>   | _ -&gt;
+<span class="c005">  24</span>       Misc.retransmit sock stdout;
+<span class="c005">  25</span>       close stdout;
+<span class="c005">  26</span>       wait ();;
+<span class="c005">  27</span> 
+<span class="c005">  28</span> handle_unix_error client ();;</div><p>接続するインターネットアドレスを決めることから処理が始まります。アドレスはホストネームまたは数字の形を使うことができます。<code>gethostbyname</code> がどちらの場合にも対応しているためです。それからインターネットドメインでストリームタイプのソケットをデフォルトプロトコルで作成し、決定したアドレスのマシンに接続します。</p><p>プロセスは <code>fork</code> を使ってクローンします。子プロセスは標準入力からのデータをソケットにコピーします。標準入力の終端に達すると、子プロセスは送信方向の接続を閉じて終了します。親プロセスはソケットから呼んだデータを標準出力にコピーします。ファイルの終端に達すると標準出力を閉じ、子プロセスの終了を待ってから終了します。</p><p>このプログラムにおいて、接続が切れる原因は以下の三つです:
+</p><ul class="itemize"><li class="li-itemize">
+子プロセスが標準入力から EOF を受け取った場合。子プロセスはクライアントからサーバ方向の接続を閉じる。これによってサーバはソケットから EOF を受け取るので、おそらくはいくらかの処理をした後に反対方向の接続を閉じる。そして親プロセスはソケットから EOF を受け取り通常終了する。
+</li><li class="li-itemize">サーバが接続を閉じた場合。親プロセスはソケットから EOF を受け取り子プロセスの終了を待つ。子プロセスは次にソケットに対する <code>write</code> を実行したときに <code>sigpipe</code> シグナルを受け取って終了する。接続が切れたことは呼び出し側に報告されないが、もし必要ならば以下のコードを <a href="#prog%3Aadd_signal_ignore">19</a> 行目の後に入れることで <code>sigpipe</code> を無視することができる。
+<div class="mylisting">ignore (signal sigpipe Signal_ignore)</div><p>これによって代わりに <code>EPIPE</code> エラーが出るようになる。
+</p></li><li class="li-itemize">親または子プロセスが実行の途中で終了した場合、入力または出力用のソケットは閉じられる。ソケットが閉じられたことをサーバが検知した場合、サーバはその方向の接続を閉じる。これによってもう一方向の接続もしばらくしてから閉じられることになる。
+</li></ul>
+<h2 class="section" id="sec/service">6.7  サービスの確立</h2>
+<p>前の節でクライアントがサーバに接続する方法を見たので、今度はサーバーがクライアントにサービスを提供する方法について見ていきます。まずソケットに特定のアドレスを関連付けネットワークから到達可能にします。システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/bind.html"><span class="c003">bind</span></a><a id="hevea_default119"></a> がこれを行います。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALbind">bind</a> : file_descr -&gt; sockaddr -&gt; unit</div><p>第一引数はソケットのディスクリプタで、第二引数はバインドするアドレスです。インターネットアドレスとして定数 <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALinet_addr_any"><span class="c003">inet_addr_any</span></a> を使うと、マシンが持つすべてのインターネットアドレス (複数のサブネットワーク内におけるアドレス) をバインドすることができます。</p><p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/listen.html"><span class="c003">listen</span></a><a id="hevea_default120"></a> を使ってソケットが接続を受け入れられる状態にします:
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALlisten">listen</a> : file_descr -&gt; int -&gt; unit</div><p>第一引数はソケットのディスクリプタで、第二引数はサーバーがビジー状態のときに保持できるリクエストの数です(数十から大きなサーバーでは数百程度になります) 。接続を待っているクライアントが第二引数で指定した値よりも大きくなった場合、それ以降の接続リクエストは失敗します。</p><p>最後に、ソケットのディスクリプタに対するへの接続リクエストはシステムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/accept.html"><span class="c003">accept</span></a><a id="hevea_default121"></a> を通じて受け入れられます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALaccept">accept</a> : file_descr -&gt; file_descr * sockaddr</div><p><code>accept</code> の呼び出しが返った場合、引数として与えられたソケットは影響を受けないので続けて接続リクエストを受け入れることができます。返り値の第一要素はクライアントに接続した新しいディスクリプタです。サーバがこのディスクリプタに書き込んだデータは、クライアントが <code>connect</code> に渡したディスクリプタから読み込むことができます。またクライアントが <code>connect</code> に渡したディスクリプタに書き込んだデータは、<code>accept</code> の返り値の第一要素のディスクリプタから読み込むことができます。</p><p><code>accept</code> の返り値の第一要素はクライアントのアドレスです。接続したクライアントが接続する権限を持っているかを確認したり (例えば <span class="c007">x</span> サーバはこの処理を行います。 <code>xhost</code> で新しい許可されたユーザを追加できます)、サーバーからクライアントへの二つめの接続を作成する (<span class="c007">ftp</span> はすべてのファイル転送リクエストに対してこの処理を行います) ことに使うことができます。</p><p><span class="c007">tcp</span> サーバの一般的な構造は以下のようになっています:
+
+</p><div class="mylisting"><span class="c001">let</span> install_tcp_server_socket addr =
+  <span class="c001">let</span> s = socket PF_INET SOCK_STREAM 0 <span class="c001">in
+  try</span>
+    bind s addr;
+    listen s 10;
+    s
+  <span class="c001">with</span> z -&gt; close s; raise z;;</div><p>ライブラリ関数 <code>Misc.install_tcp_server addr</code> は <code>bind</code> と <code>listen</code> を使ってストリームタイプでインターネットドメインのソケットをデフォルトプロトコルで作成し、アドレス <code>addr</code> からの接続を受けられるように準備します。この関数はライブラリ関数なので、エラーの場合にはソケットを閉じます。</p><div class="mylisting"><span class="c001">let</span> tcp_server treat_connection addr =
+  ignore (signal sigpipe Signal_ignore);
+  <span class="c001">let</span> server_sock = install_tcp_server_socket addr <span class="c001">in
+  while true do
+      let</span> client = restart_on_EINTR accept server_sock <span class="c001">in</span>
+      treat_connection server_sock client
+  <span class="c001">done</span>;;</div><p>ライブラリ関数 <code>Misc.tcp_server</code> は <code>Misc.install_tcp_server</code> でソケットを作成した後無限ループに入ります。ループでは <code>accept</code> を使って接続要求を待ち、受け入れた接続は <code>treat_connection</code> 関数を使って処理します。<code>treat_connection</code> はライブラリ関数なことから、<code>accept</code> が途中で終了した場合にはやり直します。また予期しない接続の切断が起こったときにサーバプログラムを終了させるのではなく、<code>EPIPE</code> 例外が <code>treat_connection</code> によって捕捉されるように<code>sigpipe</code> シグナルを無効化しておきます。接続を閉じるときにディスクリプタ <code>client</code> を閉じるのは例外の有無にかかわらず <code>treat_connection</code> の責任です。</p><p><code>treat_connection</code> 関数はアドレスの他にサーバのディスクリプタも受け取りますが、これは <code>treat_connection</code> 関数が <code>fork</code> や <code>double_fork</code> をした場合でもサーバを閉じられるようにするためです。</p><p>以下のアプリケーション特有の <code>service</code> 関数を考えます。この <code>service</code> 関数はクライアントと通信を行ってから接続を閉じます。
+</p><div class="mylisting"><span class="c001">let</span> service (client_sock, client_addr) =
+  <em>(* ディスクリプタが client_sock のクライアントと処理を行う *)
+  (* 処理が終わったならば: *)</em>
+  close client_sock;;</div><p>この場合サーバは接続を順番に処理することができます。次の <code>Misc</code> モジュールにあるライブラリ関数はこのパターンに対処します:
+
+</p><div class="mylisting"><span class="c001">let</span> sequential_treatment server service client = service client</div><p><code>sequential_treatment</code> 関数を使った場合サーバがあるクライアントを処理している間は他の接続リクエストを処理することができないので、この関数が使えるのは <code>service</code> 関数が決まった短い時間で終わるサービスのときに限られます。</p><p>ほとんどのサーバプログラムは <code>accept</code> が返った直後に <code>fork</code> を呼ぶことでサービスの実行を子プロセスに移譲します。子プロセスが接続を処理し、親プロセスはもう一度 <code>accept</code> を行います。<code>Misc</code> モジュールの以下の関数がこの操作を行います。
+
+</p><div class="mylisting"><span class="c001">let</span> fork_treatment server service (client_sock, _ <span class="c001">as</span> client) =
+  <span class="c001">let</span> treat () = <span class="c001">match</span> fork () <span class="c001">with</span>
+    | 0 -&gt; close server; service client; exit 0
+    | k -&gt; ()
+  <span class="c001">in</span>
+  try_finalize treat () close client_sock;;</div><p>親プロセスがディスクリプタ <code>client_socket</code> を閉じることが重要であることに注意してください。ここで閉じることを忘れると子プロセスが <code>client_socket</code> を閉じても接続を終了しなくなり、すぐに親プロセスのディスクリプタが枯渇します。このディスクリプタはフォークが失敗したときにも閉じられます。エラーが致命的でなければサーバの実行が続くためです。</p><p>同様に、子プロセスは接続リクエストを受け取った <code>server</code> ディスクリプタをすぐに閉じます。一つ目の理由はこのディスクリプタが必要がないことです。二つ目の理由は子プロセスが終了する前にサーバが新しい接続の受け付けを終了する場合があることです。ml+exit 0+ の呼び出しは子プロセスがサービスの実行を終えた後に終了するためおよびサーバループを実行し始めないことを確実にするためにあるので重要です。</p><p>今までのライブラリ関数では子プロセスがいずれゾンビプロセスになり回収する必要が生じるというのを無視してきました。この問題の解決方法は二つ考えられます。一つ目のシンプルな方法はダブルフォーク ( <a href="processes.html#double-fork">??</a> ページ参照)を使って孫プロセスに接続を処理させる方法です。この方法では <code>Misc</code> モジュールの以下のライブラリ関数を使います:
+
+</p><div class="mylisting"><span class="c001">let</span> double_fork_treatment server service (client_descr, _ <span class="c001">as</span> client) =
+  <span class="c001">let</span> treat () = <span class="c001">match</span> fork () <span class="c001">with</span>
+    | 0 -&gt;
+        <span class="c001">if</span> fork () &lt;&gt; 0 <span class="c001">then</span> exit 0;
+        close server; service client; exit 0
+    | k -&gt;
+        ignore (restart_on_EINTR (waitpid []) k)
+  <span class="c001">in</span>
+  try_finalize treat () close client_descr;;</div><p>しかしこの方法でサーバプロセスが孫プロセスを管理する方法が一切無くなってしまいます。サービスを終了するときにサーバプロセスとサービスを実行している複数のプロセス全てが終了するように、サービスを同じプロセスグループで管理するのが望ましいです。この理由からサーバはフォークを行いながらも子プロセスを回収できるようにしておくことが多いです。例えば <code>sigchld</code> シグナルのハンドラを使うことができます (<a href="signals.html#ex%2Fchilds">??</a> ページの <code>Misc.free_children</code> 関数を参照)。</p>
+<h2 class="section" id="sec128">6.8  ソケットの設定</h2>
+<p>ソケットには設定できる内部変数がたくさんあります。例えば転送バッファのサイズや転送の最小サイズ、接続を閉じるときの動作などです。</p><p>これらの変数は異なった型を持ちます。そのため OCamlには型の数だけ<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgetsockopt"><span class="c003">getsockopt</span></a> 関数と <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALsetsockopt"><span class="c003">setsockopt</span></a> 関数があります。<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgetsockopt"><span class="c003">getsockopt</span></a> 関数とその仲間の詳細なリストは OCamlのドキュメントを、<a href="http://www.opengroup.org/onlinepubs/009696799/functions/getsockopt.html"><span class="c003">getsockopt</span></a><a id="hevea_default122"></a> と <a href="http://www.opengroup.org/onlinepubs/009696799/functions/setsockopt.html"><span class="c003">setsockopt</span></a><a id="hevea_default123"></a> の厳密な意味は <span class="c007">posix</span> のリファレンスをそれぞれ参照してください。</p><div class="example">
+<h5 class="paragraph" id="sec129">例</h5>
+<p>
+この例で紹介する二つの変数はストリームタイプでインターネットドメインのソケットにしか適用することができません。</p><p><span class="c007">tcp</span> プロトコルではソケットの切断にやり取りが必要なために少し時間がかかります。通常は <span class="c003">close</span><a id="hevea_default124"></a> の呼び出しはすぐに返って切断に必要なやり取りはシステムが行います。次のコードを実行すると <code>sock</code> に対する <code>close</code> がブロックするようになります。この例では全てのデータが送られるか 5 秒が経過するまでブロックします。
+</p><div class="mylisting">setsockopt_optint sock SO_LINGER (Some 5);;</div><p><code>SO_REUSEADDR</code> オプションを使うとローカルアドレスに対するソケットを閉じた直後に システムコール <span class="c003">bind</span><a id="hevea_default125"></a> で再利用することが可能になります (前の接続のデータを受け取ってしまう可能性はあります)。このオプションを使うとサーバを停止してすぐに再起動できるのでテスト用途にとても便利です。
+</p><div class="mylisting">setsockopt sock SO_REUSEADDR;;</div><div class="fancybreak">* * *</div></div>
+<h2 class="section" id="sec130">6.9  完全な例: ユニバーサルなサーバ</h2>
+<p>次の <code>server</code> コマンドを作成します:
+</p><div class="mylisting">./server port cmd arg1 ... argn</div><p>このコマンドはポート <code>port</code> からの接続リクエストを受け取り、それぞれの接続について <code>cmd</code> を引数 <code>arg1 ... argn</code> として、標準入出力をソケットの接続として実行します。例えば以下のコマンド:
+</p><div class="mylisting">./server 8500 grep foo</div><p>をマシン <code>pomerol</code> で実行し、別のマシンでユニバーサルクライアント (<a href="#sec%2Funivclient">6.6</a> ページ参照) を以下のように実行します:
+</p><div class="mylisting">./client pomerol 8500 &lt; /etc/passwd</div><p>クライアントは以下のコマンドを実行したときと同じ出力を表示します:
+</p><div class="mylisting">grep foo &lt; /etc/passwd</div><p><code>grep</code> がローカルのマシンではなく <code>pomerol</code> で実行される点が異なります。</p><p><code>server</code> コマンドは多くのサーバが行うコードをまとめていて、特定のサービスやコミニケーションプロトコルの実装は起動されるプログラム <code>cmd</code> に任されています。この意味で <code>service</code> コマンドは <em>ユニバーサルな</em> サーバです。</p><div class="mylisting"><span class="c005">   1</span> <span class="c001">open</span> Sys;;
+<span class="c005">   2</span> <span class="c001">open</span> Unix;;
+<span class="c005">   3</span> 
+<span class="c005">   4</span> <span class="c001">let</span> server () =
+<span class="c005">   5</span>   <span class="c001">if</span> Array.length Sys.argv &lt; 2 <span class="c001">then begin</span>
+<span class="c005">   6</span>     prerr_endline <span class="c002">"Usage: client &lt;port&gt; &lt;command&gt; [arg1 ... argn]"</span>;
+<span class="c005">   7</span>     exit 2;
+<span class="c005">   8</span>   <span class="c001">end</span>;
+<span class="c005">   9</span>   <span class="c001">let</span> port = int_of_string Sys.argv.(1) <span class="c001">in</span>
+<span class="c005">  10</span>   <span class="c001">let</span> args = Array.sub Sys.argv 2 (Array.length Sys.argv - 2) <span class="c001">in</span>
+<span class="c005">  11</span>   <span class="c001">let</span> host = (gethostbyname(gethostname ())).h_addr_list.(0) <span class="c001">in</span> <a id="prog:gethost"></a>
+<span class="c005">  12</span>   <span class="c001">let</span> addr = ADDR_INET (host, port) <span class="c001">in</span>
+<span class="c005">  13</span>   <span class="c001">let</span> treat sock (client_sock, client_addr <span class="c001">as</span> client) =
+<span class="c005">  14</span>     <em>(* ログを出力 *)</em>
+<span class="c005">  15</span>     <span class="c001">begin match</span> client_addr <span class="c001">with</span>
+<span class="c005">  16</span>     | ADDR_INET(caller, _) -&gt;
+<span class="c005">  17</span>         prerr_endline (<span class="c002">"Connection from "</span> ^ string_of_inet_addr caller);
+<span class="c005">  18</span>     | ADDR_UNIX _ -&gt;
+<span class="c005">  19</span>         prerr_endline <span class="c002">"Connection from the Unix domain (???)"</span>;
+<span class="c005">  20</span>     <span class="c001">end</span>;
+<span class="c005">  21</span>     <em>(* 接続を処理 *)</em>
+<span class="c005">  22</span>     <span class="c001">let</span> service (s, _) =
+<span class="c005">  23</span>       dup2 s stdin; dup2 s stdout; dup2 s stderr; close s;
+<span class="c005">  24</span>       execvp args.(0) args
+<span class="c005">  25</span>     <span class="c001">in</span>
+<span class="c005">  26</span>     Misc.double_fork_treatment sock service client <span class="c001">in</span>
+<span class="c005">  27</span>   Misc.tcp_server treat addr;;
+<span class="c005">  28</span> 
+<span class="c005">  29</span> handle_unix_error server ();;</div><p><code>tcp_server</code> に渡されるアドレスにはプログラムを実行しているマシンのインターネットアドレスが含まれます。このアドレスを取得するには普通 <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALgethostname"><span class="c003">gethostname</span></a><a id="hevea_default126"></a> を使います(<a href="#prog%3Agethost">11</a> 行目)。しかし一般的には複数のアドレスが一つのマシンを指していることがあります。例えばマシン <code>pauillac</code> のアドレスが <code>128.93.11.35</code> だったとしても、ローカルならば (すでに <code>pauillac</code> の中にいるならば)このマシンには <code>127.0.0.1</code> を使ってアクセスすることができます。定数インターネットアドレス <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALinet_addr_any"><span class="c003">inet_addr_any</span></a> を使えば、マシンを指す全てのアドレスにサービスを行うことができます。</p><p>サービスは “ダブルフォーク” で処理されます。孫プロセスによって実行される <code>service</code> は標準入力と標準出力、そして標準エラー出力をソケットにリダイレクトしてからコマンドを実行します。サービスの処理をブロックしながら順番に行うことはできないことに注意してください。</p><p>クライアントからの接続は <code>server</code> の親プロセスからの介入なしに閉じられます。以下の三つのケースが考えられます。</p><ul class="itemize"><li class="li-itemize">
+クライアントがサーバ方向の接続を閉じた。サーバによって起動されたコマンドは標準入力に EOF を受け取る。行うべきを行った後、コマンドを実行するプロセスは <code>exit</code> を実行して終了する。これによって標準出力が閉じられ、このディスクリプタはクライアントにつながるソケットの出力を指す最後のディスクリプタであるから、クライアントは次の読み込みで EOF を受け取る。</li><li class="li-itemize">クライアントが途中で終了し、サーバからクライアント方向の接続が閉じた。サーバによって起動されたコマンドは次の書き込みで <code>sigpipe</code> シグナルを受け取る場合がある。これによってプロセスが終了するが、誰もコマンドの出力を読んでいないことから、これは問題ない。</li><li class="li-itemize">サーバによって起動されたコマンドが入力から EOF を読む前に終了した。クライアントは次に書き込みで <code>sigpipe</code> シグナル (あるいは <code>EPIPE</code> 例外) を受け取る。
+</li></ul><h3 class="subsection" id="sec131">注意点</h3>
+<p>サーバを書くのはクライアントを書くよりも労力が要ります。クライアントは接続するサーバのことを普通知っているのに対し、サーバはクライアントのことを何も知らないからです。とくにサーバがパブリックな場合、クライアントは “敵” である可能性があります。そのため例外的なケースに対する防御をしなければいけません。</p><p>典型的な攻撃は接続を開けた後リクエストを送ることなく開いたままにするというものです。接続を受け入れた後サーバはクライアントが接続している間ずっとブロックします。攻撃者は何もしない接続を大量に開くことでサービスを飽和させることができます。そのためサーバは同時接続数を制限してリソースを枯渇を防ぐと共に、長い間何もしていない接続を終了させる必要があります。</p><p>サーバがフォークを行わず、接続を来た順番に処理する場合、このブロッキングの問題が生じることになります。処理している接続は何もしていないにもかかわらず他の接続に応答することができなくなります。順番に処理するサーバに対する解決法として通信の多重化がありますが、これは実装するのが難しくなります。並列サーバはよりエレガントですが、それでもタイムアウトは必要になります。タイムアウトには例えばアラームを使うことができます(<a href="signals.html#sec%2Fusingsignals">4.2</a> 節参照)。</p>
+<h2 class="section" id="sec/mode-deconnecte">6.10  コネクションレス型通信</h2>
+<p><code>SOCK_STREAM</code> タイプの接続のほとんどで使われる <span class="c007">tcp</span> プロトコルではコネクション型通信だけを使うことができます。逆に、<code>SOCK_DGRAM</code> タイプの接続のほとんどで使われる <span class="c007">udp</span> プロトコルでは常にコネクションレス型通信が使われ、二つのマシンの間には確立された接続がありません。このタイプのソケットではデータの転送はシステムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/recvfrom.html"><span class="c003">recvfrom</span></a><a id="hevea_default127"></a> と <a href="http://www.opengroup.org/onlinepubs/009696799/functions/sendto.html"><span class="c003">sendto</span></a><a id="hevea_default128"></a> を使って行われます。
+
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALrecvfrom">recvfrom</a> :
+  file_descr -&gt; string -&gt; int -&gt; int -&gt; msg_flag list -&gt; int * sockaddr
+
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALsendto">sendto</a> :
+  file_descr -&gt; string -&gt; int -&gt; int -&gt; msg_flag list -&gt; sockaddr -&gt; int</div><p>転送されたデータのサイズを返すという点で、インタフェースは <code>read</code> と <code>write</code> に似ています。<code>recvfrom</code> は読み込んだバイト数の他にデータを送っているマシンのアドレスも返します。</p><p><code>SOCK_DGRAM</code> タイプのソケットに <span class="c003">connect</span><a id="hevea_default129"></a> を呼ぶと疑似接続が取得できます。この疑似接続は本当は存在せず、 <span class="c003">connect</span><a id="hevea_default130"></a> の引数に渡されたアドレスがソケットによって記憶され、データの送受信で使われるようになるというだけです (他のアドレスからのデータは無視されます)。<code>connect</code> を複数回読んでアドレスを変更したり、0 などの無効なアドレスを渡して疑似接続を切断することは可能です。反対にストリームタイプのソケットにこのようなことを行うとエラーが出ます。</p>
+<h2 class="section" id="sec133">6.11  低レベル入出力</h2>
+<p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/recv.html"><span class="c003">recv</span></a><a id="hevea_default131"></a> と <a href="http://www.opengroup.org/onlinepubs/009696799/functions/send.html"><span class="c003">send</span></a><a id="hevea_default132"></a> はそれぞれ <span class="c003">read</span><a id="hevea_default133"></a> と <span class="c003">write</span><a id="hevea_default134"></a> に対応しますが、ソケットのディスクリプタ専用です。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALrecv">recv</a> : file_descr -&gt; bytes -&gt; int -&gt; int -&gt; msg_flag list -&gt; int
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALsend">send</a> : file_descr -&gt; bytes -&gt; int -&gt; int -&gt; msg_flag list -&gt; int</div><p><a href="http://www.opengroup.org/onlinepubs/009696799/functions/recv.html"><span class="c003">recv</span></a><a id="hevea_default135"></a> と <a href="http://www.opengroup.org/onlinepubs/009696799/functions/send.html"><span class="c003">send</span></a><a id="hevea_default136"></a> のインタフェースは <code>read</code> と <code>write</code> に似ていますが、<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEmsg_flag"><span class="c003">msg_flag</span></a> 型のフラグのリストが引数に追加されています。この型の値と意味を次に示します:
+</p><div class="mltypecases">
+<table class="c000 cellpading0"><tr><td class="c011"><code>MSG_OOB</code></td><td class="c011">アウトオブバンドデータを処理する。 </td></tr>
+<tr><td class="c011"><code>MSG_DONTROUTE</code></td><td class="c011">デフォルトのルーティングテーブルを使用しない。 </td></tr>
+<tr><td class="c011"><code>MSG_PEEK</code></td><td class="c011">データを読むことなく確認だけ行う。
+</td></tr>
+</table>
+</div><p>
+これらのプリミティブ (原始的な関数) はコネクション型通信通信でも <code>read</code> と <code>write</code> の代わりに利用できるほか、疑似通信モードでも <code>recvfrom</code> と <code>sendto</code> の代わりに利用できます。</p>
+<h2 class="section" id="sec134">6.12  高レベルプリミティブ</h2>
+<p>ユニバーサルクライアント/サーバの例はよく利用されるので、<code>Unix</code> モジュールにはネットワークサービスを確立したり利用するための高レベルな関数があります。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALopen_connection">open_connection</a><a id="hevea_default137"></a> : sockaddr -&gt; in_channel * out_channel
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALshutdown_connection">shutdown_connection</a><a id="hevea_default138"></a> : Pervasives.in_channel -&gt; unit</div><p><code>open_connection</code> は引数のアドレスに対する接続を開き、そのソケットに対する入出力用の <code>Pervasives</code> チャンネルの組を作成します。返り値のチャンネルに対する入出力はサーバとの通信となりますが、チャンネルはバッファされるために、リクエストを本当に送られたことを保証するにはチャンネルをフラッシュする必要があります。クライアントはチャンネルを閉じる (この操作はソケットも閉じます) ことで任意のタイミングで接続を閉じることができるほか、 <code>shutdown_connection</code> を使って “きれいに” 接続を閉じることもできます。サーバが接続を閉じた場合、クライアントは入力チャンネルから EOF を受け取ります。</p><p><code>establish_server</code> 関数でサービスを確立することができます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALestablish_server">establish_server</a><a id="hevea_default139"></a> :
+  (in_channel -&gt; out_channel -&gt; unit) -&gt; sockaddr -&gt; unit</div><p><code>establish_server f addr</code> はアドレス <code>addr</code> にサービスを確立し、リクエストを関数 <code>f</code> で処理します。コネクションがあるたびにサーバは新しいソケットを作成してフォークします。子プロセスはクライアントと通信に利用する入出力用の <code>Pervasives</code> チャンネルを作成し <code>f</code>に渡します。<code>f</code> が返ると子プロセスはソケットを閉じて終了します。クライアントが接続をきれいに閉じたならば、子プロセスは入力チャンネルに EOF を受け取ります。そうでなくクライアントが接続を突然閉じた場合には <code>f</code> が書き込みを行おうとしたときに <code>sigpipe</code> を受け取ります。いずれの場合でもこのとき親プロセスは他のリクエストを処理しているはずです。<code>establish_server</code> はエラー (サービスの確立時の OCamlランタイムやシステムのエラーなど) の場合を除いて返りません。</p>
+<h2 class="section" id="sec135">6.13  プロトコルの例</h2>
+<p>クライアントとサーバの間でやり取りされるデータは単純なプロトコル (<code>rsh</code>, <code>rlogin</code>, …) ではクライアントからサーバへ、およびサーバからクライアントへの二つのバイト列として自然に表現できます。その他のプロトコルではやり取りされるデータはもっと複雑であり、バイト列からデータへ、あるいはデータからバイト列へのデコード/エンコードが必要になります。クライアントとサーバはリクエストの形式と接続で交わされるレスポンスについて取り決めた転送プロトコルについて合意しておく必要があります。Unix コマンドが利用するプロトコルの多くは “<span class="c007">rfc</span>” (request for comments) と呼ばれるドキュメントに記載されています。これらのドキュメントは議論のための提案として始まりましたが、時が経ちユーザがこのプロトコルに慣れるにしたがって標準となりました<sup><a id="text10" href="#note10">2</a></sup>。</p><h3 class="subsection" id="sec136">“バイナリ” プロトコル</h3>
+<p>バイナリプロトコルの多くはデータをメモリ内の表現にできるだけ近いコンパクトな形式で転送します。エンコード/デコードに必要な処理を最小化しネットワーク帯域を節約するためです。このタイプのプロトコルの典型的な例は <span class="c007">x</span> サーバと <span class="c007">x</span> アプリケーションの間の通信で利用される <span class="c007">x</span>-window プロトコルと <span class="c007">nfs</span> プロトコル (<a href="http://www.faqs.org/rfcs/rfc1094.html"><span class="c007">rfc</span> 1094</a>) です。</p><p>バイナリプロトコルはデータを次のようにエンコードすることが多いです。整数と浮動小数点数には同じ 1, 2, 4, あるいは 8 バイトのバイナリ表現が使われます。文字列には長さを示す整数とその後に続く内容で表現されます。構造化されたオブジェクト (タプル、レコード) はフィールドを順番通りに並べて表現されます。可変長のオブジェクト (配列、リスト) は長さを表す整数とそれに続く要素で表現されます。転送されるデータの型が正確に分かっているならば、受け取ったプロセスは簡単にメモリ上に復元できます。そうでなく異なるタイプのデータがソケットでやり取りされた場合、データのエンコードはタイプを表すデータ先頭の整数を読み取ってから行われます。</p><div class="example">
+<h5 class="paragraph" id="sec137">例</h5>
+<p>
+<span class="c007">x</span> ライブラリの <code>XFillPolygon</code> 関数は
+多角形を塗りつぶす関数であり、以下の形のメッセージを送信します:
+</p><ul class="itemize"><li class="li-itemize">
+バイト 69 (<code>FillPoly</code> コマンドの番号)
+</li><li class="li-itemize">パディングバイト
+</li><li class="li-itemize">多角形の頂点数 <span class="c006">n</span> を表す 16 ビット整数
+</li><li class="li-itemize">描画するウィンドウを表す 32 ビット整数
+</li><li class="li-itemize">“グラフィクスコンテキスト” を表す 32 ビット整数
+</li><li class="li-itemize">“形” を表すバイト。 多角形が凸であるか、など。
+</li><li class="li-itemize">頂点の座標が絶対か相対かを表すバイト
+</li><li class="li-itemize">頂点の座標を 16 ビット整数でエンコードした 4<span class="c006">n</span> バイト
+</li></ul><div class="fancybreak">* * *</div></div><p>バイナリプロトコルでは接続するマシンのアーキテクチャに注意する必要があります。例えば複数のバイトからなる整数は <em>ビッグエンディアン</em> のマシンでは最上位バイトを先に (メモリの若いアドレスに) 格納しますが、 <em>リトルエンディアン</em>のマシンでは最下位バイトが先になります。16 ビット整数 12345 = 48 × 256 + 57はビッグエンディアンのマシンではアドレスが <span class="c006">n</span> の場所に 48 が、 <span class="c006">n</span>+1 の場所に 57 が格納されますが、リトルエンディアンのマシンではアドレスが <span class="c006">n</span> の場所に 57 が、 <span class="c006">n</span>+1 の場所に 48 が格納されます。このためプロトコルは複数のバイトからなる整数を転送する場合にどちらの方法を使うのかを指定する必要があります。あるいは転送されるメッセージのヘッダにどちらの方法を使うか書くことでどちらも使えるようにすることもできます。</p><p>OCamlシステムにはデータ構造をエンコード/デコードする (文献によっては <em>マーシャリング</em> とか <em>シリアライゼーション</em> とか <em>ピックリング</em> などと呼ばれる処理です) ための関数が二つあります。これらの関数を使うと OCamlの値とバイト列の間の変換を行うことができます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html#VALoutput_value">output_value</a><a id="hevea_default140"></a> : out_channel -&gt; 'a -&gt; unit
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html#VALinput_value">input_value</a><a id="hevea_default141"></a> : in_channel -&gt; 'a</div><p><code>output_values</code> と <code>input_values</code> は値をディスクに保存してあとで読み出せるようにするための関数ですが、任意の値をパイプやソケットへ送ることにも利用できます。関数を除く全ての OCamlの値を処理でき、値の間の共有や循環を保存し、エンディアンの異なるマシン間でも利用できます。これ以上の情報は <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Marshal.html"><span class="c003">Marshal</span></a> モジュールで確認できます。</p><p>セマンティクス上は <code>input_value</code> の型が間違っていることを指摘しておきます。全ての型 <code>'a</code> に対して <code>input_value</code> の返り値の型が<code>'a</code> になることはないので、この関数の型は一般的すぎます。<code>input_value</code> の返り値は明確な型であり、全ての可能な型ではありませんが、これをコンパイル時にチェックすることはできません。返り値の型は実行時に入力チャンネルから読み込むデータに依存しているからです。<code>input_value</code> に正しく型検査を行うにはダイナミックオブジェクトと呼ばれる ML 言語の拡張が必要になります。ダイナミックオブジェクトでは値が型と組にされ、実行時の型検査が可能になります。詳細は [<a href="references.html#Dynamiques">15</a>] を参照してください。</p><div class="example">
+<h5 class="paragraph" id="sec138">例</h5>
+<p>
+<span class="c007">x</span>-ウィンドウプロトコルが OCamlで書かれていたならば、サーバへのクエストのためのヴァリアント型 <code>request</code> とサーバからのレスポンスのためのヴァリアント型 <code>reply</code> が定義されていたでしょう。
+</p><div class="mylisting"><span class="c001">type</span> request =
+  | FillPolyReq <span class="c001">of</span> (int * int) array * drawable * graphic_context
+                                    * poly_shape * coord_mode
+  | GetAtomNameReq <span class="c001">of</span> atom
+  | ...
+<span class="c001">and</span> reply =
+  | GetAtomNameReply <span class="c001">of</span> string
+  | ...</div><p>サーバの主な処理はリクエストをデコードして返事を書くループとなるはずです:
+</p><div class="mylisting"><em>(* 接続リクエストをディスクリプタ s に受け取る *)</em>
+<span class="c001">let</span> requests = in_channel_of_descr s
+<span class="c001">and</span> replies  = out_channel_of_descr s <span class="c001">in
+try
+  while true do
+    match</span> input_value requests <span class="c001">with</span>
+        ...
+      | FillPoly(vertices, drawable, gc, shape, mode) -&gt;
+          fill_poly vertices drawable gc shape mode
+      | GetAtomNameReq atom -&gt;
+          output_value replies (GetAtomNameReply(get_atom_name atom))
+      | ...
+  <span class="c001">done
+with</span> End_of_file -&gt; <em>(* 接続の終了 *)</em></div><p>アプリケーションとリンクされる <span class="c007">x</span> ライブラリの関数は次のような構造になるでしょう:
+</p><div class="mylisting"><em>(* まずサーバとの接続を確立してディスクリプタを s とする *)</em>
+...
+<span class="c001">let</span> requests = out_channel_of_descr s
+<span class="c001">and</span> replies  = in_channel_of_descr s;;
+
+<span class="c001">let</span> fill_poly vertices drawable gc shape mode =
+  output_value requests
+               (FillPolyReq(vertices, drawable, gc, shape, mode));;
+<span class="c001">let</span> get_atom_name atom =
+  output_value requests (GetAtomNameReq atom);
+  <span class="c001">match</span> input_value replies <span class="c001">with</span>
+  | GetAtomNameReply name -&gt; name
+  | _ -&gt; fatal_protocol_error <span class="c002">"get_atom_name"</span>;;</div><div class="fancybreak">* * *</div></div>
+<h5 class="paragraph" id="sec139">遠隔手続き呼び出し</h5>
+<p>バイナリプロトコルのもう一つの使用例は遠隔手続き呼び出しです。遠隔手続き呼び出しとは、マシン A のユーザがマシン B で関数を <code>f</code> を実行するというものです。関数を直接呼び出すことは当然できません。ですが、マシン B に接続して関数を実行し、結果をマシン A に送り返すという作業を呼び出しごとにプログラムすることは可能です。</p><div class="figure">
+<div class="image"><img src="ocamlunix-image21.png" width="80%"></div>
+
+
+
+<a id="fig/rpc"></a>
+<div class="caption">Figure 4 — 遠隔手続き呼び出し</div></div><p>遠隔手続き呼び出しは一般的な状況であるために、これを行う <span class="c007">rpc</span> サービスが存在します (図 <a href="#fig%2Frpc">4</a>)。<span class="c007">rpc</span> サーバはマシン A と B の両方で実行され、以下のように動作します。まずマシン A 上のユーザがマシン A 上の <span class="c007">rpc</span> サーバに遠隔地のマシン B 上における関数の実行をリクエストします。次にマシン A 上の <span class="c007">rpc</span> サーバはリクエストをマシン B 上の <span class="c007">rpc</span> サーバにリレーし、マシン B は <code>f</code> を実行して結果をマシン A 上の <span class="c007">rpc</span> サーバに送り返します。最後にマシン A 上の <span class="c007">rpc</span> サーバが結果をユーザに渡して終わりです。</p><p>マシン B 上で実行される他の関数に対する遠隔手続き呼び出しが、マシン A 上の同じ <span class="c007">rpc</span> サーバで処理されることになります。マシン A と B にインストールされた <span class="c007">rpc</span> サービスの間で接続処理は共有され、ユーザからはこれらの遠隔手続き呼び出しの処理が単純な関数呼び出しに見えます (図の破線)。</p><h3 class="subsection" id="sec140">“テキスト” プロトコル</h3>
+<p>プロトコルの効率が重要でないネットワークサービスでは “テキスト” プロトコルがよく利用されます。 “テキスト” プロトコルは実際のところ小さなコマンド言語です。リクエストは複数のコマンドであり、最初の語がリクエストのタイプを、残りの語がコマンドの引数を表します。応答も一つ以上のテキストからなり、大抵は応答の種類を表す数字コードから始まります。“テキスト” プロトコルの例をいくつか示します:
+</p><div class="center">
+<table class="c000 cellpading0"><tr><td class="c011">名前</td><td class="c011">説明</td><td class="c011">目的 </td></tr>
+<tr><td class="hbar" colspan=3></td></tr>
+<tr><td class="c011"><span class="c007">smtp</span> (Simple Mail Transfer Protocol)</td><td class="c011"><a href="http://www.faqs.org/rfcs/rfc821.html"><span class="c007">rfc</span> 821</a>
+</td><td class="c011">電子メール
+</td></tr>
+<tr><td class="c011"><span class="c007">ftp</span>
+(File Transfer Protocol)</td><td class="c011"><a href="http://www.faqs.org/rfcs/rfc959.html"><span class="c007">rfc</span> 959</a>
+</td><td class="c011">ファイル転送
+</td></tr>
+<tr><td class="c011"><span class="c007">nntp</span>
+(Network News Transfer Protocol)</td><td class="c011"><a href="http://www.faqs.org/rfcs/rfc977.html"><span class="c007">rfc</span> 977</a>
+</td><td class="c011">ニュースの閲覧
+</td></tr>
+<tr><td class="c011"><span class="c007">http</span>/1.0 (HyperText Transfer Protocol)</td><td class="c011"><a href="http://www.faqs.org/rfcs/rfc1945.html"><span class="c007">rfc</span> 1945</a>
+</td><td class="c011">ウェブの巡回
+</td></tr>
+<tr><td class="c011"><span class="c007">http</span>/1.1 (HyperText Transfer Protocol)</td><td class="c011"><a href="http://www.faqs.org/rfcs/rfc2068.html"><span class="c007">rfc</span> 2068</a>
+</td><td class="c011">ウェブの巡回<br>
+</td></tr>
+<tr><td class="hbar" colspan=3></td></tr>
+</table>
+</div><p>
+これらのプロトコルの大きな利点はクライアントとサーバ間のやり取りが人間にも読めることです。例えば <code>telnet</code> コマンドを使ってサーバと直接対話することができます。<code>host</code> を接続するホストの名前、 <code>service</code> をサーバで実行されたサービスの名前 (<code>http</code> や<code>smtp</code>、 <code>nntp</code> など) として <code>telnet host service</code> を起動すると、クライアントとしてのリクエストを打ち込ことができ、それに対するサーバからの応答は標準出力に出力されます。これによってプロトコルは理解しやすくなりますが、コーディングとリクエストと応答のデコードはバイナリプロトコルよりも複雑になり、メッセージはより大きく、したがって非効率になる傾向にあります。</p><div class="example">
+<h5 class="paragraph" id="sec141">例</h5>
+<p>
+シェルから <span class="c007">smtp</span> サーバにメールを送ったときの対話ログの例を示します。&gt;&gt; から始まる行はクライアントからサーバへ向かうテキストであり、&lt;&lt; から始まる行はサーバからクライアントへ向かうテキストです。
+
+</p><div class="mylisting">    telnet margaux smtp
+    Trying 128.93.8.2 ...
+    Connected <span class="c001">to</span> margaux.inria.fr.
+    Escape character is '^]'.
+&lt;&lt;  220 margaux.inria.fr Sendmail 5.64+/AFUU-3 ready at Wed, 15 Apr 92 17:40:59
+&gt;&gt;  HELO pomerol.inria.fr
+&lt;&lt;  250 Hello pomerol.inria.fr, pleased <span class="c001">to</span> meet you
+&gt;&gt;  MAIL From:&lt;god@heavens.sky.com&gt;
+&lt;&lt;  250 &lt;god@heavens.sky.com&gt;... Sender ok
+&gt;&gt;  RCPT To:&lt;xleroy@margaux.inria.fr&gt;
+&lt;&lt;  250 &lt;xleroy@margaux.inria.fr&gt;... Recipient ok
+&gt;&gt;  DATA
+&lt;&lt;  354 Enter mail, <span class="c001">end with</span> <span class="c002">"."</span> on a line by itself
+&gt;&gt;  From: god@heavens.sky.com (Himself)
+&gt;&gt;  To: xleroy@margaux.inria.fr
+&gt;&gt;  Subject: Hello!
+&gt;&gt;
+&gt;&gt;  Is everything ok down there?
+&gt;&gt;  .
+&lt;&lt;  250 Ok
+&gt;&gt;  QUIT
+&lt;&lt;  221 margaux.inria.fr closing connection
+    Connection <span class="c001">closed</span> by foreign host.</div><p>
+コマンド <code>HELO</code>、<code>MAIL</code> そして <code>RCPT</code> はそれぞれクライアントのマシン名、送信者のアドレス、受信者のアドレスをサーバに送信します。<code>DATA</code> コマンドは電子メールの本文を送信してよいかをサーバに訪ねます。その後にメールの本文を入力し、 <code>'.'</code> だけからなる行で終了します(この文字だけからなる行をメール本文に含めたい場合には、<code>'.'</code> を二つ書いておけばサーバは一つ目のピリオドを読み飛ばします) 。</p><p>サーバからの応答は全てコメントのついた 3 桁の数字コードです。<code>5xx</code> の形をした応答はエラーを表し、 <code>2xx</code> は全てが上手くいっていることを表します。クライアントが実際のプログラムであれば応答コードだけを解釈します。コメントはメールシステムの開発者を助けるために存在します。
+</p><div class="fancybreak">* * *</div></div>
+<h2 class="section" id="sec142">6.14  完全な例: <span class="c007">http</span> リクエスト</h2>
+<p><span class="c007">http</span>(HyperText Transfer Protocol) プロトコルは有名な “ワールドワイドウェブ” でドキュメントを読むのに主に使われます。この分野はクライアント-サーバの例のニッチな領域です。ページを読み込むクライアントとページを書き込むサーバの間には無数の中継リレーが存在し、それらは実際のクライアントに対して仮想サーバとして振る舞ったり、物理サーバに対して移譲されたクライアントとして振る舞ったりします。これらのリレーではキャッシングやフィルタリングなどのサービスがよく実行されます。</p><p><span class="c007">http</span>プロトコルにはいくつかのバージョンがあります。本質的な部分、つまりクライアントとリレーのアーキテクチャ、に集中するために、一番最初のバージョンの <span class="c007">http</span>プロトコルを改変したシンプルなプロトコルを使います。このプロトコルはホコリをかぶっていますが、それでもほとんどのサーバによって理解されます。節の最後にはウェブを探索する本物のツールを作るために必要となる、より現代的でより複雑なバージョンのプロトコルを示します。ただし例をこの新しいバージョンに書き直す部分は練習問題として残しておきます。</p><p><span class="c007">http</span>プロトコルのバージョン 1.0 は <a href="http://www.faqs.org/rfcs/rfc1945.html"><span class="c007">rfc</span> 1945</a> で規定され、以下の形のリクエストを定義しています:
+</p><div class="mylisting">GET <span class="c006">sp uri crlf</span></div><p>ここで <code><span class="c006">sp</span></code> はスペースを、 <code><span class="c006">crlf</span></code> は文字列<span class="c002"><code>"\r\n"</code></span> (“リターン” と改行) を表します。この単純なリクエストに対する応答もシンプルであり、応答はヘッダの何もない <span class="c007">url</span>の要素そのものです。</p><p>リクエストの終端は EOF によって合図され、そこで接続が閉じられます。バージョン 0.9 のプロトコルから受け継いだこの形のリクエストは一つの接続に対するリクエストを一つだけに制限します。</p><h3 class="subsection" id="sec143"><span class="c007">url</span> の取得</h3>
+<p>引数 <span class="c007">url</span>を一つ取り、それが表すウェブ上のリソースを取得して表示するプログラム <code>geturl</code> を作ります。</p><p>最初のタスクは <span class="c007">url</span>をパースしてプロトコルの名前 (ここでは <span class="c002"><code>"http"</code></span> でなくてはいけません)、サーバのアドレス、ポート番号 (無くても良い)、そしてサーバ上のドキュメントの絶対パスを取り出すことです。この処理には OCamlの正規表現ライブラリ <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Str.html"><span class="c003">Str</span></a> を使います。
+</p><div class="mylisting"><span class="c001">open</span> Unix;;
+
+<span class="c001">exception</span> Error <span class="c001">of</span> string
+<span class="c001">let</span> error err mes = raise (Error (err ^ <span class="c002">": "</span> ^ mes));;
+<span class="c001">let</span> handle_error f x = <span class="c001">try</span> f x <span class="c001">with</span> Error err -&gt; prerr_endline err; exit 2
+
+<span class="c001">let</span> default_port = <span class="c002">"80"</span>;;
+
+<span class="c001">type</span> regexp = { regexp : Str.regexp; fields : (int * string option) list; }
+
+<span class="c001">let</span> regexp_match r string =
+  <span class="c001">let</span> get (pos, default) =
+    <span class="c001">try</span> Str.matched_group pos string
+    <span class="c001">with</span> Not_found -&gt;
+      <span class="c001">match</span> default <span class="c001">with</span> Some s -&gt; s | _ -&gt; raise Not_found <span class="c001">in
+  try
+    if</span> Str.string_match r.regexp string 0 <span class="c001">then</span>
+      Some (List.map get r.fields)
+    <span class="c001">else</span> None
+  <span class="c001">with</span> Not_found -&gt; None;;
+
+<span class="c001">let</span> host_regexp =
+  { regexp = Str.regexp <span class="c002">"\\([^/:]*\\)\\(:\\([0-9]+\\)\\)?"</span>;
+    fields = [ 1, None; 3, Some default_port; ] };;
+
+<span class="c001">let</span> url_regexp =
+  { regexp = Str.regexp <span class="c002">"http://\\([^/:]*\\(:[0-9]+\\)?\\)\\(/.*\\)"</span>;
+    fields = [ 1, None; 3, None ] };;
+
+<span class="c001">let</span> parse_host host = <span class="c001">match</span> regexp_match host_regexp host <span class="c001">with</span>
+  | Some (host :: port :: _) -&gt; host, int_of_string port
+  | _ -&gt; error host <span class="c002">"Ill formed host"</span>;;
+
+<span class="c001">let</span> parse_url url = <span class="c001">match</span> regexp_match url_regexp url <span class="c001">with</span>
+  | Some (host :: path :: _) -&gt; parse_host host, path
+  | _ -&gt; error url <span class="c002">"Ill formed url"</span>;;</div><p>次の関数が示すように、シンプルなリクエストの送信は簡単な処理です。
+</p><div class="mylisting"><span class="c001">let</span> send_get url sock =
+  <span class="c001">let</span> s = Printf.sprintf <span class="c002">"GET %s\r\n"</span> url <span class="c001">in</span>
+  ignore (write sock s 0 (String.length s));;</div><p><span class="c007">url</span>はサーバのアドレスとポート番号を含む完全なものであるか、そうでなければアドレスとサーバ上のパスだけが含まれるものであることに注意してください。</p><p>応答はドキュメントの内容だけを含み追加の情報を含まないので、応答を読み込むのはより簡単です。リクエストにエラーがあった場合、サーバからはエラーメッセージが<span class="c007">html</span> ドキュメントとして返ります。このことから、応答がエラーかどうかを確認することなく <code>Misc.retransmit</code> を使って出力すればすむことがわかります。プログラムの残りの部分ではサーバとの接続を確立します。
+</p><div class="mylisting"><span class="c001">let</span> get_url proxy url fdout =
+  <span class="c001">let</span> (hostname, port), path = <span class="c001">match</span> proxy <span class="c001">with</span>
+    | None -&gt; parse_url url
+    | Some host -&gt; parse_host host, url
+  <span class="c001">in
+  let</span> hostaddr =
+    <span class="c001">try</span> inet_addr_of_string hostname
+    <span class="c001">with</span> Failure _ -&gt;
+      <span class="c001">try</span> (gethostbyname hostname).h_addr_list.(0)
+      <span class="c001">with</span> Not_found -&gt; error hostname <span class="c002">"Host not found"</span>
+  <span class="c001">in
+  let</span> sock = socket PF_INET SOCK_STREAM 0 <span class="c001">in</span>
+  Misc.try_finalize
+    <span class="c001">begin function</span> () -&gt;
+      connect sock (ADDR_INET (hostaddr, port));
+      send_get path sock;
+      Misc.retransmit sock fdout
+    <span class="c001">end</span> ()
+    close sock;;</div><p>いつもどおり、コマンドライン引数のパースする処理を追加して完成です。
+
+</p><div class="mylisting"><span class="c001">let</span> geturl () =
+  <span class="c001">let</span> len =  Array.length Sys.argv <span class="c001">in
+  if</span> len &lt; 2 <span class="c001">then</span>
+    error <span class="c002">"Usage:"</span> (Sys.argv.(0) ^ <span class="c002">" [ proxy [:&lt;port&gt;] ] &lt;url&gt;"</span>)
+  <span class="c001">else
+    let</span> proxy, url =
+      <span class="c001">if</span> len &gt; 2 <span class="c001">then</span> Some Sys.argv.(1), Sys.argv.(2) <span class="c001">else</span>
+      None, Sys.argv.(1)
+    <span class="c001">in</span>
+    get_url proxy url stdout;;
+
+handle_unix_error (handle_error geturl) ();;</div><h3 class="subsection" id="sec/relay"><span class="c007">http</span> リレー</h3>
+<p>この節では <span class="c007">http</span>リレー (あるいは <em>プロキシ</em>) プログラムを作成します。このプログラムはクライアントからの <span class="c007">http</span>リクエストを他のサーバにリダイレクト(あるいはリレー) し、応答をクライアントに転送します。</p><p>リレーの役割を図 <a href="#fig%2Frelais">5</a> に示します。クライアントがリレーを使った場合、そのリクエストは世界中に存在する個々の<span class="c007">http</span>サーバではなくリレーサーバに送信します。リレーにはいくつもの利点があります。まず、リレーサーバは最後の、あるいは頻繁に送られる応答を記録してリモートサーバに問い合わせることなくリクエストに答えることができます。これによってネットワークの過負荷を避け、サーバがダウンしているときでも応答が得られるようになります。次に、広告や画像の削除といった応答のフィルターを行うことができます。また、ワールドワイドウェブ全体を一つのサーバを通して見るようにすることでプログラムの開発が容易になります。</p><div class="figure">
+<div class="image"><img src="ocamlunix-image22.png" width="70%"></div>
+
+
+
+<a id="fig/relais"></a>
+<div class="caption">Figure 5 — <span class="c007">http</span> リレー</div></div><p>コマンド <code>proxy port</code> が <code>port</code> 番ポート (省略された場合は <span class="c007">http</span>プロトコルのデフォルトのポート番号) にリレーサーバを作成するようなコマンド <code>proxy</code> を作成します。<code>get_url</code> 関数を作るときに使った関数のコードを <code>Url</code> モジュールに入れて再利用します。書くべきなのはリクエストの解析とサーバの立ち上げの部分だけです。
+</p><div class="mylisting"><span class="c001">open</span> Unix
+<span class="c001">open</span> Url
+
+<span class="c001">let</span> get_regexp =
+  { regexp = Str.regexp <span class="c002">"^[Gg][Ee][Tt][ \t]+\\(.*[^ \t]\\)[ \t]*\r"</span>;
+    fields = [ 1, None ] }
+
+<span class="c001">let</span> parse_request line = <span class="c001">match</span> regexp_match get_regexp line <span class="c001">with</span>
+  | Some (url :: _) -&gt; url
+  | _ -&gt; error line <span class="c002">"Ill formed request"</span></div><p>サービスを確立には <code>establish_server</code> 関数を使うので、定義する必要があるのは接続リクエストを処理する関数だけです:
+</p><div class="mylisting"><span class="c001">let</span> proxy_service (client_sock, _) =
+  <span class="c001">let</span> service () =
+    <span class="c001">try
+      let</span> in_chan = in_channel_of_descr client_sock <span class="c001">in
+      let</span> line = input_line in_chan <span class="c001">in
+      let</span> url = parse_request line <span class="c001">in</span>
+      get_url None url client_sock
+    <span class="c001">with</span> End_of_file -&gt;
+      error <span class="c002">"Ill formed request" "End_of_file encountered"</span>
+  <span class="c001">in</span>
+  Misc.try_finalize
+    (handle_error service) ()
+    close client_sock</div><p><a id="page/get_url"></a>
+プログラムの残りの部分ではサービスを確立するだけです:
+</p><div class="mylisting"><span class="c001">let</span> proxy () =
+  <span class="c001">let</span> http_port =
+    <span class="c001">if</span> Array.length Sys.argv &gt; 1 <span class="c001">then
+      try</span> int_of_string Sys.argv.(1)
+      <span class="c001">with</span> Failure _ -&gt; error Sys.argv.(1) <span class="c002">"Incorrect port"</span>
+    <span class="c001">else
+      try</span> (getservbyname <span class="c002">"http" "tcp"</span>).s_port
+      <span class="c001">with</span> Not_found -&gt; error <span class="c002">"http" "Unknown service"</span>
+  <span class="c001">in
+  let</span> treat_connection s = Misc.double_fork_treatment s proxy_service <span class="c001">in
+  let</span> addr = ADDR_INET(inet_addr_any, http_port) <span class="c001">in</span>
+  Misc.tcp_server treat_connection addr;;
+
+handle_unix_error (handle_error proxy) ();;</div><h3 class="subsection" id="sec145">The <span class="c007">http</span>/1.1 プロトコル</h3>
+<p>単純な <span class="c007">http</span>リクエストはリクエストごとに新しい接続を必要としますが、これは非効率です。なぜならリクエストには通常他のリクエストが続くからです(例えばクライアントが画像つきのウェブページを受け取った場合、クライアントは続けて画像をリクエストします)。さらに接続を確立する時間はリクエストを処理する時間を簡単に上回ります(<a href="threads.html#sec%2Fcoprocessus">7</a> 章ではプロセスではなくスレッドでリクエストを処理することでこの時間を削減する方法を見ます)。<a href="http://www.faqs.org/rfcs/rfc2068.html"><span class="c007">rfc</span> 2068</a> で規定される <span class="c007">http</span>バージョン 1.1 では一つの接続で複数のリクエストを処理することが可能になる複雑なリクエストが利用されます<sup><a id="text11" href="#note11">3</a></sup>。</p><p><span class="c007">http</span>/1.1 で使われる複雑なリクエストではサーバは全ての応答の先頭に応答のフォーマットと転送されるドキュメントのサイズを表すヘッダを付けます。これによってサイズが既知となってドキュメントの終端は EOF ではなくなり、更に多くのリクエストを処理できるようになります。複雑なリクエストは以下の形をしています:
+</p><div class="mylisting">GET <span class="c006">sp uri sp</span> HTTP/1.1 <span class="c006">crlf
+header crlf</span></div><p><code><span class="c006">header</span></code> の部分はキーと値からなるフィールドのリストであり、以下の構文を持ちます:
+</p><div class="mylisting"><span class="c006">field</span> : <span class="c006">value crlf</span></div><p><code>':'</code> の周りに余分なスペースを置くことが許されており、スペースはタブまたは複数のスペースと取り替えることができます。ヘッダフィールドは複数行からなっていても構いません。このとき、およびこのときに限り、行末 <code><span class="c006">crlf</span></code> の次にスペース <code><span class="c006">sp</span></code> が続きます。最後に、大文字と小文字はフィールドのキーワードと特定のフィールドの値において無視されます。</p><p>フィールドが必須かどうかはリクエストの種類によります。例えば <code>GET</code> リクエストでは目的地となるマシンを示すフィールドが必須です。
+</p><div class="mylisting">Host : <span class="c006">hostname crlf</span></div><p>この種類のリクエストでは必要に応じて <span class="c003">If-Modified</span> フィールドを指定することで、ドキュメントが指定した日時から改変されている場合に限ってドキュメントを返すようにすることができます。
+</p><div class="mylisting">If-Modified : <span class="c006">date crlf</span></div><p><code><span class="c006">header</span></code> 内のフィールドの数は前もって定まっていませんが、ヘッダの終わりは <code><span class="c006">crlf</span></code> だけからなる行で示されます。</p><p>以下は完全な例です (各行の最後の <code>\r</code> の次には <code>\n</code> が続きます):
+</p><div class="mylisting">GET /~remy/ HTTP/1.1\r
+Host:pauillac.inria.fr\r
+\r</div><p>複雑なリクエストに対する応答も複雑になります。応答はステータスを表す行、ヘッダ、そして(もしあれば)応答の本体からなります。
+</p><div class="mylisting">HTTP/1.1 <span class="c006">sp status sp message crlf
+header crlf
+body</span></div><p>応答のヘッダのフィールドはリクエストのものと似た構文を持ちますが、必須、あるいは必須でないフィールドが異なっています (リクエストの種類と応答のステータスによって異なります — プロトコルのドキュメントを見てください)。</p><p>応答の <code><span class="c006">body</span></code> は空でなければ一つのブロックまたは複数のチャンクで送られます。</p><ul class="itemize"><li class="li-itemize">
+<code><span class="c006">body</span></code> が一つのブロックの場合、ブロックのバイト数を 10 進で表した <span class="c007">ascii</span> 文字列を指定する <code>Content-Length</code> フィールドがヘッダに含まれる。</li><li class="li-itemize"><code><span class="c006">body</span></code> がチャンクで転送される場合、ヘッダは “<code>chunked</code>” という値を持つ <code>Transfer-Encoding</code> フィールドを持つ。データ本体は空のチャンクで終わる複数のチャンクの列であり、各チャンクは以下の形を持つ:
+<div class="mylisting"><span class="c006">size [ ; arg ] crlf
+chunk crlf</span></div>ここで <code><span class="c006">size</span></code> はチャンクのサイズを 16 進で表し、 <code><span class="c006">chunk</span></code> はそのサイズのデータ本体である (<code><span class="c006">[</span></code> と <code><span class="c006">]</span></code> の間の部分は必須ではないので安全に無視できる)。最後の空のチャンクは必ず以下の形式となる:
+<div class="mylisting">0 <span class="c006">crlf
+header crlf crlf</span></div></li><li class="li-itemize">応答が <code>Content-Length</code> フィールドを持っておらず、チャンクされてもいない場合、データ本体は空である (例えば <code>HEAD</code> リクエストに対する応答はヘッダしか持たない)。
+</li></ul><p>
+一つのブロックからなる応答の例を示します:
+</p><div class="mylisting">HTTP/1.1 200 OK\r
+Date: Sun, 10 Nov 2002 09:14:09 GMT\r
+Server: Apache/1.2.6\r
+Last-Modified: Mon, 21 Oct 2002 13:06:21 GMT\r
+ETag: <span class="c002">"359-e0d-3db3fbcd"</span>\r
+Content-Length: 3597\r
+Accept-Ranges: bytes\r
+Content-Type: text/html\r
+\r
+&lt;html&gt;
+...
+&lt;/html&gt;</div><p>ステータス <code>200</code> はリクエストが成功したことを示します。<code>301</code> は <span class="c007">url</span>が応答の <code>Location</code> フィールドで示される 他の <span class="c007">url</span>にリダイレクトされたことを示します。<code>4XX</code> の形のステータスはクライアントにおけるエラーを、 <code>5XX</code> はサーバにおけるエラーを示します。</p><div class="exercise">
+<h5 class="paragraph" id="sec146">練習問題 15</h5>
+<p><a id="ex15"></a>
+<a id="ex/proxy-1.1"></a>
+<span class="c007">http</span>/1.1 プロトコルで動くリレーを書いてください。
+</p><div class="fancybreak">* * *</div></div><div class="exercise">
+<h5 class="paragraph" id="sec147">練習問題 16</h5>
+<p><a id="ex16"></a>
+リレーにキャッシュを追加してください。ページはハードドライブに保存され、リクエストされたページがキャッシュに存在していてキャッシュが古すぎない場合にはそれを返します。そうでない場合にはサーバは問い合わせを行いキャッシュを更新します。
+</p><div class="fancybreak">* * *</div></div><div class="exercise">
+<h5 class="paragraph" id="sec148">練習問題 17</h5>
+<p><a id="ex17"></a>
+<a id="ex/wget"></a>
+次の <code>wget</code> コマンドを作ってください。<code>wget u1 u2 ... un</code> は <code>u1</code>, <code>u2</code>, …, <code>un</code> へのリクエストを送り、応答を <code>./m1/p1</code>, <code>./m2/p2</code>, …, <code>./mn/pn</code> に保存します。ここで <code>mi</code> と <code>pi</code> はそれぞれサーバの名前とリクエスト <code>ui</code> の絶対パスを表します。連続するリクエストが同じマシン <code>m</code> に対するものである場合、プロトコルの利点を活かしてコマンドが開く接続はひとつだけにするべきです。パーマネント <span class="c007">url</span>によるリダイレクトは追うようにしてください。以下のオプションを追加することもできるでしょう:
+</p><div class="mltypecases">
+<table class="c000 cellpading0"><tr><td class="c014"><code>-N</code></td><td class="c013">ファイル <code>./mi/ui</code> が存在しない場合、あるいは <span class="c007">url</span>よりも古い場合にはダウンロードしない </td></tr>
+<tr><td class="c014"><code>-r</code></td><td class="c013"><span class="c007">html</span> フォーマットの応答に含まれる <span class="c007">url</span>を再帰的に全てダウンロードする。
+</td></tr>
+</table>
+</div><div class="fancybreak">* * *</div></div>
+<hr class="footnoterule"><dl class="thefootnotes"><dt class="dt-thefootnotes">
+<a id="note9" href="#text9">1</a></dt><dd class="dd-thefootnotes"><div class="footnotetext">インターネットは専用のリンクで接続されたローカルネットワーク (通常はイーサネットネットワーク) で構成され、世界中の何百万台のマシンが接続しています。インターネットドメインにおいては、同じイーサネットケーブルで接続されている隣のマシンとの通信と、いくつものルータと通信衛星を使って接続された地球の反対側にあるマシンとの通信にはなんの違いもありません。</div></dd><dt class="dt-thefootnotes"><a id="note10" href="#text10">2</a></dt><dd class="dd-thefootnotes"><div class="footnotetext"><span class="c007">rfc</span> はたくさんのサイトから匿名 <span class="c007">ftp</span> で入手できます。フランスでは <a href="ftp://ftp.inria.fr"><span class="c003">ftp.inria.fr</span></a> のディレクトリ <a href="ftp://ftp.inria.fr/pub/rfc/"><span class="c003">rfc</span></a> から入手できます。リファレンスサイトは <a href="http://www.faqs.org/rfcs/"><span class="c003">http://www.faqs.org/rfcs/</span></a> です。</div></dd><dt class="dt-thefootnotes"><a id="note11" href="#text11">3</a></dt><dd class="dd-thefootnotes"><div class="footnotetext"><span class="c007">http</span>/1.0 プロトコルでも複雑なリクエストを使って複数のリクエストを一つの接続で処理することは可能ですが、ここではそれとは関係のない <span class="c007">http</span>/1.1 で使われるリクエストを説明します。</div></dd></dl>
+<hr>
+<a href="pipes.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="threads.html"><img src="next_motif.svg" alt="Next"></a>
+</body>
+</html>

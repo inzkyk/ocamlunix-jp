@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>Answer of exercise 9</title>
+</head>
+<body>
+<div class="answer">
+<h5 class="paragraph" id="sec65">練習問題 <a href="files.html#ex9">exercise 9</a> の解答</h5>
+<p>
+<a id="exans9"></a>
+一つ前の練習問題で定義したデータ構造を再利用するために <code>Tarlib</code> モジュールに集めておきます。プログラムを停止したりプログラムの返り値を変更したりせずに警告を表示する関数を定義します。
+</p><div class="mylisting"><span class="c001">open</span> Sys
+<span class="c001">open</span> Unix
+<span class="c001">open</span> Tarlib
+
+<span class="c001">let</span> warning path message =  prerr_endline (path ^ <span class="c002">": "</span> ^ message)</div><p>レコードのヘッダをバッファに書き込む関数から始めます。処理は退屈ですが、ヘッダがおかしいとアーカイブ全体が読み込めなくなるので慎重になる必要があります。特にファイルのフォーマットによる制限には注意が必要です。例えばパスの長さは 99 バイトに制限されています(これより長いパスを扱えるようにするフォーマットの拡張もありますが、この練習問題では取り扱いません)。
+</p><div class="mylisting"><span class="c001">let</span> write_header_to_buffer source infos kind =
+  <span class="c001">let</span> size = <span class="c001">if</span> kind = REG <span class="c001">then</span> infos.st_size <span class="c001">else</span> 0 <span class="c001">in</span>
+  Bytes.fill buffer 0 block_size '\000';
+  <span class="c001">let</span> put len string offset =
+    Bytes.blit string 0 buffer offset (min (Bytes.length string) len) <span class="c001">in
+  let</span> put_int8 x = put 7 (Printf.sprintf <span class="c002">"%07o"</span> x) <span class="c001">in
+  let</span> put_int12 x = put 11 (Printf.sprintf <span class="c002">"%011o"</span> x) <span class="c001">in
+  let</span> put_char c offset = buffer.[offset] &lt;- c <span class="c001">in
+  let</span> put_path s offset =
+    <span class="c001">if</span> Bytes.length s &lt;= 99 <span class="c001">then</span> put 99 s offset
+    <span class="c001">else</span> raise (Error (<span class="c002">"path too long"</span>, s)) <span class="c001">in</span>
+  put_path (<span class="c001">if</span> kind = DIR <span class="c001">then</span> source ^ <span class="c002">"/"</span> <span class="c001">else</span> source) 0;
+  put_int8 infos.st_perm 100;
+  put_int8 infos.st_uid 108;
+  put_int8 infos.st_gid 116;
+  put_int12 size 124;
+  put_int12 (int_of_float infos.st_mtime) 136;
+  put 7 <span class="c002">"ustar  "</span> 257;
+  put 31 (getpwuid infos.st_uid).pw_name 265;
+  put 31 (getgrgid infos.st_gid).gr_name 297;
+  <em>(* Fields dev and rdev are only used for special files, which we omit *)</em>
+  put_char
+    <span class="c001">begin match</span> kind <span class="c001">with</span>
+    | REG -&gt; '0'
+    | LINK s -&gt; put_path s 157; '1'
+    | LNK s -&gt;  put_path s 157; '2'
+    | DIR -&gt; '5'
+    | _ -&gt; failwith <span class="c002">"Special files not implemented"</span>
+    <span class="c001">end</span> 156;
+  <span class="c001">let rec</span> sum s i =
+    <span class="c001">if</span> i &lt; 0 <span class="c001">then</span> s <span class="c001">else</span> sum (s + Char.code buffer.[i]) (pred i) <span class="c001">in
+  let</span> checksum = sum (Char.code ' ' * 8) (block_size - 1)  <span class="c001">in</span>
+  put 8 (Printf.sprintf <span class="c002">"%06o\000 "</span> checksum) 148;;</div><p>次の関数はファイルに対するレコードのバッファを作成します。<code>source</code> はファイルの名前、 <code>infos</code> は <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEstats"><span class="c003">stats</span></a> で取得できるファイルの情報、 <code>kind</code> はファイルの種類です。
+</p><div class="mylisting"><span class="c001">let</span> header source infos kind = {
+  name = source;
+  size = <span class="c001">if</span> kind = REG <span class="c001">then</span> infos.st_size <span class="c001">else</span> 0;
+  perm = infos.st_perm;
+  mtime = int_of_float infos.st_mtime;
+  uid = infos.st_uid;
+  gid = infos.st_gid;
+  user = (getpwuid infos.st_uid).pw_name;
+  group = (getgrgid infos.st_gid).gr_name;
+  kind = kind }</div><p>アーカイブにファイルの内容を書き込むために、 <code>file_copy</code> に似た関数を定義します。この関数は引数としてコピーされるバイト数を受け取り、ファイルの末尾がそのサイズと対応していることを確認します。受け取ったバイト数だけ書き込んだ結果ファイルの末尾に到達しなかった場合、エラーを出します。これによってアーカイブ中にファイルが変更されるケースに対応できます。アーカイブの欠損を一つのファイルに抑えるために、引数で受け取ったバイト数を超えて書き込むことはしません。
+</p><div class="mylisting"><span class="c001">let</span> write_file len source fdout =
+  <span class="c001">let</span> fdin = openfile source [O_RDONLY] 0 <span class="c001">in
+  let</span> error () = raise (Error (<span class="c002">"File changed size"</span>, source)) <span class="c001">in
+  let rec</span> copy_loop len =
+    <span class="c001">match</span> read fdin buffer 0 buffer_size <span class="c001">with</span>
+      0 -&gt;
+        close fdin; <span class="c001">if</span> len &gt; 0 <span class="c001">then</span> error ()
+    | r -&gt;
+        <span class="c001">let</span> len = len - r  <span class="c001">in
+        if</span> len &lt; 0 <span class="c001">then</span> (close fdin; error ());
+        ignore (write fdout buffer 0 r); copy_loop len <span class="c001">in</span>
+  copy_loop len;;
+
+<span class="c001">let</span> padding fd len =
+  <span class="c001">if</span> len &gt; 0 <span class="c001">then</span> ignore (write fd (Bytes.make len '\000') 0 len);;</div><p>ここからがアーカイブの作成になります。アーカイブに書き込まれたファイルはそのパスと共にハッシュテーブルに保存され、同じファイルが何度もコピーされることが無いように利用されます。またファイルだけではなくディレクトリについてもすでに書き込んだパスをハッシュテーブルを保存します。アーカイブのルートが他のディレクトリに含まれることがありえますが、そのような場合にコピーを行わないようにするためです (ただしコピーをしても問題はありません)。</p><p>アーカイブを書き込むのに必要となるのは書き込みファイルを指すファイルディスクリプタとファイルとディレクトリのキャッシュ (一つ前の練習問題参照)、 そして現在のアーカイブのサイズを記録する変数 (必要な場合に最小サイズにパディングするため) です。<code>archive</code> 型がこれらの情報を保持するレコードです:
+</p><div class="mylisting"><span class="c001">type</span> archive =
+    { regfiles : (int * int, string) Hashtbl.t;
+      dirfiles : (int * int, bool) Hashtbl.t;
+      fd : file_descr; st : stats; <span class="c001">mutable</span> size : int }
+
+<span class="c001">let</span> try_new_dir archive dir =
+  <span class="c001">try</span> Hashtbl.find archive.dirfiles dir
+  <span class="c001">with</span> Not_found -&gt; Hashtbl.add archive.dirfiles dir <span class="c001">false</span>; <span class="c001">true</span></div><p>コマンドラインで与えられるパス <code>file</code> から始まるファイル階層全体を書き込む関数は以下のようになります。この関数は難しくありませんが、いくつか例外的なケースがあります。例えばファイルがアーカイブ中に変更されたことを検出する方法については前に示しました。このケースの特別な場合は、アーカイブがアーカイブ自身をアーカイブしようとしている場合です。
+</p><div class="mylisting"><span class="c001">let</span> verbose = <span class="c001">ref true</span>;;
+
+<span class="c001">let</span> write_from archive file =
+  <span class="c001">if</span> not (Filename.is_relative file) <span class="c001">then</span>
+    raise (Error (<span class="c002">"absolute path"</span>, file));
+  <span class="c001">let rec</span> write_rec archive file =
+    <span class="c001">let</span> source =
+      <span class="c001">if</span> Filename.basename file = <span class="c002">""</span> <span class="c001">then</span> Filename.dirname file <span class="c001">else</span> file <span class="c001">in
+    if</span> !verbose <span class="c001">then begin</span> prerr_endline source <span class="c001">end</span>;
+    <span class="c001">let</span> st = lstat source <span class="c001">in
+    if</span> st.st_ino = archive.st.st_ino &amp;&amp; st.st_dev = archive.st.st_dev
+    <span class="c001">then</span> warning source <span class="c002">"Skipping archive itself!"</span>
+    <span class="c001">else
+      let</span> write_header kind =
+        write_header_to_buffer source st kind;
+        ignore (write archive.fd buffer 0 block_size) <span class="c001">in
+      match</span> st.st_kind <span class="c001">with</span>
+        S_REG -&gt;
+          <span class="c001">begin try
+            if</span> st.st_nlink = 1 <span class="c001">then</span> raise Not_found;
+            <span class="c001">let</span> path =
+              Hashtbl.find archive.regfiles (st.st_ino, st.st_dev) <span class="c001">in</span>
+            write_header (LINK path);
+          <span class="c001">with</span> Not_found -&gt;
+            <span class="c001">if</span> st.st_nlink &gt; 1 <span class="c001">then</span>
+              Hashtbl.add archive.regfiles (st.st_ino, st.st_dev) source;
+            write_header REG;
+            write_file st.st_size source archive.fd;
+            <span class="c001">let</span> t =
+              (block_size-1 + st.st_size) / block_size * block_size <span class="c001">in</span>
+            padding archive.fd (t - st.st_size);
+            archive.size &lt;- archive.size + t + block_size;
+          <span class="c001">end</span>
+      | S_LNK -&gt;
+          write_header (LNK (readlink source));
+      | S_DIR <span class="c001">when</span> try_new_dir archive (st.st_ino, st.st_dev) -&gt;
+          write_header DIR;
+          Misc.iter_dir
+            <span class="c001">begin
+              fun</span> file -&gt;
+                <span class="c001">if</span> file = Filename.current_dir_name <span class="c001">then</span> ()
+                <span class="c001">else if</span> file = Filename.parent_dir_name <span class="c001">then</span> ()
+                <span class="c001">else</span> write_rec archive (source ^ <span class="c002">"/"</span> ^ file)
+            <span class="c001">end</span>
+            source
+      | S_DIR -&gt;
+          warning source <span class="c002">"Ignoring directory already in archive."</span>
+      | _ -&gt;
+          prerr_endline (<span class="c002">"Can't cope with special file "</span> ^ source) <span class="c001">in</span>
+  write_rec archive file;;</div><p>ハードリンクを持つ可能性がある通常ファイルをハッシュテーブル <code>regfile</code> に記録します。リンクを一つしか持たないファイルは記録する必要がありません。</p><p>メイン関数は以下のようになります。エラーが出た場合には、アーカイブを削除したほうが良いでしょう。
+</p><div class="mylisting"><span class="c001">let</span> min_archive_size = 20 * block_size;;
+
+<span class="c001">let</span> build tarfile files =
+  <span class="c001">let</span> fd, remove =
+    <span class="c001">if</span> tarfile = <span class="c002">"-"</span> <span class="c001">then</span> stdout, ignore
+    <span class="c001">else</span> openfile tarfile [ O_WRONLY; O_CREAT; O_TRUNC ] 0o666, unlink <span class="c001">in
+  try
+    let</span> arch =
+         { regfiles = Hashtbl.create 13; dirfiles = Hashtbl.create 13;
+           st = fstat fd; fd = fd; size =0 } <span class="c001">in</span>
+    Array.iter (write_from arch) files;
+    padding fd (min_archive_size - arch.size);
+    close fd
+  <span class="c001">with</span> z -&gt;
+    remove tarfile; close fd; raise z;;</div><p>最後にコマンドライン引数をパースする処理を書いて練習問題を終わります。
+</p><div class="mylisting"><span class="c001">let</span> usage () =
+  prerr_endline <span class="c002">"Usage: tar -cvf tarfile file1 [ file2 ... ] "</span>;
+  exit 2;;
+
+<span class="c001">let</span> tar () =
+  <span class="c001">let</span> argn = Array.length Sys.argv <span class="c001">in
+  if</span> argn &gt; 3 &amp;&amp; Sys.argv.(1) = <span class="c002">"-cvf"</span> <span class="c001">then</span>
+    build Sys.argv.(2) (Array.sub Sys.argv 3 (argn-3))
+  <span class="c001">else</span> usage ();;
+
+<span class="c001">let</span> _ =
+  <span class="c001">try</span> handle_unix_error tar ()
+  <span class="c001">with</span> Error (mes, s) -&gt;
+    prerr_endline (<span class="c002">"Error: "</span> ^ mes ^ <span class="c002">": "</span> ^ s); exit 1;;</div><div class="fancybreak">* * *</div></div></body>
+</html>

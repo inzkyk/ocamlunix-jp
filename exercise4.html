@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>Answer of exercise 4</title>
+</head>
+<body>
+<div class="answer">
+<h5 class="paragraph" id="sec39">練習問題 <a href="files.html#ex4">exercise 4</a> の解答</h5>
+<p>
+<a id="exans4"></a>
+書き込む文字列をバッファにコピーするのが基本的なアイデアです。バッファに十分な空きが無く途中でバッファを空にする必要がある場合とそうでなく文字列全てをバッファに直接書き込める場合とを考える必要があります。解答例を以下に示します。
+</p><div class="mylisting"><span class="c001">open</span> Unix;;</div><div class="mylisting"><span class="c001">let</span> output_string chan s =
+  <span class="c001">let</span> avail = Bytes.length chan.out_buffer - chan.out_pos <span class="c001">in
+  if</span> Bytes.length s &lt;= avail <span class="c001">then begin</span>
+    Bytes.blit s 0 chan.out_buffer chan.out_pos (Bytes.length s);
+    chan.out_pos &lt;- chan.out_pos + Bytes.length s
+  <span class="c001">end
+  else if</span> chan.out_pos = 0 <span class="c001">then begin</span>
+    ignore (write chan.out_fd s 0 (Bytes.length s))
+  <span class="c001">end
+  else begin</span>
+    Bytes.blit s 0 chan.out_buffer chan.out_pos avail;
+    <span class="c001">let</span> out_buffer_size = Bytes.length chan.out_buffer <span class="c001">in</span>
+    ignore (write chan.out_fd chan.out_buffer 0 out_buffer_size);
+    <span class="c001">let</span> remaining = Bytes.length s - avail <span class="c001">in
+    if</span> remaining &lt; out_buffer_size <span class="c001">then begin</span>
+      Bytes.blit s avail chan.out_buffer 0 remaining;
+      chan.out_pos &lt;- remaining
+    <span class="c001">end else begin</span>
+      ignore (write chan.out_fd s avail remaining);
+      chan.out_pos &lt;- 0
+    <span class="c001">end
+  end</span>;;</div><div class="mylisting"><span class="c001">let</span> ex2 () =
+  <span class="c001">if</span> Array.length Sys.argv &lt; 3 <span class="c001">then begin</span>
+     prerr_string <span class="c002">"Usage: test &lt;sources&gt; &lt;dest&gt;"</span>;
+     exit 2;
+  <span class="c001">end</span>;
+  <span class="c001">let</span> fdin = open_in Sys.argv.(1) <span class="c001">in
+  let</span> fdout = open_out Sys.argv.(2) <span class="c001">in</span>
+  prerr_endline <span class="c002">"copying"</span>;
+  <span class="c001">try while true do</span> output_char fdout (input_char fdin) <span class="c001">done
+  with</span> End_of_file -&gt;
+   prerr_endline <span class="c002">"Done"</span>;
+   output_string fdout <span class="c002">"The end.\n"</span>;
+   prerr_endline <span class="c002">"Closing"</span>;
+   close_out fdout;;
+
+handle_unix_error ex2 ();;</div><div class="mylisting">./ex2.byte ex2.ml ex2.out
+(cat ex2.ml; echo <span class="c002">"C'est la fin."</span>) | diff --brief - ex2.out
+rm ex2.out</div><div class="fancybreak">* * *</div></div></body>
+</html>

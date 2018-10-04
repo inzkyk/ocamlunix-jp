@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>Answer of exercise 21</title>
+</head>
+<body>
+<div class="answer">
+<h5 class="paragraph" id="sec166">練習問題 <a href="threads.html#ex21">exercise 21</a> の解答</h5>
+<p>
+<a id="exans21"></a>
+新しい条件変数 <code>non_full</code> と <code>size</code> フィールドを追加します。
+</p><div class="mylisting"><span class="c001">type</span> 'a t =
+    { queue : 'a Queue.t; size : int; lock : Mutex.t;
+      non_empty : Condition.t; non_full : Condition.t; }
+
+<span class="c001">let</span> create k =
+  <span class="c001">if</span>  k &gt; 0 <span class="c001">then</span>
+    { queue = Queue.create (); size = k; lock = Mutex.create ();
+      non_empty = Condition.create (); non_full = Condition.create () }
+  <span class="c001">else</span> failwith <span class="c002">"Tqueue.create: empty size"</span>;;</div><p>要素の追加は <code>add</code> と <code>take</code> の処理を組み合わせたものになります。
+</p><div class="mylisting"><span class="c001">let</span> add x q =
+  Mutex.lock q.lock;
+  <span class="c001">while</span> Queue.length q.queue = q.size
+  <span class="c001">do</span> Condition.wait q.non_full q.lock <span class="c001">done</span>;
+  <span class="c001">if</span> Queue.is_empty q.queue <span class="c001">then</span> Condition.broadcast q.non_empty;
+  Queue.add q x;
+  Mutex.unlock q.lock;;</div><p>要素の削除は追加と似ていますが、削除する前のキューが満杯な場合には <code>non_full</code> をシグナルする必要があります。
+
+<code>size</code> を <code>max_int</code> とすれば動作が制限のないキューと同じになります。
+</p><div class="fancybreak">* * *</div></div></body>
+</html>

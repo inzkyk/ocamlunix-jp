@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>さらに先へ</title>
+</head>
+<body>
+<a href="threads.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="references.html"><img src="next_motif.svg" alt="Next"></a>
+<hr>
+<h1 class="chapter" id="sec/more"><a id="htocmore">さらに先へ</a></h1>
+<p>これまで見てきたのはオペレーティングシステムとやり取りをするアプリケーションを作るために OCamlの <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Sys.html"><span class="c003">Sys</span></a>、 <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html"><span class="c003">Unix</span></a> そして <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Threads.html"><span class="c003">Threads</span></a> モジュールを使う方法です。</p><p>これらのモジュールを使うと 重要な Unix システムコールのほとんどを OCamlから直接呼び出すことができます。プログラミングを容易にするため、あるいは OCamlのランタイムシステムが必要とする不変量を保つために、いくつかのシステムコールは高レベルな関数に置き換えられています。いずれの場合でも、この Unix システムへの高レベルなアクセスはアプリケーションの開発を円滑にします。</p><p>全ての Unix の機能がこれらのモジュールから利用可能なわけではありません。しかし C のバインディングを書けば利用できない機能にアクセスすることが可能です。</p><p>別の便利なライブラリは OCamlから直接スクリプトを書くことを目的とした Cash [<a href="references.html#Cash">3</a>] です。このライブラリは <code>Unix</code> を二つの方法で補完します。一つ目はスクリプトを書くためのヘルパー関数に加えて、<code>Unix</code> モジュールの上にプロセスとパイプの管理を助けるためのシステムコールの亜種を用意していることです。もう一つは Unix システムに追加のエントリーポイントを追加することです。
+</p><hr>
+<a href="threads.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="references.html"><img src="next_motif.svg" alt="Next"></a>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>Answer of exercise 12</title>
+</head>
+<body>
+<div class="answer">
+<h5 class="paragraph" id="sec104">練習問題 <a href="pipes.html#ex12">exercise 12</a> の解答</h5>
+<p>
+<a id="exans12"></a>
+親プロセスは子プロセスを待たなくてはいけませんが、そのまえに子プロセスが読み込むパイプへの入力を親が閉じる必要があります。これを閉じなかった場合子プロセスは次の整数が来るのを永遠に待つことになり、デッドロックを引き起こします (チャンネルを閉じると対応するディスクリプタのバッファが空になるので、データが失われることはありません)。具体的には <code>sieve</code> 関数の <a href="pipes.html#prog%3Agen">10</a> 行目を以下のようにします:
+</p><div class="mylisting"><span class="c001">let</span> output = out_channel_of_descr fd_out <span class="c001">in</span>
+generate len output;
+close_out output;
+ignore(waitpid [] p);;</div><p>そして <code>filter</code> 関数の <a href="pipes.html#prog%3Asievefilterwhile">12</a>–<a href="pipes.html#prog%3Asievefilterdone">16</a> 行目 (<code>...</code> で表されている部分) を次のコードで覆います。
+</p><div class="mylisting"><span class="c001">try</span>
+  ...
+<span class="c001">with</span> End_of_file -&gt;
+  close_out output;
+  ignore (waitpid [] p)</div><div class="fancybreak">* * *</div></div></body>
+</html>

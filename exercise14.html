@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>Answer of exercise 14</title>
+</head>
+<body>
+<div class="answer">
+<h5 class="paragraph" id="sec113">練習問題 <a href="pipes.html#ex14">exercise 14</a> の解答</h5>
+<p>
+<a id="exans14"></a>
+</p><ul class="itemize"><li class="li-itemize">
+<code>&gt;&gt;</code> については、ファイルを開くときのフラグを <code>[O_WRONLY; O_APPEND; O_CREAT]</code> に変えれば他は <code>&gt;</code> と同じです。
+</li><li class="li-itemize"><code>2&gt;</code> については、 <code>dup2 fd stdout</code> を <code>dup2 fd stderr</code> に変えれば他は <code>&gt;</code> と同じです。
+</li><li class="li-itemize"><code>2&gt;1</code> については、コマンドを実行する前に <code>dup2 stderr stdout</code> を実行すればよいです。
+</li><li class="li-itemize"><code>&lt;&lt;</code> については、 シェル <code>sh</code> は <code>/tmp</code> フォルダに一時的なファイルを作って <code>&lt;&lt;</code> に続く文字列を保存し、標準入力をこのファイルにリダイレクトしてからコマンドを実行する必要があります。これとは別の解法はコマンドの標準入力をパイプの出力につなぎ、子プロセスを使ってそのパイプの入力に <code>&lt;&lt;</code> に続く文字列を入力することです。</li></ul><div class="fancybreak">* * *</div></div></body>
+</html>

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>古典的なプロセス間通信: パイプ</title>
+</head>
+<body>
+<a href="signals.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="sockets.html"><img src="next_motif.svg" alt="Next"></a>
+<hr>
+<h1 class="chapter" id="sec/pipes"> 5  古典的なプロセス間通信: パイプ</h1>
+<p>これまでは見てきたのはプロセスを管理する方法とファイルを使って外部環境と通信する方法です。コースの残りの部分では、並列に実行されるプロセス同士がコミュニケーションを取りながら協調する方法を見ていきます。</p>
+<h2 class="section" id="sec100">5.1  パイプ</h2>
+<p>並列に実行されるプロセス同士がやり取りを行う手段として通常ファイルは十分ではありません。例えば一つのファイルにあるプロセスが書き込み、その内容を別のプロセスが読み込む状況を考えてみてください。やり取りの手段としてファイルを使った場合、読み込み側はファイルが終端に達したことを (<code>read</code> が 0 を返すことで)検出することができますが、その理由が書き込みが終わったためなのかそれとも計算に時間がかかっているためなのかを知ることはできません。さらにファイルはやり取りされるデータを全て保持する必要があるので、ディスクを不必要に圧迫します。</p><p>パイプはこのようなやり取りに向いた仕組みです。パイプは二つのファイルディスクリプタからなります。一つがパイプの出力を表し、もう一方がパイプの入力を表します。パイプはシステムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/pipe.html"><span class="c003">pipe</span></a><a id="hevea_default98"></a> で作成できます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALpipe">pipe</a> : unit -&gt; file_descr * file_descr</div><p><code>pipe</code> を呼ぶと <code>(fd_in, fd_out)</code> が返ります。<code>fd_in</code> は <em>読み込み専用</em> で開かれたパイプの出力を表すファイルディスクリプタで、<code>fd_out</code> は <em>書き込み専用</em> で開かれたパイプの入力を表すファイルディスクリプタです。パイプ自身はこれら 2 つのディスクリプタからのみアクセス可能なカーネルの内部オブジェクトです。またパイプはファイルシステムにおいて名前を持ちません。</p><div class="image"><img src="ocamlunix-image6.png" width="60%"></div><p>パイプは先入れ先出しのキューのように振る舞います。最初にパイプに書き込んだものが最初にパイプから読み込まれます。書き込み (パイプの入力ディスクリプタへの <code>write</code>) はパイプを満たし、パイプが満杯の場合はブロックします。ブロックは他のプロセスがパイプの他方の端から十分な量のデータを読み込むまで続き、<code>write</code> に渡された全てのデータが書き込まれるまで続きます。読み込み (パイプの出力ディスクリプタへの <code>read</code>) はパイプの中身を消費します。パイプが空のとき <code>read</code> はパイプの他方の端に少なくとも 1 バイトが書き込まれるまでブロックします。<code>read</code> は要求されたバイト数だけ読み込むまで待つこと無く返ります。</p><p>入出力が同じプロセスから起きるのならばパイプは役に立ちません。そのようなプロセスは大量の書き込みや空のパイプへの読み込みによって永遠にブロックしてしまうからです。そのため普通パイプへの入出力は別々のプロセスが行います。パイプは名前を持たないことから、パイプを利用するプロセスの片方はパイプを作成したプロセスからのフォークによって作られる必要があります。
+</p><div class="example">
+<h5 class="paragraph" id="sec101">例</h5>
+<p> 次の短いコードは典型的なパイプの使用例です。
+</p><div class="mylisting"><span class="c001">let</span> (fd_in, fd_out) = pipe () <span class="c001">in
+match</span> fork () <span class="c001">with</span>
+| 0 -&gt; close fd_in; ... write fd_out buffer1 offset1 count1 ...
+| pid -&gt; close fd_out; ... read fd_in buffer2 offset2 count2 ...</div><p><code>fork</code> のあとパイプの入力を指すディスクリプタは二つあり、親プロセスと子プロセスが一つづつ持っています。出力用ディスクリプタについても同様です。
+</p><div class="image"><img src="ocamlunix-image7.png" width="45%"></div><p>
+
+
+この例では子が書き込みを、親が読み取りを行います。子はパイプの出力 <code>fd_in</code> をクローズしますが、これはディスクリプタを節約しプログラミング上のミスを防ぐためです。ディスクリプタはプロセスのメモリに確保され、フォークすると親子でメモリが別々になるので、子プロセスでディスクリプタをクローズしたとしても親プロセス <code>fd_in</code> はその影響を受けません。パイプはシステムメモリに確保され、親プロセスの <code>fd_in</code> がパイプの出力に読み込みモードで開いている限り生き続けます。同じ理由で親プロセスはパイプの入力へのディスクリプタをクローズします。結果的に以下のような状態となります:</p><div class="image"><img src="ocamlunix-image8.png" width="45%"></div><p>
+
+
+子プロセスが <code>fd_out</code> に書き込んだデータは親の <code>fd_in</code> に書き込まれます。
+</p><div class="fancybreak">* * *</div></div><p>
+パイプの入力へのディスクリプタが全てクローズされかつパイプが空のとき、パイプの出力への <code>read</code> は 0 (ファイルの終端) を返します。パイプの出力へのディスクリプタが全てクローズされているとき、パイプの入力への <code>write</code> は書き込みプロセスを終了させます。より正確に言うと、カーネルが <code>write</code> を呼んだプロセスに <code>sigpipe</code> シグナルを送り、このシグナルのデフォルトの動作がプロセスの終了です。<code>sigpipe</code> シグナルのハンドラが変更していた場合は、 <code>write</code> は <code>EPIPE</code> エラーを出して失敗します。</p>
+<h2 class="section" id="ex/crible">5.2  完全な例: 並列エラトステネスのふるい</h2>
+<p>これは並列プログラミングの古典的な例です。ここで扱うのは素数を順に列挙しながら見つかった順にインタラクティブに表示するという問題です。アルゴリズムのアイデアは次のようなものです。あるプロセスが 2 から順に整数を出力します。このプロセスに整数 <span class="c006">p</span> を一つ受け取って表示する別の <em>フィルター</em> プロセスをつなげます。</p><div class="image"><img src="ocamlunix-image9.png" width="38%"></div><p>
+
+
+最初のフィルタープロセスは 2 を最初に受け取ることから <span class="c006">p</span>=2 となります。このプロセスは自分の出力と接続した新しいフィルタープロセスを作成します。そして新しいプロセスに <span class="c006">p</span> の倍数でない整数を入力します。
+</p><div class="image"><img src="ocamlunix-image10.png" width="65%"></div><p>
+
+
+新しいフィルタープロセスは 3 を最初に受け取るので <span class="c006">p</span>=3 となります。このプロセスは 3 の倍数をフィルターし、同じことが次のプロセスへと続きます。
+</p><div class="image"><img src="ocamlunix-image11.png" width="100%"></div><p>
+
+
+このアルゴリズムは見つける素数の数よりひとつ多い数のプロセスが必要になりますが、これだとプロセスを多く作りすぎるのでUnix で直接実装できません。多くの Unix システムではプロセス数を数十程度に制限しています。同時に実行されるプロセスが多すぎる場合、プロセスが一つしか無い機械ではコンテキストスイッチによるコストによって性能が大幅に減少します。そのためこれからの実装ではプロセスは最初の <span class="c006">n</span> 個の素数 <span class="c006">p</span><sub>1</sub>, …, <span class="c006">p</span><sub><span class="c006">n</span></sub> を出力し、<span class="c006">p</span><sub>1</sub>, …, <span class="c006">p</span><sub><span class="c006">n</span></sub> の倍数でない整数を次のプロセスへと渡します。<span class="c006">n</span>=1000 程度にすればプロセス生成のコストが見えなくなります。</p><p>まず 2 から <span class="c006">k</span> までの整数を生成するプロセスを作ります。
+</p><div class="mylisting"><span class="c001">open</span> Unix;;
+
+<span class="c001">let</span> input_int = input_binary_int
+<span class="c001">let</span> output_int = output_binary_int
+
+<span class="c001">let</span> generate k output =
+  <span class="c001">let rec</span> gen m =
+    output_int output m;
+    <span class="c001">if</span> m &lt; k <span class="c001">then</span> gen (m+1)
+  <span class="c001">in</span>
+  gen 2;;</div><p>整数の入出力には次の関数が使われます:
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html#VALoutput_binary_int">output_binary_int</a> : out_channel -&gt; int -&gt; unit
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html#VALinput_binary_int">input_binary_int</a> : in_channel -&gt; int</div><p>標準ライブラリの <code>output_binary_int</code> 関数は整数を表す 4 バイトのバイナリを<code>out_channel</code> に書き込みます。この整数は <code>in_channel</code> に対する <code>input_binary_int</code> で読み込むことができます。これらの関数を使うことには二つのメリットがあります。まず、整数をバイト表現に変換する関数を作る必要がありません<sup><a id="text8" href="#note8">1</a></sup>。さらに、これらの関数はバッファされた <span class="c007">i/o</span>を使うのでシステムコールの回数が減り、パフォーマンスが上昇します。次の関数は <span class="c007">i/o</span>をバッファするための <code>in_channel</code> または <code>out_channel</code> を作成します。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALin_channel_of_descr">in_channel_of_descr</a><a id="hevea_default99"></a> : file_descr -&gt; in_channel
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALout_channel_of_descr">out_channel_of_descr</a><a id="hevea_default100"></a> : file_descr -&gt; out_channel</div><p>これらの関数を使うと間接的に手に入れたディスクリプタ、あるいはファイルを開いていないディスクリプタに対してバッファされた <span class="c007">i/o</span>を行うことができます。バッファされた <span class="c007">i/o</span>をバッファされていない <span class="c007">i/o</span>と混ぜることはしてはいけません。混ぜることは不可能ではありませんが、とてもエラーを含みやすい — 特に入力に対しては — ので決して行うべきではありません。また一つのディスクリプタに対して二つ以上の <code>in_channel</code> あるいは <code>out_channel</code> を開くことも可能ですが、これも危険なので行うべきではありません。</p><p>フィルタープロセスの話を進めます。このプロセスは補助関数 <code>read_first_primes</code> を使用します。<code>read_first_primes input count</code> は <code>count</code> 個の素数を <code>input</code> (<code>in_channel</code> 型の値) から読み、すでに計算された素数は読み飛ばします。<code>count</code> 個の素数は読み込まれた時点で出力され、計算された素数を保存するリストに入ります。
+</p><div class="mylisting"><span class="c005">   1</span> <span class="c001">let</span> print_prime n = print_int n; print_newline ()
+<span class="c005">   2</span> 
+<span class="c005">   3</span> <span class="c001">let</span> read_first_primes input count =
+<span class="c005">   4</span>   <span class="c001">let rec</span> read_primes first_primes count =
+<span class="c005">   5</span>     <span class="c001">if</span> count &lt;= 0 <span class="c001">then</span> first_primes <span class="c001">else</span>
+<span class="c005">   6</span>     <span class="c001">let</span> n = input_int input <span class="c001">in</span>
+<span class="c005">   7</span>     <span class="c001">if</span> List.exists (<span class="c001">fun</span> m -&gt; n <span class="c001">mod</span> m = 0) first_primes <span class="c001">then</span>
+<span class="c005">   8</span>       read_primes first_primes count
+<span class="c005">   9</span>     <span class="c001">else begin</span>
+<span class="c005">  10</span>       print_prime n;
+<span class="c005">  11</span>       read_primes (n :: first_primes) (count - 1)
+<span class="c005">  12</span>     <span class="c001">end</span>
+<span class="c005">  13</span>   <span class="c001">in</span>
+<span class="c005">  14</span>   read_primes [] count<a id="prog:pprime"></a>;;</div><p>フィルター関数は以下のようになります:
+</p><div class="mylisting"><span class="c005">   1</span> <span class="c001">let rec</span> filter input =
+<span class="c005">   2</span>   <span class="c001">try</span>
+<span class="c005">   3</span>     <span class="c001">let</span> first_primes = read_first_primes input 1000 <span class="c001">in</span>
+<span class="c005">   4</span>     <span class="c001">let</span> (fd_in, fd_out) = pipe () <span class="c001">in</span>
+<span class="c005">   5</span>     <span class="c001">match</span> fork () <span class="c001">with</span> <a id="prog:sievefilterfork"></a>
+<span class="c005">   6</span>     | 0 -&gt;
+<span class="c005">   7</span>         close fd_out;
+<span class="c005">   8</span>         filter (in_channel_of_descr fd_in)
+<span class="c005">   9</span>     | p -&gt;
+<span class="c005">  10</span>         close fd_in;
+<span class="c005">  11</span>         <span class="c001">let</span> output = out_channel_of_descr fd_out <span class="c001">in</span>
+<span class="c005">  12</span>         <span class="c001">while true do</span> <a id="prog:sievefilterwhile"></a>
+<span class="c005">  13</span>           <span class="c001">let</span> n = input_int input <span class="c001">in</span>
+<span class="c005">  14</span>           <span class="c001">if</span> List.exists (<span class="c001">fun</span> m -&gt; n <span class="c001">mod</span> m = 0) first_primes <span class="c001">then</span> ()
+<span class="c005">  15</span>           <span class="c001">else</span> output_int output n
+<span class="c005">  16</span>         <span class="c001">done</span> <a id="prog:sievefilterdone"></a>
+<span class="c005">  17</span>   <span class="c001">with</span> End_of_file -&gt; ();;</div><p>フィルタは <code>read_first_primes</code> を呼んで最初の 1000 個の素数を出力するところから始まります(引数 <code>input</code> は <code>in_channel</code> 型です)。そのあとパイプを作ってから子プロセスをフォークします、親プロセスは整数を入力 <code>input</code> から読み、それが最初に計算した 1000 個の素数の倍数でない場合はそれをパイプに入力します。</p><p>最後に整数を出力するプロセスと最初のフィルタープロセスをつなぐ処理を書けばメインプログラムの完成です。プログラムを <code>sieve k</code> で起動すると <code>k</code> より小さい素数が列挙されます。<code>k</code> が省略された場合には <code>k</code> は <code>max_int</code> となります。
+</p><div class="mylisting"><span class="c005">   1</span> <span class="c001">let</span> sieve () =
+<span class="c005">   2</span>   <span class="c001">let</span> len = <span class="c001">try</span> int_of_string Sys.argv.(1) <span class="c001">with</span> _ -&gt; max_int <span class="c001">in</span>
+<span class="c005">   3</span>   <span class="c001">let</span> (fd_in, fd_out) = pipe () <span class="c001">in</span>
+<span class="c005">   4</span>   <span class="c001">match</span> fork () <span class="c001">with</span> <a id="prog:sievefork"></a>
+<span class="c005">   5</span>   | 0 -&gt;
+<span class="c005">   6</span>       close fd_out;
+<span class="c005">   7</span>       filter (in_channel_of_descr fd_in)
+<span class="c005">   8</span>   | p -&gt;
+<span class="c005">   9</span>       close fd_in;
+<span class="c005">  10</span>       generate len (out_channel_of_descr fd_out);; <a id="prog:gen"></a>
+<span class="c005">  11</span> 
+<span class="c005">  12</span> handle_unix_error sieve ();;</div><p>この例では親プロセスが終了するときに子プロセスの終了を待つことはしません。この理由は親プロセスが子プロセスの <em>ジェネレータ</em> であるためです。</p><p><code>k</code> が与えられたとき最初に実行を終えるのは親プロセスであり、終了するとき子プロセスに繋がったパイプの入力へのディスクリプタをクローズします。OCamlはプロセスが終了するときに書き込みモードで開かれたディスクリプタのバッファを空にすることから、子プロセスは親プロセスが書き込んだ最後の整数まで読みきることができます。その子プロセスが終了するときについても同様です。そのためこのプログラムでは子プロセスは一時的に親を失って <code>init</code> の子となります</p><p><code>k</code> が与えられていない場合はいずれかのプロセスが終了するまで全てのプロセスがずっと動き続けます。プロセスの終了すると上記のように子プロセスも終了します。またプロセスが終了すると親プロセスにつながっているパイプの出力をクローズするので、親プロセスは次の書き込みをしたときに終了します (正確には書き込みのときに <code>sigpipe</code> を受け取り、そのデフォルトの動作によって終了します)。</p><div class="exercise">
+<h5 class="paragraph" id="sec103">練習問題 12</h5>
+<p><a id="ex12"></a>
+親プロセスが子プロセスの終了を待つようにするにはどうすればよいでしょうか ?
+<a href="exercise12.html#exans12">解答</a></p><div class="fancybreak">* * *</div></div><div class="exercise">
+<h5 class="paragraph" id="sec105">練習問題 13</h5>
+<p><a id="ex13"></a>
+素数が見つかったとき、<code>print_prime</code> 関数は <code>print_newline ()</code> を実行します。この実行によって出力のバッファを空にするシステムコールが呼ばれるので、プログラムの実行速度が制限されます。<code>print_newline ()</code> は <code>print_char '\n'</code> と <code>flush Pervasives.stdout</code> を実行しますが、フラッシュを省略して <code>print_newline ()</code> を <code>print_char '\n'</code> と置き換えた場合何が起こるでしょうか? この問題を解決するにはどうすればよいでしょうか?
+<a href="exercise13.html#exans13">解答</a></p><div class="fancybreak">* * *</div></div>
+<h2 class="section" id="sec107">5.3  名前付きパイプ</h2>
+<p>いくつかの Unix システム (System V, SunOS, Ultrix, Linux など) ではファイルシステム内で名前を持つパイプを作成できます。この <em>名前付きパイプ</em> (あるいは <em>fifo</em>) を使うと親子関係にないプロセス同士がやり取りを行うことができます。パイプを作ったプロセスとその子でしかやり取りのできない通常のパイプとは対称的です。</p><p>システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/mkfifo.html"><span class="c003">mkfifo</span></a><a id="hevea_default101"></a> は名前付きパイプを作成します:
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALmkfifo">mkfifo</a> : string -&gt; file_perm -&gt; unit</div><p>第一引数がパイプの名前を、第二引数がアクセス権限を表します。</p><p>名前付きパイプは <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALopenfile"><span class="c003">openfile</span></a> を使って通常ファイルと同じように開くことができます。名前付きパイプの入出力も通常ファイルと同じです。名前付きパイプを読み込み専用 (あるいは書き込み専用) モードで開くとそのパイプが別のプロセスによって書き込みモード (あるいは読み込みモード) で開かれるまでブロックします。すでに開かれていた場合にはブロックはありません。<code>O_NONBLOCK</code> フラグでパイプを開くことでブロックを避けることができますが、この場合パイプへの入出力もブロックしなくなります。<code>clear_nonblock</code> を使うとパイプを開いた後で入出力をブロックするように変更でき、<code>set_nonblock</code> を使うとブロックしないようにすることができます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALclear_nonblock">clear_nonblock</a><a id="hevea_default102"></a> : file_descr -&gt; unit
+<span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALset_nonblock">set_nonblock</a><a id="hevea_default103"></a> : file_descr -&gt; unit</div>
+<h2 class="section" id="sec108">5.4  ディスクリプタのリダイレクト</h2>
+<p>ここまでの説明では、シェルが <code>cmd1 | cmd2</code> のようなコマンドを実行するときのように標準入出力をパイプに接続する方法はわかりません。<code>pipe</code> で作ったパイプの両端を指すのは <em>新しい</em> ディスクリプタであり、<code>stdin</code> や <code>stdout</code>、 <code>stderr</code> ではないからです。</p><p>この問題に対処するために、Unix には <a href="http://www.opengroup.org/onlinepubs/009696799/functions/dup2.html"><span class="c003">dup2</span></a><a id="hevea_default104"></a> というシステムコールがあります (<code>dup2</code> は「あるディスクリプタを別のディスクリプタに複製する (<em>dup</em>licate <em>to</em>)」 と読めます) 。<code>dup2</code> はあるディスクリプタを別のディスクリプタとして振る舞うようにします。これが可能なのはファイルディスクリプタ (<a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#TYPEfile_descr"><span class="c003">file_descr</span></a> 型のオブジェクト)と <em>ファイルテーブルエントリ</em> と呼ばれるカーネル内部のオブジェクトとの間に間接参照の仕組みが存在するからです。 <em>ファイルテーブルエントリ</em> が開かれているファイルやパイプ、現在の入出力位置などの情報を保持します。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALdup2">dup2</a> : file_descr -&gt; file_descr -&gt; unit</div><p><code>dup2 fd1 fd2</code> を呼ぶとディスクリプタ <code>fd2</code> が <code>fd1</code> の指すファイルテーブルエントリを指すようになります。この呼び出しの後には同じファイルまたはパイプを指し、同じ入出力位置を持つファイルディスクリプタが二つあることになります。</p><div class="image"><img src="ocamlunix-image12.png" width="80%"></div><div class="example">
+<h5 class="paragraph" id="sec109">例</h5>
+<p>
+標準入力のリダイレクト
+</p><div class="mylisting"><span class="c001">let</span> fd = openfile <span class="c002">"foo"</span> [O_RDONLY] 0 <span class="c001">in</span>
+dup2 fd stdin;
+close fd;
+execvp <span class="c002">"bar"</span> [|<span class="c002">"bar"</span>|]</div><p><code>dup2</code> を呼ぶとディスクリプタ <code>stdin</code> はファイル <code>foo</code> を指すようになります。つまり <code>stdin</code> を読み込むとファイル <code>foo</code> から読むことになります (<code>fd</code> への読み込みも同様ですが、これは使用しないのですぐに閉じます) 。<code>stdin</code> の設定は <code>execvp</code> で保存されるので、プログラム <code>bar</code> は標準入力がファイル <code>foo</code> に繋がった状態で実行されます。これはシェルで <code>bar &lt; foo</code> としたときと同じ動作です。</p><div class="fancybreak">* * *</div></div><div class="example">
+<h5 class="paragraph" id="sec110">例</h5>
+<p>
+標準出力のリダイレクト
+</p><div class="mylisting"><span class="c001">let</span> fd = openfile <span class="c002">"foo"</span> [O_WRONLY; O_TRUNC; O_CREAT] 0o666 <span class="c001">in</span>
+dup2 fd stdout;
+close fd;
+execvp <span class="c002">"bar"</span> [|<span class="c002">"bar"</span>|]</div><p><code>dup2</code> を呼ぶとディスクリプタ <code>stdout</code> はファイル <code>foo</code> を指すようになります。つま<code>stdout</code> への書き込みはファイル <code>foo</code> への書き込みとなります (<code>fd</code> への書き込みも同様ですが、これは使用しないのですぐに閉じます) 。<code>stdout</code> の設定は <code>execvp</code> で保存されるので、プログラム <code>bar</code> は標準出力がファイル <code>foo</code> に繋がった状態で実行されます。これはシェルで <code>bar &gt; foo</code> としたときと同じ動作です。</p><div class="fancybreak">* * *</div></div><div class="example">
+<h5 class="paragraph" id="sec111">例</h5>
+<p> あるプログラムの出力を他のプログラムの入力にする
+</p><div class="mylisting"><span class="c001">let</span> (fd_in, fd_out) = pipe () <span class="c001">in
+match</span> fork () <span class="c001">with</span>
+| 0 -&gt;
+       dup2 fd_in stdin;
+       close fd_out;
+       close fd_in;
+       execvp <span class="c002">"cmd2"</span> [|<span class="c002">"cmd2"</span>|]
+| _ -&gt;
+       dup2 fd_out stdout;
+       close fd_out;
+       close fd_in;
+       execvp <span class="c002">"cmd1"</span> [|<span class="c002">"cmd1"</span>|]</div><p>プログラム <code>cmd2</code> は標準入力がパイプの出力となった状態で実行されます。それと並行してプログラム <code>cmd1</code> は標準出力がパイプの入力となった状態で実行されます。結果として <code>cmd1</code> が標準出力に書いたものはすべて <code>cmd2</code> が標準入力から読みます。</p><p><code>cmd1</code> が <code>cmd2</code> よりも前に終了すると何が起こるでしょうか? <code>cmd1</code> が終了すると全ての開かれているディスクリプタが閉じられるので、パイプの入力を指すディスクリプタがなくなります。結果として <code>cmd2</code> がパイプにあるデータを全て読んだ次の読み込みで EOF を読み込みます。<code>cmd2</code> は標準入力が末尾に達したときの動作を行います — 例えば終了するなどです。</p><p>反対に <code>cmd2</code> が <code>cmd1</code> よりも前に終了した場合、パイプの出力を指す最後のディスクリプタが閉じられるので <code>cmd1</code> は次に標準出力に書き込んだときに <code>sigpipe</code> シグナルを受け取ります (このシグナルのデフォルトの動作はプロセスの終了です)。</p><div class="fancybreak">* * *</div></div><div class="exercise">
+<h5 class="paragraph" id="sec112">練習問題 14</h5>
+<p><a id="ex14"></a>
+シェルが持つ他のリダイレクトを実装してください。具体的には以下です:
+</p><div class="mylisting">&gt;&gt;      2&gt;      2&gt;&gt;     2&gt;1     &lt;&lt;</div><p><a href="exercise14.html#exans14">解答</a></p><div class="fancybreak">* * *</div></div><p>二つのディスクリプタを交換する場合には注意が必要です。<code>dup2 fd1 fd2;</code> <code>dup2 fd2 fd1</code> では上手く行きません。一つ目の <code>dup2</code> によって <code>fd1</code> と <code>fd2</code> の両方のディスクリプタがファイルテーブルエントリ内の同じファイルを指すようになるので、最初に <code>fd2</code> に指されていた値は失われ、二つ目の <code>dup2</code> は意味を持ちません。ここで行いたいのは 2 つの参照セルの交換なので、片方の値を保存しておく一時的な変数が必要になります。システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/dup.html"><span class="c003">dup</span></a><a id="hevea_default105"></a> によってディスクリプタをコピーして保存することができます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALdup">dup</a> : file_descr -&gt; file_descr</div><p><code>dup fd</code> は <code>fd</code> が指すファイルテーブルエントリと同じファイルを指す新しいディスクリプタを返します。これを使うことで、例えば <code>stdout</code> と <code>stderr</code> の交換は次のように行なえます:
+
+</p><div class="mylisting"><span class="c001">let</span> tmp = dup stdout <span class="c001">in</span>
+dup2 stderr stdout;
+dup2 tmp stderr;
+close tmp;;</div><p>ディスクリプタのリークを防ぐために交換の後で <code>tmp</code> をクローズします。</p>
+<h2 class="section" id="sec114">5.5  完全な例: <span class="c006">N</span> 個のコマンドの合成</h2>
+<p>以下のようなコマンドを作成します:
+</p><div class="mylisting">compose cmd<sub>1</sub> cmd<sub>2</sub> ... cmd<sub><span class="c006">n</span></sub></div><p>このコマンドは次のシェルコマンドのように動作します:
+</p><div class="mylisting">cmd<sub>1</sub> | cmd<sub>2</sub> | ... | cmd<sub><span class="c006">n</span></sub></div><div class="mylisting"><span class="c005">   1</span> <span class="c001">open</span> Sys;;
+<span class="c005">   2</span> <span class="c001">open</span> Unix;;
+<span class="c005">   3</span> 
+<span class="c005">   4</span> <span class="c001">let</span> compose () =
+<span class="c005">   5</span>   <span class="c001">let</span> n = Array.length Sys.argv - 1 <span class="c001">in</span>
+<span class="c005">   6</span>   <span class="c001">for</span> i = 1 <span class="c001">to</span> n - 1 <span class="c001">do</span> <a id="prog:composefor"></a>
+<span class="c005">   7</span>     <span class="c001">let</span> (fd_in, fd_out) = pipe () <span class="c001">in</span>
+<span class="c005">   8</span>     <span class="c001">match</span> fork () <span class="c001">with</span>
+<span class="c005">   9</span>     | 0 -&gt;
+<span class="c005">  10</span>         dup2 fd_out stdout;
+<span class="c005">  11</span>         close fd_out;
+<span class="c005">  12</span>         close fd_in;
+<span class="c005">  13</span>         execv <span class="c002">"/bin/sh"</span> [| <span class="c002">"/bin/sh"</span>; <span class="c002">"-c"</span>; Sys.argv.(i) |]
+<span class="c005">  14</span>     | _ -&gt;
+<span class="c005">  15</span>         dup2 fd_in stdin;
+<span class="c005">  16</span>         close fd_out;
+<span class="c005">  17</span>         close fd_in
+<span class="c005">  18</span>   <span class="c001">done</span>;
+<span class="c005">  19</span>   <span class="c001">match</span> fork () <span class="c001">with</span>
+<span class="c005">  20</span>   | 0 -&gt; execv <span class="c002">"/bin/sh"</span> [|<span class="c002">"/bin/sh"</span>; <span class="c002">"-c"</span>; Sys.argv.(n) |]
+<span class="c005">  21</span>   | _ -&gt;
+<span class="c005">  22</span>       <span class="c001">let rec</span> wait_for_children retcode =
+<span class="c005">  23</span>         <span class="c001">try</span>
+<span class="c005">  24</span>           <span class="c001">match</span> wait () <span class="c001">with</span>
+<span class="c005">  25</span>           | (pid, WEXITED n) -&gt; wait_for_children (retcode <span class="c001">lor</span> n)
+<span class="c005">  26</span>           | (pid, _)         -&gt; wait_for_children 127
+<span class="c005">  27</span>         <span class="c001">with</span>
+<span class="c005">  28</span>           Unix_error(ECHILD, _, _) -&gt; retcode <span class="c001">in</span>
+<span class="c005">  29</span>       exit (wait_for_children 0)
+<span class="c005">  30</span> ;;
+<span class="c005">  31</span> handle_unix_error compose ();;</div><p>処理の大部分は <a href="#prog%3Acomposefor">6</a> 行目から始まる <code><span class="c001">for</span></code> ループが行います。最後のコマンドを除いた各コマンドについて、新しいパイプと子プロセスを作成します。子プロセスはパイプの入力を標準出力に接続してからコマンドを実行します。<code>fork</code> のあと子プロセスは親プロセスの標準入力を引き継ぎます。メインプロセス (親プロセス) はパイプの出力を標準入力としてループを続けます。<span class="c006">i</span> 番目の反復において以下のような状況になると (帰納法の仮定として) 仮定します:
+
+</p><div class="image"><img src="ocamlunix-image13.png" width="80%"></div><p>
+
+
+丸角の四角形がプロセスを表します。プロセスの標準入力を左に、標準出力を右に示しています。楕円は <code>compose</code> プロセスの最初の標準入出力を表します。この状態から <code>pipe</code> と <code>fork</code> を実行すると以下のような状況となります:
+</p><div class="image"><img src="ocamlunix-image14.png" width="100%"></div><p>
+
+
+親プロセスが <code>dup2</code> を実行すると、こうなります:
+</p><div class="image"><img src="ocamlunix-image15.png" width="100%"></div><p>
+
+
+子プロセスが <code>dup2</code> と <code>execv</code> を実行すると、こうなります:
+</p><div class="image"><img src="ocamlunix-image16.png" width="100%"></div><p>
+
+
+これで次の反復への準備が整います。</p><p>最後のコマンドではパイプを作る必要がないのでループの外でフォークが実行されます。<code>compose</code> プロセスの標準入力 (最後から二番目のコマンドの出力) と標準出力(最初 <code>compose</code> コマンドに与えられたもの) が最初から正しいので、ただ <code>fork</code> と <code>exec</code> 呼ぶだけで十分です。親プロセスはそれから子プロセスの終了を待つために<code>wait</code> を <code>ECHILD</code> エラー (終了待ちの子がいない) が出るまで繰り返し呼びます。子プロセスのリターンコードはビットごとの “or” (<code><span class="c001">lor</span></code> 演算子) によってまとめられ、<code>compose</code> の返り値となります。これによって全ての子プロセスが 0 を返した場合には 0 が、そうでない場合には 0 以外が <code>compose</code> コマンドから返ります。</p><p><code>/bin/sh</code> を使ってコマンドを実行していることに注意してください。次のようなコマンドを単語に分割する処理を <code>/bin/sh</code> に任せています:
+</p><div class="mylisting">compose <span class="c002">"grep foo" "wc -l"</span></div><p>ミニシェルの例のようにこの処理を自分で書くこともできますが、コードを不必要に複雑にしてしまうだけでしょう。</p>
+<h2 class="section" id="sec115">5.6  入出力の多重化</h2>
+<p>これまでの全ての例において、プロセス間の通信は <em>線形</em> でした。つまりそれぞれのプロセスが読み込むのは多くとも一つのプロセスからのデータでした。この節では <em>複数の</em> プロセスからのデータを読み込む問題の解決方法を見ていきます。</p><p>複数のウィンドウを持つ端末エミュレータを例として考えます。あるコンピュータ (クライアントと呼びます) がシリアルポートで Unix マシンに接続しており、Unix マシン上の異なるプロセスに接続するためにクライアント上で複数のウィンドウをエミュレートする必要があるとします。例えばウィンドウの一つはシェルに、他のウィンドウはテキストエディタに使いたいという状況です。シェルからの出力は最初のウィンドウに、テキストエディタからの出力は二番目のウィンドウに表示します。最初のウィンドウがアクティブならばクライアントのキーボードからの入力はシェルに送られ、二番目のウィンドウがアクティブな場合はエディタに送られます。</p><p>Unix マシンとクライアントの間には物理的な接続が一つしか無いことから、データの送受信を分割してウィンドウとプロセスの間に仮想的な接続を多重化する必要があります。シリアルポートには次のプロトコルを使用してメッセージを送ります:</p><ul class="itemize"><li class="li-itemize">
+受信者のプロセス番号またはウィンドウ番号を表す 1 バイト
+</li><li class="li-itemize">これから続くバイト数 <span class="c006">N</span> を表す 1 バイト
+</li><li class="li-itemize">受信者に送られる <span class="c006">N</span> バイトのデータ
+</li></ul><p>
+Unix マシンではユーザプロセス (シェルやエディタなど) はパイプによって一つ以上の補助プロセスに接続され、補助プロセスはデータの多重化 (あるいは逆多重化) やシリアルポートへの入出力を行います。シリアルポート (例えば <code>/dev/ttya</code>) はスペシャルファイルであり、補助プロセスがクライアントとやり取りを行うために使われます。</p><p>逆多重化 (クライアントからユーザプロセスへのデータ転送) は難しくありません。シリアルポートからデータを読み、抽出したデータを目的のユーザプロセスの標準入力に接続されたパイプに書き込めばよいです。
+</p><div class="image"><img src="ocamlunix-image17.png" width="55%"></div><p>
+
+
+多重化 (ユーザプロセスからクライアントへのデータ転送) はもっと複雑になります。まず逆多重化と同じようなことを試してみましょう。ユーザプロセスの標準出力に接続されたパイプからの出力を読み込み、受信者のウィンドウ番号とデータの長さをつけてシリアルポートに送るプロセスです。</p><div class="image"><img src="ocamlunix-image18.png" width="100%"></div><p>
+
+
+パイプからの読み込みがブロックする可能性があるので、これは上手く行きません。例えばシェルからの出力を読み込みを行ない、その時点では表示するものがなかった場合、多重化プロセスはブロックし、エディターからの文字列は無視されます。表示されるべきデータがあるのはどちらのプロセスのパイプなのかを事前に知る方法はありません(並列アルゴリズムにおいては、あるプロセスが共有リソースへのアクセスをずっと拒否される状況を <em>飢餓</em> と言います)。</p><p>次に別のアプローチを示します。各ユーザプロセスに <em>リピータ</em> プロセスを結びつけます。このリピータはユーザプロセスの標準出力に接続したパイプの出力を読み、データをメッセージに変換し、メッセージをシリアルポートに直接書き込みます。各リピータプロセスは <code>/dev/ttya</code> を書き込みモードで開きます。
+</p><div class="image"><img src="ocamlunix-image19.png" width="100%"></div><p>各ユーザプロセスの出力は独立して転送されることから、ブロッキングの問題は解決されます。しかしこの方法を使うとプロトコルが破られる場合があります。二つのリピータが同時にメッセージを書き込んだ場合、 Unix カーネルはそれらの書き込みの原始性、すなわち書き込みが割り込まれることなく行われなければいけないことを考慮することができません。そのため書き込みは最初にメッセージの一部を送り、その次に別のメッセージを送ってから、最初のメッセージの残りの部分を送るかもしれません。クライアントの多重化プロセスはこれに対処できず、二番目のメッセージを最初のメッセージの後半部分と解釈し、それ以降のデータを次のデータのヘッダと解釈するでしょう。</p><p>これを避けるためには、シリアルポートに書き込むプロセスがどんなときでも多くとも一つになるようにリピータプロセス同士が同期する必要があります (並列アルゴリズムではこのことを「リピータのシリアル接続へのアクセスは排他制御される必要がある」と言います)。技術的には、これまでに見た概念でこれを行うことができます。リピータはメッセージを送る前に特定のファイル (“ロック”) を <code>O_EXCL</code> フラグで作成し、シリアルポートへの書き込みが終わった後にそのファイルを削除するようにすればよいです。しかしロックの作成と削除にコストが掛かり過ぎるので、あまり効率的とは言えません。</p><p>より良い解決法は最初のアプローチ (一つの多重化プロセス) をとり、ユーザプロセスの標準出力に接続されたパイプからの出力を <code>set_nonblock</code> によってノンブロッキングに設定することです。空のパイプからの読み込みはブロックせずすぐに <code>EAGAIN</code> または <code>EWOULDBLOCK</code> エラーを出して返るので、このエラーは無視して次のプロセスの出力を読みにいくことができます。こうすることで飢餓と排他制御の問題を回避できます。しかしこれはとても非効率的な方法でもあります。多重化プロセスがデータを送っているプロセスがなくても実行を止めず、“ビジーウェイト” と呼ばれることを行うためです。この非効率性は読み込みループに <code>sleep</code> を入れることで緩和できますが、残念ながら <code>sleep</code> する正しい時間を見つけるのはとても難しいです。<code>sleep</code> が短いとデータが少ないときにプロセッサに無駄な負荷がかかり、<code>sleep</code> が短いとデータが多いときに知覚可能なレベルの遅延を引き起こすためです。</p><p>これは深刻な問題であり、<span class="c007">bsd</span> の設計者たちはこの問題を解決するために <code>select</code> という新しいシステムコールを Unix に追加しました。このシステムコールはほとんどの Unix で利用可能です。<code>select</code> を呼ぶと一つ以上の入出力のイベントを (受動的に) 待つことができます。ここでイベントとは以下のことです:
+</p><ul class="itemize"><li class="li-itemize">
+読み込みイベント: ディスクリプタからデータを読み込む準備が整った。</li><li class="li-itemize">書き込みイベント: ディスクリプタにブロックせずにデータを書き込む準備が整った。</li><li class="li-itemize">例外的なイベント: ディスクリプタについて例外的な条件が真になった。例えばネットワーク接続において優先度の高いデータ (<em>アウトオブバンドデータ</em>) が送信待ちの通常データを追い抜いて送信された。この種の優先度の高いデータは例外的な条件となる。
+</li></ul><p>
+システムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/select.html"><span class="c003">select</span></a><a id="hevea_default106"></a> は次のシグネチャを持ちます:
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALselect">select</a> :
+    file_descr list -&gt; file_descr list -&gt; file_descr list -&gt;
+      float -&gt; file_descr list * file_descr list * file_descr list</div><p>最初の三つの引数がディスクリプタの集合をリストで表します。最初の引数が読み込みイベントを監視するディスクリプタの集合で、二つ目が書き込みイベントを監視するディスクリプタの集合、三つ目が例外的なイベントを監視するディスクリプタの集合です。第四引数はタイムアウトまでの秒数です。第四引数が 0 以上のとき、<code>select</code> はイベントが何も起こらなかったとしてもその時間が経てば返ります。この値が負のとき、<code>select</code> は監視を要求されたイベントの一つが起こるまでブロックします。</p><p><code>select</code> はディスクリプタのリストの三つ組を返します。最初の要素が読み込みの準備ができたディスクリプタを、二つ目の要素が書き込みの準備ができたディスクリプタを、三つ目の要素が例外的な条件が真となったディスクリプタをそれぞれ表します。イベントが起こる前にタイムアウトした場合、これら三つのリストは全て空です。</p><div class="example">
+<h5 class="paragraph" id="sec116">例</h5>
+<p>
+以下のコードはディスクリプタ <code>fd1</code> と <code>fd2</code> の読み込みイベントを監視し、 0.5 秒後に返ります。
+</p><div class="mylisting"><span class="c001">match</span> select [fd1; fd2] [] [] 0.5 <span class="c001">with</span>
+| [], [], [] -&gt; <em>(* 0.5 秒でタイムアウトした *)</em>
+| fdl, [], [] -&gt;
+    <span class="c001">if</span> List.mem fd1 fdl <span class="c001">then</span>
+         <em>(* fd1 から読む *)</em>
+    <span class="c001">if</span> List.mem fd2 fdl <span class="c001">then</span>
+         <em>(* fd2 から読む *)</em></div><div class="fancybreak">* * *</div></div><div class="example">
+<h5 class="paragraph" id="sec117">例</h5>
+<p>
+以下の <code>multiplex</code> 関数は説の最初で説明したマルチウィンドウに対応したターミナルエミュレータの多重化/逆多重化の中心となります。</p><p>単純のために、多重化関数はメッセージの受信者番号を送信者番号と同じようにラベル付けし、逆多重化関数は受け取ったデータを受信者番号に直接リダイレクトすることにします。つまり、ユーザプロセスとクライアントのどちらについても、送信者は必ず同じ番号の受信者とやり取りをすると仮定します。あるいは同じことですが、送信者と受信者の対応付けはシリアル接続の内部で受信者番号を書き換えることで行われると仮定します。</p><p><code>multiplex</code> 関数はシリアルポートへ開いたディスクリプタと同じサイズのディスクリプタの配列二つを受け取ります。配列の一つにはユーザプロセスの標準入力につながったパイプが、もう一方にはユーザプロセスの標準出力に繋がったパイプが含まれています。
+</p><div class="mylisting"><span class="c001">open</span> Unix;;
+
+<span class="c001">let rec</span> really_read fd buff start length =
+  <span class="c001">if</span> length &lt;= 0 <span class="c001">then</span> () <span class="c001">else
+    match</span> read fd buff start length <span class="c001">with</span>
+    | 0 -&gt; raise End_of_file
+    | n -&gt; really_read fd buff (start+n) (length-n);;
+
+<span class="c001">let</span> buffer = String.create 258;;
+
+<span class="c001">let</span> multiplex channel inputs outputs =
+  <span class="c001">let</span> input_fds = channel :: Array.to_list inputs <span class="c001">in
+  try
+    while true do
+      let</span> (ready_fds, _, _) = select input_fds [] [] (-1.0) <span class="c001">in
+      for</span> i = 0 <span class="c001">to</span> Array.length inputs - 1 <span class="c001">do
+        if</span> List.mem inputs.(i) ready_fds <span class="c001">then begin
+          let</span> n = read inputs.(i) buffer 2 255 <span class="c001">in</span>
+          buffer.[0] &lt;- char_of_int i;
+          buffer.[1] &lt;- char_of_int n;
+          ignore (write channel buffer 0 (n+2));
+          ()
+        <span class="c001">end
+      done</span>;
+      <span class="c001">if</span> List.mem channel ready_fds <span class="c001">then begin</span>
+        really_read channel buffer 0 2;
+        <span class="c001">let</span> i = int_of_char(buffer.[0])
+        <span class="c001">and</span> n = int_of_char(buffer.[1]) <span class="c001">in
+        if</span> n = 0 <span class="c001">then</span> close outputs.(i) <span class="c001">else
+        begin</span>
+          really_read channel buffer 0 n;
+          ignore (write outputs.(i) buffer 0 n);
+          ()
+        <span class="c001">end
+      end
+    done
+  with</span> End_of_file -&gt; () ;;</div><p><code>multiplex</code> 関数は読み込みに使うディスクリプタの集合 <code>input_fds</code> を作るところから始まります。この集合にはユーザプロセスの標準出力につながっているディスクリプタとシリアルポートのディスクリプタが含まれます。一番外側の <code><span class="c001">while</span></code> の反復では <code>select</code> を呼んで <code>input_fds</code> 内に書き込み待ちがないか確認します。ここでは例外的なイベントを待つことはせず、待ち時間に制限を設けることもありません。<code>select</code> が返ったならば、ユーザプロセスからの入力ディスクリプタまたはシリアルポートのディスクリプタが入力を待っているかを調べます。</p><p>ユーザプロセスからの入力ディスクリプタの準備ができているならば <code>read</code> でデータをバッファに読み、メッセージのヘッダをつけてシリアルポートに書き込みます。<code>read</code> が 0 を返した場合対応するユーザプロセスのパイプが閉じられたことを意味します。クライアントのターミナルエミュレータは 0 バイトのメッセージによってウィンドウに対応する番号のユーザプロセスが終了したことを通知されるので、そのウィンドウを閉じることができます。</p><p>シリアルポートにデータがある場合、まず 2 バイトのヘッダから受信者番号 <code>i</code> と読み込むデータのバイト数 <code>n</code> を読み込みます。その後シリアルポートのチャンネルから <code>n</code> バイトを読み、読み込んだデータを<code>i</code> 番目のユーザプロセスの標準入力に書き込みます。このとき <code>n</code> が 0 ならば、 <code>i</code> 番目の出力ディスクリプタを閉じます。接続先のターミナルエミュレータが発する <code>n = 0</code> というメッセージはそのエミュレータのプロセスの標準入力が終端に達したことを意味するからです。</p><p><code>really_read</code> が <code>End_of_file</code> 例外を出したら一番外側のループを抜けます。この例外はシリアルポートが EOF に達したことを意味します。
+</p><div class="fancybreak">* * *</div></div>
+<h2 class="section" id="single_write">5.7  その他: <span class="c003">write</span></h2>
+<p><code>Unix</code> モジュールの <code>write</code> 関数は要求されたデータがバイト数まで全て書き込まれ終わるまでシステムコール <a href="http://www.opengroup.org/onlinepubs/009696799/functions/write.html"><span class="c003">write</span></a><a id="hevea_default107"></a> を呼び続けます。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALwrite">write</a> : file_descr -&gt; byte -&gt; int -&gt; int -&gt; int</div><p>ディスクリプタがパイプ (あるいはソケット、 <a href="sockets.html#sec%2Fsockets">6</a> 参照) だった場合、書き込みはブロックしシステムコール <code>write</code> はシグナルによって中断する可能性があります。このような場合には OCamlの <code>Unix.write</code> は中断され <code>EINTR</code> エラーが出ます。ここで問題となるのはシステムコール <code>write</code> によってデータの一部が書き込まれたにも関わらずそのサイズがわからないまま失われてしまうということです。このためシグナルがある状況では <code>Unix</code> モジュールの <code>write</code> は役に立たなくなってしまいます。</p><p>この問題を解決するために、 <code>Unix</code> モジュールには <code>single_write</code> という名前の “生の” システムコールがあります。
+</p><div class="mylisting"><span class="c001">val</span> <a href="http://caml.inria.fr/pub/docs/manual-ocaml/libref/Unix.html#VALsingle_write">single_write</a> : file_descr -&gt; byte -&gt; int -&gt; int -&gt; int</div><p><code>single_write</code> を使えば、エラーが起こったときにデータが書き込まれていないことを保証できます。</p><p>この説の残りではこの関数をどうやって実装するかを示します。基本的にこれは OCamlと C の間のインターフェースの問題です (OCamlのマニュアルにはこの話題に関する情報が載っています) 。次のコードは <code>single_write.c</code> に保存されます:
+</p><div class="mylisting"><span class="c005">   1</span> <span class="c001">#include</span> &lt;errno.h&gt;
+<span class="c005">   2</span> <span class="c001">#include</span> &lt;string.h&gt;
+<span class="c005">   3</span> <span class="c001">#include</span> &lt;caml/mlvalues.h&gt;
+<span class="c005">   4</span> <span class="c001">#include</span> &lt;caml/memory.h&gt;
+<span class="c005">   5</span> <span class="c001">#include</span> &lt;caml/signals.h&gt;
+<span class="c005">   6</span> <span class="c001">#include</span> &lt;caml/unixsupport.h&gt;
+<span class="c005">   7</span> 
+<span class="c005">   8</span> CAMLprim value caml_single_write
+<span class="c005">   9</span>         (value fd, value buf, value vofs, value vlen) {
+<span class="c005">  10</span>   CAMLparam4(fd, buf, vofs, vlen);
+<span class="c005">  11</span>   long ofs, len;
+<span class="c005">  12</span>   int numbytes, ret;
+<span class="c005">  13</span>   char iobuf[UNIX_BUFFER_SIZE];
+<span class="c005">  14</span>   ofs = Long_val(vofs)
+<span class="c005">  15</span>   len = Long_val(vlen)
+<span class="c005">  16</span>   ret = 0;
+<span class="c005">  17</span>   <span class="c001">if</span> (len &gt; 0) {
+<span class="c005">  18</span>     numbytes = len &gt; UNIX_BUFFER_SIZE ? UNIX_BUFFER_SIZE : len;
+<span class="c005">  19</span>     memmove (iobuf, &amp;Byte(buf, ofs), numbytes);
+<span class="c005">  20</span>     caml_enter_blocking_section (); <a id="prog:enterbs"></a>
+<span class="c005">  21</span>     ret = write(Int_val(fd), iobuf, numbytes);
+<span class="c005">  22</span>     caml_leave_blocking_section (); <a id="prog:leavebs"></a>
+<span class="c005">  23</span>     <span class="c001">if</span> (ret == -1) uerror(<span class="c002">"single_write"</span>, Nothing);
+<span class="c005">  24</span>   }
+<span class="c005">  25</span>   CAMLreturn (Val_int(ret));
+<span class="c005">  26</span> }</div><p>最初の二行は標準の C ヘッダをインクルードします。その次の四行はディストリビューションと共にインストールされる OCaml特有の C ヘッダをインクルードします。<code>unixsupport.h</code> ヘッダは OCamlの Unix ライブラリが持つ再利用可能な C の関数を定義しています。</p><p>一番重要な行は <code>write</code> を呼ぶ行です。この関数は (ディスクリプタがパイプかソケットの場合に) ブロックすることがあるので、呼び出す前に OCamlランタイムのグローバルのロックを開放し (<a href="#prog%3Aenterbs">20</a> 行目) 、呼び出した後にロックを取得します (<a href="#prog%3Aleavebs">22</a> 行目)。これによってこの関数は <code>Thread</code> モジュール (<a href="threads.html#sec%2Fcoprocessus">7</a> 章参照) と同時に利用できます。ブロックしている間に他のスレッドが実行できるからです。</p><p>システムコールの間に OCamlはガベージコレクションが実行され、OCamlの文字列 <code>buf</code> がメモリ内を移動する可能性があります。この問題を解決するために <code>buf</code> を C の文字列 <code>iobuf</code> にコピーします。これには追加のコストがかかりますが、10% 前後のオーダーです (50% 程度と考えるかもしれませんが、そうではありません)。関数全体のコストはシステムコールがほとんどを占めるためです。バッファに使う C の文字列の大きさは <code>unix_support.h</code> に定義されています。システムコール中にエラーが起こった場合 (負の返り値で示されます) そのエラーは <code>uerror</code> 関数によって OCamlに運ばれます。 <code>uerror</code> 関数は OCamlの Unix ライブラリで定義されています。</p><p>この関数を OCamlから利用するには、 <code>unix.mli</code> を作って以下の宣言を書きます:
+
+
+</p><div class="mylisting"><span class="c001">external</span> unsafe_single_write :
+  file_descr -&gt; string -&gt; int -&gt; int -&gt; int = <span class="c002">"caml_single_write"</span></div><p>実際に使うときには関数を呼ぶ前に引数を確認します:
+</p><div class="mylisting"><span class="c001">let</span> single_write fd buf ofs len =
+  <span class="c001">if</span> ofs &lt; 0 || len &lt; 0 || ofs &gt; String.length buf - len
+  <span class="c001">then</span> invalid_arg <span class="c002">"Unix.write"</span>
+  <span class="c001">else</span> unsafe_single_write fd buf ofs len</div><p><code>single_write</code> 関数はバージョン <span class="c003">3.08</span> から <code>Unix</code> モジュールで利用可能ですが、上記のように自分で書いた場合には以下のようにしてコンパイルする必要があります(OCamlのコードは <code>write.mli</code> と <code>write.ml</code> にあると仮定します)。
+</p><div class="mylisting">ocamlc -c single_write.c write.ml
+ocamlc -custom -o prog unix.cma single_write.o write.cmo mod1.ml mod2.ml</div><p>通常は以下のようにして C と OCamlのコードを両方含むライブラリ <code>write.cma</code> を使ったほうが実用的です。
+</p><div class="mylisting">ocamlc -custom -a -o write.cma single_write.o write.cmo</div><p>ライブラリ <code>write.cma</code> は <code>unix.cma</code> のように使えます。
+</p><div class="mylisting">ocamlc -o main.byte unix.cma write.cma main.ml</div><p><code>single_write</code> の動作はシステムコール <code>write</code> によく似ていますが、書き込む文字列がとても長い場合の動作だけ異なります。文字列が <code>UNIX_BUFFER_SIZE</code> よりも長い場合一度のシステムコールで全てのデータを書き込むことができないので、システムコールは繰り返されます。そのためシステムコール <code>write</code> が持つ通常ファイルに対する書き込みの原子性は <code>single_write</code> では長い文字列に対しては成り立ちません。この違いは通常重要ではありませんが意識しておくべきでしょう。</p><p>この関数を元にして更に高レベルの関数 <code>really_write</code> を実装することができます。要求されたデータを (アトミックでなく) 全て書き込むので、<code>multiplexer</code> 関数で使った <code>readlly_read</code> 関数に似ています。
+
+</p><div class="mylisting"><span class="c001">let rec</span> really_write fd buffer offset len =
+  <span class="c001">let</span> n = restart_on_EINTR (single_write fd buffer offset) len <span class="c001">in
+  if</span> n &lt; len <span class="c001">then</span> really_write fd buffer (offset + n) (len - n);;</div>
+<hr class="footnoterule"><dl class="thefootnotes"><dt class="dt-thefootnotes">
+<a id="note8" href="#text8">1</a></dt><dd class="dd-thefootnotes"><div class="footnotetext">ここで紹介したライブラリ関数によって使われる内部表現は規定されていませんが、言語のバージョンが同じならばプラットフォーム非依存であることが保証されています。</div></dd></dl>
+<hr>
+<a href="signals.html"><img src="previous_motif.svg" alt="Previous"></a>
+<a href="index.html"><img src="contents_motif.svg" alt="Up"></a>
+<a href="sockets.html"><img src="next_motif.svg" alt="Next"></a>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="hevea 2.32">
+<link rel="stylesheet" type="text/css" href="ocamlunix.css">
+<title>Answer of exercise 10</title>
+</head>
+<body>
+<div class="answer">
+<h5 class="paragraph" id="sec77">練習問題 <a href="processes.html#ex10">exercise 10</a> の解答</h5>
+<p>
+<a id="exans10"></a>
+コマンドが <code>&amp;</code> で終わっていた場合には親プロセスが <code>wait</code> を呼ばずに次のループにすぐに移るようにすればよいです。しかし一つ難しいところがあります:親プロセスは同時に実行される複数の子プロセスを持つことになるので、<code>wait</code> がそのうちのどれとも同期するようになってしまうことです。そのため同期的に実行されるコマンドの終了を待っているときには回収した子が終了を待っている子であると確認するまで <code>wait</code> を何度も呼ぶ必要があります。
+
+</p><div class="mylisting">   <span class="c001">while true do
+     let</span> cmd = input_line Pervasives.stdin <span class="c001">in
+     let</span> words, ampersand = parse_command_line cmd <span class="c001">in
+     match</span> fork () <span class="c001">with</span>
+     | 0 -&gt; exec_command words
+     | pid_son -&gt;
+         <span class="c001">if</span> ampersand <span class="c001">then</span> ()
+         <span class="c001">else
+           let rec</span> wait_for_son () =
+             <span class="c001">let</span> pid, status = wait () <span class="c001">in
+             if</span> pid = pid_son <span class="c001">then</span>
+               print_status <span class="c002">"Program"</span> status
+             <span class="c001">else
+               let</span> p = <span class="c002">"Background program "</span> ^ (string_of_int pid) <span class="c001">in</span>
+               print_status p status;
+               wait_for_son () <span class="c001">in</span>
+           wait_for_son ()
+   <span class="c001">done</span></div><div class="fancybreak">* * *</div></div></body>
+</html>
