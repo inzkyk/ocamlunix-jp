@@ -1,7 +1,7 @@
 ocamlunix-jp -- OCaml による Unix システムプログラミング
 -------------------------------------------------------------------------------
 
-[ここから読めます。](https://inzkyk.github.io/ocamlunix-jp/)
+[ここから読めます。](https://clever-minsky-e96b4e.netlify.com/)
 
 ocamlunix-jp は Xavier Leroy と Didier Rémy's による [Unix システムプログラミングコース](http://gallium.inria.fr/~remy/camlunix/) の Daniel C. Bünzli らによる [英語訳](http://ocaml.github.io/ocamlunix) を日本語に翻訳したものです。フランス語版と英語版はそれぞれ Creative Commons by-nc-sa でライセンスされています。
 
